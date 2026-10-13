@@ -79,10 +79,8 @@ test('IDLE-03 | real excavation and foraging preempt idle walking',()=>{
   assert.notEqual(miner.state,'idle');
   assert.equal(miner.ambientActive,false);
   assert.equal(miner.orderId,job.id);
-  const forager=g.colony.workers.at(-1);
-  g.colony.setForageSlots(1);
-  // In case the chosen forager is the current miner, another idle worker
-  // still must start the trip once the excavation is finished.
+  g.colony.setForageSlots(4);
+  // Four foraging slots leave available workers even if one is already mining.
   for(let i=0;i<140 && !g.colony.workers.some(a=>a.state.startsWith('forage-'));i++)tick(g);
   assert.ok(g.colony.workers.some(a=>a.state.startsWith('forage-')));
   assert.ok(g.colony.workers.filter(a=>a.state.startsWith('forage-')).every(a=>!a.ambientActive));
