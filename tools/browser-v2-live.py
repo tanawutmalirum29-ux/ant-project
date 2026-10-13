@@ -23,6 +23,11 @@ geometry='''        # V2 commands must be reachable and not hidden outside the v
                         '#forage-minus','#nurse-plus','#nurse-minus','#seed-button',
                         '#pause-button','#colony-button','#surface-button',
                         '#underground-button'):
+            # U5 intentionally hides worker assignment while the room palette
+            # is expanded in short landscape mode to preserve map visibility.
+            if name=='landscape' and control in ('#forage-plus','#forage-minus','#nurse-plus','#nurse-minus'):
+                assert page.locator(control).is_hidden(),(name,control,'expected compact U5 mode')
+                continue
             box=page.locator(control).bounding_box()
             assert box,(name,control,'missing')
             assert box['x']>=-2 and box['x']+box['width']<=width+2,(name,control,box)
