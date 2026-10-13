@@ -48,7 +48,7 @@ function audit(game, context = '') {
   const added = injections.get(game) || zeros();
   for (const type of RESOURCE_TYPES) {
     const row = components(game, type);
-    const expected = base[type] + added[type];
+    const expected = base[type] + added[type] + game.ecology.regenerated[type];
     const actual = Object.values(row).reduce((sum, n) => sum + n, 0);
     for (const [part, amount] of Object.entries(row)) {
       assert.ok(Number.isSafeInteger(amount) && amount >= 0,
