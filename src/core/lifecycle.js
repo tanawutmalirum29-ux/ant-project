@@ -39,8 +39,9 @@ export class Lifecycle {
   get pupae() { return this.brood.filter(b=>b.stage==='pupa').length; }
   get nurseCount() { return this.colony.workers.filter(a=>a.state==='nursing').length; }
   get totalPopulation() { return this.colony.population+this.brood.length; }
-  setNurseSlots(n) {
+  setNurseSlots(n,fromPolicy=false) {
     if(!Number.isInteger(n)||n<0||n>this.colony.workers.length) throw new RangeError('Invalid nurse count');
+    if(!fromPolicy)this.workforce?.disableAuto('nurse');
     this.nurseSlots=n;
     this.releaseExcessNurses();
   }
