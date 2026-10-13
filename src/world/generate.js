@@ -160,8 +160,11 @@ export function connectUndergroundGeology(layer, origin) {
 
     const pocket=new Uint8Array(n);
     const size=flood(orphan,pocket);
-    if(size<=3){
-      // Avoid isolated 1-cell cracks; they add no useful building space.
+    if(size<=3 && !pocket.some((present,i)=>present &&
+        (cells[i]===TERRAINS.CHAMBER||cells[i]===TERRAINS.TUNNEL||
+         cells[i]===TERRAINS.ENTRANCE))){
+      // Tiny *unexcavated* specks are geological inclusions, not useful rooms.
+      // Existing open floors must always get an accessible connection.
       for(let i=0;i<n;i++)if(pocket[i]){cells[i]=TERRAINS.ROCK;filled++;}
       continue;
     }
