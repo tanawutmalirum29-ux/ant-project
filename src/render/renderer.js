@@ -189,6 +189,10 @@ export class Renderer {
       const b=babies[i],angle=i*2.39996,r=2+(i%5)*2;
       const x=((b.x??q.x)+.5)*TILE+Math.cos(angle)*r;
       const y=((b.y??q.y)+.5)*TILE+Math.sin(angle)*r;
+      if(b.site==='temporary'&&!b.carrierId){
+        ctx.fillStyle='#59493288';
+        ctx.beginPath();ctx.ellipse(x,y+2,9,6,0,0,Math.PI*2);ctx.fill();
+      }
       ctx.fillStyle=b.stage==='egg'?'#fff1c9':b.stage==='larva'?'#e5c58e':'#aa724b';
       ctx.strokeStyle='#5c3825';ctx.lineWidth=1;
       ctx.beginPath();ctx.ellipse(x,y,b.stage==='pupa'?5:3.5,b.stage==='larva'?6:4.5,angle,0,Math.PI*2);ctx.fill();ctx.stroke();
