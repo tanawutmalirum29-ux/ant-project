@@ -2,6 +2,7 @@ import { SURFACE, UNDERGROUND, cellAt, portalAt, TERRAINS } from '../world/gener
 import { isDiggable } from '../world/navigation.js';
 import { formatGameTime } from '../core/time.js';
 import { LIFE } from '../core/lifecycle.js';
+import { ROOM_CATALOG } from '../core/rooms.js';
 import { terrainName } from '../render/renderer.js';
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +44,13 @@ export class UI {
     $('selection-close').addEventListener('click', () => this.select(null));
     $('tool-inspect').addEventListener('click', () => this.setTool('inspect'));
     $('tool-dig').addEventListener('click', () => this.setTool('dig'));
+    $('tool-room').addEventListener('click', () => this.setTool('room'));
+    $('room-type').addEventListener('change', () => this.updateRoomCost());
+    $('cancel-room').addEventListener('click', () => {
+      const s=this.selection, room=s?.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
+      if(room && this.game.rooms.cancel(room.id))this.notice('ยกเลิกและคืนค่าก่อสร้างแล้ว');
+      this.refreshSelection();this.updateMetrics();
+    });
     $('cancel-dig').addEventListener('click', () => {
       if (this.selection && this.game.colony.cancel(this.selection.x,this.selection.y)) this.notice('ยกเลิกคำสั่งขุดแล้ว');
       this.refreshSelection(); this.updateMetrics();
@@ -69,6 +77,7 @@ export class UI {
       if (e.code === 'Digit2') this.switchLayer(UNDERGROUND);
       if (e.code === 'KeyD') { this.debug = !this.debug; $('debug-panel').classList.toggle('hidden', !this.debug); }
       if (e.code === 'KeyG') this.setTool(this.tool === 'dig' ? 'inspect' : 'dig');
+      if (e.code === 'KeyR') this.setTool(this.tool === 'room' ? 'inspect' : 'room');
       if (e.code === 'Escape') this.setTool('inspect');
     });
     this.bindCanvas();
@@ -118,7 +127,11 @@ export class UI {
       pointers.delete(e.pointerId);
       if(!cancelled && pointers.size===0 && start && !usedMultiTouch){
         const cell=cellAtPointer(p);
-        if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview){
+        if(this.tool==='room' && this.game.layer===UNDERGROUND && dragDistance<7){
+          const result=this.game.rooms.queue($('room-type').value,cell.x,cell.y);
+          this.notice(result.ok?'สั่งสร้างห้องแล้ว มดจะเดินมาทำงาน':this.roomError(result.reason));
+          this.select({layer:this.game.layer,...cell});
+        } else if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview){
           const result=this.game.colony.queueRectangle(this.digPreview.from,this.digPreview.to);
           if(result.added) this.notice(`สั่งขุด ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`);
           else this.notice(result.existing?'พื้นที่นี้อยู่ในคิวแล้ว':'พื้นที่นี้ขุดไม่ได้');
@@ -139,22 +152,26 @@ export class UI {
     },{passive:false});
   }
   setTool(tool) {
-    if(tool==='dig' && this.game.layer!==UNDERGROUND){this.notice('สั่งขุดได้เฉพาะโลกใต้ดิน');return;}
+    if((tool==='dig'||tool==='room') && this.game.layer!==UNDERGROUND){this.notice('สั่งขุดได้เฉพาะโลกใต้ดิน');return;}
     this.tool=tool;this.digPreview=null;
     for(const btn of document.querySelectorAll('.tool-button')){
       const active=btn.id===`tool-${tool}`;
       btn.classList.toggle('active',active);
       btn.setAttribute('aria-pressed',String(active));
     }
-    this.renderer.canvas.classList.toggle('dig-cursor',tool==='dig');
+    this.renderer.canvas.classList.toggle('dig-cursor',tool==='dig'||tool==='room');
+    $('room-palette').classList.toggle('hidden',tool!=='room');
+    this.updateRoomCost();
     this.refreshSelection();
   }
   switchLayer(layer) {
     this.game.setLayer(layer);
-    if(layer===SURFACE && this.tool==='dig') this.setTool('inspect');
+    if(layer===SURFACE && this.tool!=='inspect') this.setTool('inspect');
     this.select(null);
     this.updateWorld();
   }
+  roomError(reason) {return ({'unknown-room':'ไม่รู้จักห้อง','invalid-position':'ตำแหน่งไม่ถูกต้อง','out-of-bounds':'พื้นที่เกินขอบแผนที่','needs-excavation':'ต้องขุดพื้นที่ให้โล่งทั้ง 2×2 ก่อน','overlap':'พื้นที่มีห้องอยู่แล้ว','disconnected':'ห้องต้องเชื่อมกับรัง','entrance':'ห้ามปิดปากรัง','queue-full':'คิวสร้างห้องเต็ม','insufficient-resources':'ทรัพยากรในคลังยังไม่พอ'})[reason]||'ไม่สามารถสร้างห้องได้';}
+  updateRoomCost(){const def=ROOM_CATALOG[$('room-type').value];if(def)$('room-cost').textContent=`ใช้ ${Object.entries(def.cost).map(([k,n])=>({carbs:'พลังงาน',protein:'โปรตีน',water:'น้ำ'})[k]+n).join(' · ')} · ขนาด ${def.width}×${def.height}`;}
   changeForagers(delta) {
     const count=Math.max(0,Math.min(this.game.colony.workers.length,this.game.colony.forageSlots+delta));
     this.game.colony.setForageSlots(count);
@@ -196,12 +213,16 @@ export class UI {
     if(!valid) return;
     const terrain=cellAt(this.game.currentLayer,s.x,s.y), job=this.game.colony.getOrder(s.x,s.y);
     const source=s.layer===SURFACE?this.game.foraging.getNode(s.x,s.y):null;
-    $('selection-terrain').textContent=source?'แหล่งทรัพยากร':terrainName(terrain);
+    const room=s.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
+    $('selection-terrain').textContent=source?'แหล่งทรัพยากร':room?ROOM_CATALOG[room.type].name:terrainName(terrain);
     $('selection-coords').textContent=`ตำแหน่ง X:${s.x}  Y:${s.y}`;
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
     if(job) $('selection-work').textContent=`คำสั่งขุด: ${job.status==='digging'?'กำลังขุด':job.status==='assigned'?'กำลังเดินไปขุด':'รอมดงาน'} · ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
+    $('selection-room').classList.toggle('hidden',!room);
+    $('cancel-room').classList.toggle('hidden',!room || !['planned','building'].includes(room.status));
+    if(room)$('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${Math.floor(room.progress/Math.max(1,ROOM_CATALOG[room.type].ticks)*100)}%`;
     $('selection-resource').classList.toggle('hidden',!source);
     if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
     const nursery=s.layer===UNDERGROUND && s.x===this.game.colony.queen.x && s.y===this.game.colony.queen.y;
@@ -225,6 +246,8 @@ export class UI {
     $('seed-label').title = this.game.world.seedLabel;
     $('population').textContent = this.game.population;
     $('tool-dig').disabled=surface;
+    $('tool-room').disabled=surface;
+    this.updateRoomCost();
     if(surface && this.tool==='dig') this.setTool('inspect');
     for (const btn of document.querySelectorAll('[data-layer]')) {
       const active = btn.dataset.layer === this.game.layer;
@@ -260,6 +283,8 @@ export class UI {
     $('report-message').textContent=life.lastEvent;
     $('worker-status').textContent=`ขุด ${this.game.colony.busyCount} · หาอาหาร ${this.game.foraging.activeCount} · เลี้ยง ${this.game.lifecycle.nurseCount}`;
     $('queue-status').textContent=`คิวขุด ${this.game.colony.pendingCount}`;
+    const cap=this.game.rooms.capacities();
+    $('room-summary').textContent=`ห้องพร้อมใช้ ${this.game.rooms.readyCount} · กำลังสร้าง ${this.game.rooms.queuedCount} · คลัง ${['carbs','protein','water'].map(t=>`${this.game.foraging.inventory[t]}/${cap[t]}`).join(' · ')}${this.game.foraging.waitingCount?' · รอคลัง '+this.game.foraging.waitingCount:''}`;
     this.refreshSelection();
     if (!this.debug) return;
     const m = this.game.metrics;

@@ -17,8 +17,10 @@ export class Foraging {
     this.delivered = 0;
     this.completedTrips = 0;
     this.tickCount = 0;
-    this.stockLimit = 9999; // Storage room capacity is deferred to U5.
+    this.rooms = null; // Set by Game after creating the U5 room system.
   }
+  capacityFor(type) { return this.rooms ? this.rooms.capacityFor(type) : 9999; }
+  get waitingCount() { return this.colony.workers.filter(a => a.state==='forage-wait-storage').length; }
   get activeCount() { return this.colony.workers.filter(a => a.state.startsWith('forage-')).length; }
   get remaining() { return this.nodes.reduce((sum,node) => sum+node.amount,0); }
   getNode(x,y) { return this.nodes.find(n => n.x===x && n.y===y) || null; }
@@ -58,7 +60,7 @@ export class Foraging {
     ant.state=`forage-${phase}`;ant.path=[];ant.next=null;ant.motion=0;
   }
   pickNode(ant) {
-    const available = this.nodes.filter(n=>n.amount-n.reserved>0);
+    const available = this.nodes.filter(n=>n.amount-n.reserved>0 && this.inventory[n.type] < this.capacityFor(n.type));
     if(!available.length) return null;
     // Diversify nutrients without a global expensive full-map search every tick.
     const totals = Object.fromEntries(RESOURCE_TYPES.map(type => [type, this.inventory[type] + this.colony.workers.reduce((n,w)=>n+(w.cargo?.type===type?w.cargo.amount:0),0)]));
@@ -129,13 +131,25 @@ export class Foraging {
       } else if(phase==='return-underground'||phase==='home-empty') {
         if(this.walk(ant,underground,depot)) {
           if (ant.cargo?.amount) {
-            if (this.inventory[ant.cargo.type]+ant.cargo.amount>this.stockLimit) continue;
-            this.inventory[ant.cargo.type]+=ant.cargo.amount;
-            this.delivered+=ant.cargo.amount;
+            const type=ant.cargo.type;
+            const free=Math.max(0,this.capacityFor(type)-this.inventory[type]);
+            const amount=Math.min(ant.cargo.amount,free);
+            if(amount===0){ant.state='forage-wait-storage';continue;}
+            this.inventory[type]+=amount;
+            this.delivered+=amount;
+            ant.cargo.amount-=amount;
+            if(ant.cargo.amount>0){ant.state='forage-wait-storage';continue;}
             this.completedTrips++;
           }
           this.resetAnt(ant);
         }
+      } else if(phase==='wait-storage') {
+        // Held cargo is never discarded, and partial space is usable immediately.
+        if(!ant.cargo?.amount){this.resetAnt(ant);continue;}
+        const type=ant.cargo.type;
+        const amount=Math.min(ant.cargo.amount,Math.max(0,this.capacityFor(type)-this.inventory[type]));
+        if(amount>0){this.inventory[type]+=amount;this.delivered+=amount;ant.cargo.amount-=amount;}
+        if(ant.cargo.amount===0){this.completedTrips++;this.resetAnt(ant);}
       }
     }
   }
