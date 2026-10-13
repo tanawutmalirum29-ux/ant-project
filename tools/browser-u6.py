@@ -20,15 +20,21 @@ with sync_playwright() as pw:
         assert page.locator('#u6-dialog').is_visible(),label
         assert page.locator('#u6-roster .u6-unit').count()==5,label
         assert page.locator('#u6-roster .u6-unit.is-soldier').count()==1,label
-        available=page.locator('#u6-roster button[data-action="recruit"]:not([disabled])')
-        assert available.count()>0,label
-        available.first.click()
-        assert page.evaluate('()=>__ANT_DEBUG__.game.combat.soldiers.length')==2,label
-        page.locator('#u6-roster button[data-action="demobilize"]').last.click()
-        assert page.evaluate('()=>__ANT_DEBUG__.game.combat.soldiers.length')==1,label
-        page.locator('#u6-plus').click()
+        # Slider is the only normal way to set military staffing.
+        # The roster is now read-only except for location tracking.
+        assert page.locator('#u6-roster button[data-action="recruit"]').count()==0,label
+        assert page.locator('#u6-roster button[data-action="demobilize"]').count()==0,label
+        slider=page.locator('#u6-percent')
+        assert slider.input_value()=='20',label
+        slider.evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.evaluate('() => __ANT_DEBUG__.game.workforce.shares.soldier')==40,label
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==2,label
         assert page.locator('#u6-soldiers').inner_text().endswith('/2'),label
+        assert page.locator('#u6-roster .u6-unit.is-soldier').count()==2,label
+        slider.evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==1,label
+        slider.evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==2,label
         page.locator('#u6-alarm').click()
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.enemies.length')==1,label
         # Actual battle: no enemy damaging queen remotely, soldier marches to the invader.
