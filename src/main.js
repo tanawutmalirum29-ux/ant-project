@@ -36,7 +36,7 @@ function frame(now) {
   steps += game.update(dt);
   const simMs = performance.now() - s;
   const r = performance.now();
-  renderer.render(game, cameras[game.layer], ui.selection, now);
+  renderer.render(game, cameras[game.layer], ui.selection, now, ui.digPreview);
   game.metrics.simMs = simMs;
   game.metrics.renderMs = performance.now() - r;
   frames++;
