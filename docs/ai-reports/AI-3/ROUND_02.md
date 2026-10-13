@@ -1,3 +1,63 @@
+# AI-3 — R2-UIQA-HARNESS-01 Browser QA Harness Correction
+
+**Task:** https://github.com/tanawutmalirum29-ux/ant-project/issues/33  
+**Date (ICT):** 2026-10-13  
+**Status:** VERIFIED — GitHub Actions 5/5 Chromium viewports, **60/60 Cases PASS**, no runtime JS/console errors; 152/152 unit tests and build PASS. Not merged; pending AI-HEAD approval.  
+**Original current-main base:** `fee90a9d35cf742d452c2c01ecef14397fb52e21`  
+**Branch:** `work/r2-ai3-browser-harness-correction` (new, old #34 branch untouched)  
+**Change paths only:** `tools/browser-phase1-ui-audit.py`, `docs/ai-reports/AI-3/ROUND_02.md`  
+**Harness initial implementation commit:** `4959d86ebd8051ace2813c0c960ef2fdb0026de5`  
+**Draft PR:** https://github.com/tanawutmalirum29-ux/ant-project/pull/39 — pending AI-HEAD review, not self-merged
+
+## Technical correction summary (source-only until runner returns)
+
+1. **Recenter** — Preserve zoom-in, zoom-out, genuine canvas pan and Recenter click assertions. Compare observed camera center to independently calculated `Camera.clamp` bounds: half canvas dimensions divided by real zoom, real map width/height × 28 and actual entrance coordinates. Assert 1 world-pixel tolerance for both axes; never change camera state during this check.
+2. **Real combat roster** — If a naturally eligible recruit exists, test recruit then demobilize using visible controls. If all workers are busy, inspect real eligibility read-only, demobilize an actual existing soldier through the roster UI and re-enlist that same worker; assert soldier count transitions and correct identifier. Do not fabricate ants or mutate game internals.
+3. **Modal isolation** — Enclose combat test in `try/finally`. Verify a genuine `showModal()` dialog is open, and close with the real close button even if roster test fails. Assert modal is truly closed; no force-clicks.
+4. **Source SHA truth** — Replace hardcoded old `main_sha` with `subprocess.run(['git','rev-parse','HEAD'])` on the runner, `tested_sha`/GitHub `GITHUB_REF` and `checkout_kind=pr_merge` for synthetic PR refs. Outside a checkout report `null` instead of inventing main. All 12 cases × 5 viewports retained, all original input/room/layout/JS assertions retained.
+
+## Verified real GitHub Actions result — Quality Gate PASS
+
+**Workflow run:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38364669998 — **completed SUCCESS**.  
+**Screenshot / JSON / logs artifact:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38364669998/artifacts/11796148752 (ZIP 11,704,841 bytes; 51 real files, inspected after download).  
+**Date:** 2026-10-13 14:47 ICT (UTC+07).  
+**Tested branch commit:** `138688835f27db4d339f34e60a31f5422e643fb8` (harness code from `4959d86ebd8051ace2813c0c960ef2fdb0026de5`, second commit documentation only).  
+**Exact GitHub Actions CHECKED_OUT_SHA:** `4983b8fb8af41db7fffe1fc65063589da26a42c5` — `refs/pull/39/merge`; source main base `fee90a9d35cf742d452c2c01ecef14397fb52e21`. Do not misrepresent PR synthetic merge SHA as main SHA.  
+**Runner:** Linux Ubuntu x86_64, Node v22.23.3, Python 3.12.15, git 2.55.0, `playwright==1.57.0`, Chromium reported `154.0.8037.0`.
+
+| Device | Exact size | PASS | FAIL | JS page errors | Console errors | Screenshots |
+|---|---|---:|---:|---:|---:|---:|
+| small | 320×568 | 12 | 0 | 0 | 0 | 7 |
+| portrait | 390×844 | 12 | 0 | 0 | 0 | 7 |
+| tablet | 768×1024 | 12 | 0 | 0 | 0 | 7 |
+| landscape | 844×390 | 12 | 0 | 0 | 0 | 7 |
+| desktop | 1440×900 | 12 | 0 | 0 | 0 | 7 |
+| **Total** | **5/5 executed** | **60** | **0** | **0** | **0** | **35** |
+
+**Verification of artifact:** The downloaded ZIP includes `five-viewports/{small,portrait,tablet,landscape,desktop}/results.json`, with precisely 12 `cases` per viewport and `pass_count=12,fail_count=0` for each. Each viewport saves genuine `initial.png`, `selection.png`, `selection-debug.png`, `room-success.png`, `room-invalid.png`, `military.png` and `final.png`. `five-viewports/summary.json` records `task=R2-UIQA-HARNESS-01`, `tested_sha=4983b8...a42c5`, `git_ref=refs/pull/39/merge` and `checkout_kind=pr_merge`, consistent with `environment.txt`. No screenshot or pass invented.
+
+| Exact command / workflow metric | Exit code | Recorded result |
+|---|---:|---|
+| `npm test` | **0** | 152/152 PASS |
+| `npm run build` | **0** | Build success (not AWS deploy evidence) |
+| Playwright/Chromium installation | **0** | Chromium 154 |
+| `python -m py_compile tools/browser-phase1-ui-audit.py` | **0** | Syntax check passed |
+| `python tools/browser-phase1-ui-audit.py --artifacts <runner-temp>/five-viewports` | **0** | 60/60 PASS; 5 result JSONs |
+| `python tools/browser-v2-ui-fix.py` | **0** | Existing browser regression passes |
+| `python tools/browser-u6.py` | **0** | Existing U6 browser regression passes |
+| `python tools/browser-v2-live.py` | **0** | Existing full browser regression passes |
+| GitHub Actions workflow conclusion | **SUCCESS** | All defined job gates pass |
+
+**What remained intact:** Camera physically zooms/pans, then Recenter matches independently computed clamp; military modal opens as a real modal, real enlist/demobilize transitions validated, closes via real button; room success and overlap rejection, true pointer hit testing, pinch/wheel zoom, layer navigation, tactical rally and JS/console checks all remain meaningful. Existing 12 case labels per viewport unchanged, no force clicks and no production changes. **Conclusion: 60/60 real QA acceptance evidence is complete; ask AI-HEAD to review and merge Draft PR #39 at its discretion.** Organization changes remain paused until authorized by owner.
+
+## Requested CI and acceptance evidence
+
+R2 Five Real Viewports workflow must produce 5 separate `results.json`, true screenshot artifacts, and `exit-codes.txt` with `npm test`, `npm run build`, `py_compile`, full UI audit and 3 independent browser scripts. Do not declare completion until 60/60 true PASS on one PR-tested checkout. Existing 55/60 run: https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38362234085 . No production files edited or main merged.
+
+---
+
+## Prior AI-3 Round 2 work (historical and unchanged)
+
 # AI-3 — R2-UIFIX-01 Mobile UI Hit-Target Correction
 
 **Date (ICT):** 2026-10-13  
