@@ -1,129 +1,96 @@
-# Ant Kingdom — U4 Colony Lifecycle
+# Ant Kingdom — อาณาจักรมดใต้พิภพ
 
-**Version 0.4.0** — Queens lay eggs, larvae receive nurse care and protein, pupae become autonomous adult workers. Worker hunger, thirst, lifespan, natural deaths, real resource consumption and population reporting now run alongside the original U1–U3 simulation.
+เกมจำลองการบริหารอาณาจักรมดแบบ **2D / Single-player** บนเว็บ พัฒนาด้วย JavaScript ES Modules, Canvas 2D และ CSS ใช้งานได้ทั้งคอมพิวเตอร์และมือถือ
 
-## What's new in U4
+> **สถานะโครงการ: ปิดรอบงานเดิม / รอการมอบหมายงานใหม่**
+>
+> โค้ดเกมล่าสุดรวมระบบที่พัฒนาและปรับปรุงจนถึง **การจัดการมดทหารและรวมพลด้วยการแตะช่องแผนที่** แล้ว แผนเฟสเก่า งานค้างตามโรดแมป และข้อตกลงแบ่งงาน AI-A / AI-B **ยกเลิกทั้งหมด** ไม่มีงานพัฒนาถัดไปที่ได้รับมอบหมายโดยอัตโนมัติ จะเริ่มงานใหม่เมื่อมีการกำหนดขอบเขตใหม่เท่านั้น
 
-- Queen egg laying is paid from delivered protein; eggs / larvae / pupae are not counted as adults.
-- Designate nursery workers with the **มดพี่เลี้ยง +/−** control. Nurses walk to the queen and care for larvae while the other workers dig and forage.
-- Each worker and the queen track life ticks, hunger and thirst. Starvation, dehydration and age can lead to death; work reservations are cleaned up safely.
-- Tap/click the **ประชากร** badge to see colony population, births, deaths, shortages, food consumption and queen age.
-- Source-to-stock resource conservation now includes amounts **consumed** and **lost** after worker death.
-- `npm test` includes U4 scenarios plus U1–U3 regressions. `python tools/browser-u4.py` checks responsive UI; see `docs/U4_ACCEPTANCE.md`.
+## เล่นและทดลองในเครื่อง
 
-**Gameplay scope:** U5 will add proper rooms and warehouse capacity. No save/load or combat has been added yet.
-
----
-
-# Historical U3 notes — Foraging & Transport
-
-Play through the `index.html` entry point using a static HTTP server (`npm start`).
-
-## U3 systems
-
-- **Two-layer autonomous foraging:** two of five workers are assigned to forage by default; allocation adjustable between 0–5 using the compact worker controls. Remaining workers can dig.
-- **Seeded surface sources:** 24 (minimum 9) reachable resource nodes per world, with carbohydrates, protein and water. Each node has finite stock and is placed away from the nest entry.
-- **Physical transportation:** workers walk from underground chamber to the tunnel entrance, transition at its paired surface coordinate, pathfind to a source, gather at a finite work rate, physically carry up to 3 units back through the entry, and deposit in the starting chamber. HUD inventory changes on deposit, never on pickup.
-- **Reservation/conservation accounting:** workers reserve source quantities so multiple ants cannot duplicate limited stock. Units live at source, in worker cargo, or in storage.
-- **Canvas resources / carrying indicators:** sources are color-coded and selectable on the surface; ants are shown only on the correct world layer, with visible cargo.
-- **U1–U2 preserved:** the same shared clock, seed generation, portal, camera and dig queue remain. Food consumption and lifecycle are added in U4; renewable sources and storage rooms remain future work (U5–U7).
-
-## Verification
-
-- Run `npm test` for U1–U3 tests, including multi-seed generation, conservation, depletion, pause/speed, world switching, and simultaneous digging/foraging.
-- Run `python tools/browser-u3.py` for Chromium desktop/portrait/landscape interaction smoke tests. The local sandbox blocks loopback for Chromium, so this test uses source-module bundling; actual static hosting must be checked separately when deployed.
-- See `docs/U3_ACCEPTANCE.md` for full test criteria and known limits.
-
-# ANT KINGDOM — อาณาจักรมดใต้พิภพ
-
-**U2 · Digging & Navigation · v0.2.0** — Playable excavation prototype สำหรับเว็บมือถือและคอมพิวเตอร์ (single-player, ไม่มี dependencies ฝั่ง client)
-
-## ทดลองเล่น
-
-เปิดผ่าน static hosting เช่น **GitHub Pages**, หรือรัน local server:
+ต้องใช้ **Node.js 20 ขึ้นไป** ไม่มีขั้นตอนติดตั้งแพ็กเกจเพิ่มสำหรับการเล่นเกม
 
 ```bash
 npm start
 ```
 
-จากนั้นเปิด `http://localhost:4173` (Node.js >=20) ไฟล์ `index.html` ไม่ควรเปิดโดยตรงผ่าน `file://` เพราะเบราว์เซอร์ส่วนใหญ่จำกัด ES module imports
+เปิด `http://localhost:4173` ในเบราว์เซอร์ ไม่ควรเปิด `index.html` ผ่าน `file://` เพราะ ES Modules ต้องโหลดผ่าน HTTP
 
-```bash
-npm test
-```
-
-## วิธีควบคุม
-
-| ควบคุม | คอมพิวเตอร์ | มือถือ |
-|---|---|---|
-| เลื่อนแผนที่ | ลากเมาส์ | ลากนิ้ว |
-| ซูม | ล้อเมาส์ / +/- | ถ่างหรือหุบนิ้ว |
-| ตรวจสอบพื้นดิน | เครื่องมือสำรวจ + คลิกช่อง | เครื่องมือสำรวจ + แตะช่อง |
-| สั่งขุด | เครื่องมือ ⚒ + คลิก/ลากพื้นที่ใต้ดิน | เครื่องมือ ⚒ + แตะ/ลากนิ้ว |
-| ยกเลิกงานขุด | เลือกช่องที่สั่งขุด แล้วกด “ยกเลิกคำสั่งขุด” | วิธีเดียวกัน |
-| เปลี่ยนชั้นแผนที่ | ปุ่มด้านล่าง / ปุ่ม 1, 2 | ปุ่มด้านล่าง |
-| หยุด/เริ่มเวลา | Space / ปุ่ม Ⅱ | ปุ่ม Ⅱ |
-| เปิด debug | D / ⚙ | ⚙ |
-| สลับเครื่องมือ | G หรือปุ่มเครื่องมือ | ปุ่มเครื่องมือ |
-| กลับปากรัง | ⌖ | ซูมและลากกลับ หรือแตะปากรังเพื่อเชื่อมชั้น |
-
-Seed ของโลกเปลี่ยนได้จากแถบบนสุด; สามารถลิงก์แบบ `?seed=MY-COLONY` เพื่อสร้างแผนที่เดิมได้
-
-## U1 ที่พร้อมใช้งาน
-
-- [x] โครงสร้างแยก core/world/render/ui อิสระจากกัน
-- [x] Fixed timestep 10 TPS, เวลา 1 วันในเกม = 8 นาทีจริงที่ x1, pause/x1/x2/x4
-- [x] โลก deterministic ด้วย seed: surface 128×128, underground 96×64, tile cell types
-- [x] Renderer แบบ Canvas 2D culling เฉพาะช่องที่มองเห็น, pan, pinch, wheel, resize
-- [x] ปากรัง `nest-main` เชื่อมตำแหน่งทั้งสองชั้น โดยสลับชั้นแล้วไม่รีเซ็ตเกม
-- [x] HUD เวลา, population ของ entity จริง (ปัจจุบัน 6), debug FPS/TPS/tick/sim/render
-- [x] ชุดทดสอบอัตโนมัติ U1 ด้วย Node.js built-in test runner
-
-## U2 — สิ่งที่ทำเพิ่มแล้ว
-
-- [x] นางพญา 1 ตัว และมดงาน 5 ตัว เกิดในห้องที่เดินได้จริง ไม่สุ่มเกิดในกำแพง
-- [x] A* แบบ 4 ทิศสำหรับหาเส้นทาง และ BFS แบบใช้ครั้งเดียวเพื่อตรวจงานที่เดินถึงได้
-- [x] เลือกพื้นที่ขุดด้วยคลิก/ลากหรือสัมผัสในโลกใต้ดิน มีภาพ preview และกดยกเลิกงานได้
-- [x] คิวขุดสูงสุด 600 ช่อง งาน 1 ช่องสงวนให้มดได้สูงสุด 1 ตัว ป้องกันรับงานซ้ำ
-- [x] มดจะต้องเดินไปยังช่องอุโมงค์ที่ติดกับดินก่อน จึงจะเริ่มขุด; ดินแข็งใช้เวลานานกว่าดินปกติ
-- [x] ขุดเสร็จจึงเปลี่ยนชนิดช่องเป็นอุโมงค์ ทำให้คำสั่งขุดช่องที่ลึกขึ้นเริ่มเดินถึงได้
-- [x] การสลับชั้นแผนที่และการหยุดเวลาไม่ทำให้งานหาย/เดินต่อขณะหยุด
-- [x] มดและงานขุดมีแอนิเมชันและแถบความคืบหน้าบน Canvas
-- [x] Automated regression และ Chromium smoke สำหรับ desktop/mobile (รายละเอียดใน `docs/U2_ACCEPTANCE.md`)
-
-### ขอบเขตที่ยังไม่ทำ
-
-ยังไม่มีอาหาร น้ำ การขนส่ง ระบบการเติบโตของตัวอ่อน ศัตรู หรือการบันทึกเซฟ (อยู่ใน U3–U8) ระบบ U2 ขุดได้เฉพาะดิน/ดินแข็ง และจะ **ไม่ขุดหิน** เพื่อไม่ให้มดทะลุสิ่งกีดขวาง
-
-## โครงสร้าง
-
-```text
-index.html           หน้าเกมและ HUD
-src/main.js          Boot, animation frame, UI/Simulation integration
-src/core/            Seed RNG, time, Colony AI, queue and game state
-src/world/           การสร้างโลกสองชั้น, A*/BFS navigation, portal
-src/render/          Canvas renderer, camera, transforms
-src/ui/              Controls, pointer & touch gestures
-src/styles.css       Responsive compact HUD
-tests/               Automated regression
- tools/dev-server.mjs Local static server
-```
-
-## แผนถัดไป
-
-**U3 — Foraging & Transport:** แหล่งอาหาร/น้ำบนพื้นผิว, AI หาอาหาร, เดินเข้า/ออกปากรัง, ลำเลียงอาหารกลับคลัง และตรวจสอบระบบทรัพยากรไม่เพิ่มซ้ำ
-
-## Deploy บน AWS Amplify Hosting
-
-โปรเจกต์นี้เป็นเว็บเกมแบบ static ไม่ต้องรัน Node server ใน Production และไม่ต้องติดตั้ง dependencies เพิ่ม
+ตรวจสอบก่อนส่งงาน:
 
 ```bash
 npm test
 npm run build
 ```
 
-ไฟล์ `amplify.yml` ที่ root ให้ Amplify ทดสอบเกมและสร้าง `dist/` ก่อน Publish โดย Deploy เฉพาะ `index.html` และ `src/` (ไม่ส่ง `tests/`, `docs/`, หรือ `tools/` ขึ้น Hosting)
+`npm run build` สร้างโฟลเดอร์ `dist/` สำหรับเว็บไซต์แบบ static; การ Build สำเร็จ **ไม่เท่ากับ** ยืนยันว่า AWS Amplify Deploy สำเร็จ
 
-เชื่อม GitHub repository นี้กับ AWS Amplify เลือก branch `main` และใช้ build image Amazon Linux 2023 (Node.js 20+)
+## ระบบที่มีอยู่ในเกม
 
-วิธีตั้งค่าและตรวจเช็กปัญหา: [docs/AMPLIFY_DEPLOY.md](docs/AMPLIFY_DEPLOY.md)
+| หมวด | สถานะการทำงานปัจจุบัน |
+| --- | --- |
+| โลก | พื้นผิว 128×128 และใต้ดิน 96×64 ช่อง สุ่มซ้ำได้ด้วย Seed เดิม มีปากรังเชื่อมสองชั้น |
+| เวลาและกล้อง | Simulation 10 TPS แยกจากการวาดภาพ; หยุดเวลา / x1 / x2 / x4, ลากเลื่อน ซูมและบังคับด้วยจอสัมผัส |
+| มดและการขุด | นางพญา มดงาน AI หาเส้นทาง งานขุดแบบเลือกช่อง/ลากพื้นที่ ขุดได้เมื่อเดินถึงพื้นที่ข้างเคียงจริง |
+| หาอาหารและน้ำ | แหล่งทรัพยากรบนพื้นผิว มดเดินไปเก็บและขนผ่านปากรัง ส่งเข้าห้องเก็บของที่เดินถึงจริง ไม่มีการเพิ่มยอดจากการหยิบของทันที |
+| วงจรชีวิต | วางไข่ ไข่ → ตัวอ่อน → ดักแด้ → มดงาน การพี่เลี้ยง การกินอาหาร/น้ำ อายุ การเกิดและตาย |
+| ห้อง | ห้องนางพญา ห้องเลี้ยงตัวอ่อน คลังอาหาร คลังน้ำ ห้องพัก และห้องป้องกัน สร้างด้วยแรงงาน/วัสดุจริง มีข้อจำกัดพื้นที่และการเชื่อมต่อ |
+| โลจิสติกส์ | มดขนวัสดุก่อสร้างไปยังจุดสร้าง ขนอาหารไปยังคลัง และย้ายตัวอ่อนไปยังห้องเลี้ยงที่ใช้งานได้ |
+| การป้องกัน | ทหารประจำการเริ่มต้น 1 ตัวจากมดงานเดิม บัญชีมดรายตัว เกณฑ์/ปลด ย้ายกล้องดูมด รวมพลโดยแตะช่องบนแผนที่ ป้องกันและถอยพักฟื้น |
+| ศัตรู | ด้วงและมดบุกรุก เดินบนแผนที่และผ่านปากรังจริง มี HP ความเสียหาย ระยะโจมตี และคูลดาวน์ |
+| หน้าจอ | UI V2 / V2.1, HUD ทรัพยากร/ประชากร, เครื่องมือขุด/สร้างห้อง และศูนย์บัญชาการทหาร |
+
+เริ่มเกมด้วยนางพญา 1 ตัว มดงาน 5 ตัว โดยทหารเริ่มต้น 1 ตัว **นับรวมอยู่ในมดงานเดิม** ไม่ใช่มดตัวใหม่
+
+## วิธีควบคุมหลัก
+
+| การกระทำ | วิธีใช้งาน |
+| --- | --- |
+| ดูแผนที่ | ลากแผนที่ด้วยเมาส์/นิ้ว; ใช้ล้อเมาส์ ปุ่ม +/− หรือถ่างนิ้วเพื่อซูม |
+| สลับพื้นที่ | ใช้ปุ่มชั้นแผนที่หรือกดเลือกปากรังเมื่อใช้งานได้ |
+| สำรวจ | เลือกเครื่องมือสำรวจ แล้วคลิก/แตะช่องบนแผนที่ |
+| ขุดดิน | เลือก **สั่งขุด** แล้วแตะ/ลากเลือกดินใต้ดิน; มดจะเดินไปขุดตามคิว |
+| สร้างห้อง | เลือกเครื่องมือห้อง เลือกชนิดห้อง แล้วแตะพื้นที่ใต้ดินที่ขุดเปิดและเดินถึง |
+| จัดการแรงงาน | ใช้ปุ่มเพิ่ม/ลดมดหาอาหารหรือมดพี่เลี้ยง; จำนวนทหารควบคุมในศูนย์บัญชาการ |
+| จัดการทหาร | เปิด **ป้องกันรัง** เพื่อดูรายชื่อมด/HP/งาน เลือกเกณฑ์ ปลด หรือดูตำแหน่ง |
+| รวมพล | กด **รวมพล** แล้วแตะ **ช่องที่เดินถึงได้** บนแผนที่; ทหารเดินไปตามเส้นทางจริง |
+| กลับไปป้องกัน | ใช้คำสั่ง **ป้องกัน** เพื่อยกเลิกการรวมพลและกลับไปคุ้มกันรัง |
+| เวลา | ปุ่มหยุดเวลา หรือ x1/x2/x4; บนคอมพิวเตอร์ใช้ Space ได้ |
+| สร้างโลกใหม่ | เลือก Seed ที่ HUD หรือใส่ `?seed=MY-COLONY` ใน URL |
+
+## โครงสร้างที่ต้องเก็บไว้
+
+```text
+index.html                  หน้าเกมหลัก
+src/main.js                 จุดเริ่มเกมและลูปวาดภาพ
+src/core/                   เกม มด การขุด อาหาร วงจรชีวิต ห้อง ทหารและเวลา
+src/world/                  การสร้างโลก แหล่งทรัพยากรและเส้นทางเดิน
+src/render/                 Canvas renderer และ camera
+src/ui/                     UI หลัก เมนูทหาร และธีมที่เปิดใช้งาน
+src/styles.css              รูปแบบพื้นฐาน
+assets/                     ไฟล์ภาพ/ไอคอนต้นฉบับ
+design/v2/                  พรีวิวภาพสำหรับเทสต์ UI (ไม่ใช่หน้าเกม Production)
+tests/                      Unit และ regression tests
+tools/                      Development server, build และ browser smoke tests
+.github/workflows/           GitHub Actions สำหรับตรวจระบบที่มีอยู่
+amplify.yml                 ตั้งค่า Build/Deploy
+docs/GAME_SYSTEMS.md        รายละเอียดกลไกปัจจุบันและข้อจำกัดที่ยืนยัน
+docs/AMPLIFY_DEPLOY.md      คู่มือ AWS Amplify
+```
+
+## ข้อจำกัดที่มีอยู่จริง
+
+- ยังไม่มีระบบบันทึก/โหลดเกมถาวรเมื่อรีเฟรชหน้าเว็บ
+- กองทหารยังเป็น **กองร่วมเดียว** ไม่รองรับการแยกหลายกองทัพ
+- การเดินยังไม่จำลองการชน/แย่งช่องกันของมดแต่ละตัว
+- การกินของมดยังใช้คลังทรัพยากรรวม ไม่ได้จำลองให้มดทุกตัวเดินไปกินที่คลัง
+- บางขั้นตอน เช่น ยกเลิกก่อสร้าง ใช้การคืนวัสดุทันที ไม่ได้จำลองการเดินขนคืน
+- ผลทดสอบในเครื่อง/CI ไม่ใช่หลักฐานการใช้งานผ่าน AWS Amplify หรือโทรศัพท์จริง
+
+รายละเอียดเชิงระบบ: [docs/GAME_SYSTEMS.md](docs/GAME_SYSTEMS.md) · คู่มือ Deploy: [docs/AMPLIFY_DEPLOY.md](docs/AMPLIFY_DEPLOY.md)
+
+## นโยบายสำหรับงานใหม่
+
+**ไม่มีโรดแมปเฟสถัดไป ไม่มีงาน U7/U8 ที่อนุมัติให้เริ่ม และไม่มีการกำหนดเจ้าของไฟล์ตาม AI-A / AI-B อีกต่อไป** เมื่อมีคำสั่งพัฒนาใหม่ ให้พิจารณาขอบเขตและผู้รับผิดชอบใหม่จากโค้ด `main` ณ ตอนนั้น พร้อมทดสอบระบบเดิมซ้ำก่อน Merge
+
+ประวัติ Commit/Pull Request ยังคงอยู่ใน GitHub สำหรับย้อนดูการเปลี่ยนแปลงเดิม แม้เอกสารแผนงานเก่าจะถูกลบออกจาก `main`
