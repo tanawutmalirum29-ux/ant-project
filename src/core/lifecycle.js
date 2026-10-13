@@ -91,8 +91,8 @@ export class Lifecycle {
       // Eight slots spread across the four real nursery tiles (two per tile).
       const tiles=this.rooms.footprint(room).filter(p=>
         reach.distance(p.x,p.y)>=0 && occupants(p)<2);
-      tiles.sort((a,b)=>occupants(a)-occupants(b)||
-        reach.distance(a.x,a.y)-reach.distance(b.x,b.y)||a.y-b.y||a.x-b.x);
+      // Stable slots retain the original room origin for the first delivery.
+      tiles.sort((a,b)=>occupants(a)-occupants(b)||a.y-b.y||a.x-b.x);
       if(tiles.length)return {tile:tiles[0],roomId:room.id,kind:'nursery'};
     }
     return null;
