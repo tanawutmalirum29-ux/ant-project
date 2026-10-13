@@ -1,0 +1,452 @@
+/* Ant Kingdom compact HUD — V3.
+ * The map is the primary canvas. High-frequency controls remain on screen;
+ * low-frequency reports are in a dedicated scrollable population sheet.
+ * This stylesheet loads after V2.1, but keeps gameplay-owned IDs/handlers. */
+:root{
+ --hud-glass:#13251de9; --hud-line:#cfb68750; --hud-ink:#f5e7c9;
+ --hud-shadow:0 5px 20px #06100b72;
+}
+.topbar{
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+ align-items:center;gap:12px;
+ height:58px;min-height:58px;
+ padding:calc(6px + env(safe-area-inset-top)) 12px 6px;
+ background:#10211bea;
+ box-shadow:0 3px 17px #0008;
+}
+.topbar::after{display:none}
+.brand-box{gap:7px}
+.brand-icon{width:34px;height:34px;border-radius:9px;box-shadow:none}
+.brand-icon svg{width:25px;height:25px}
+.brand-kicker{display:none}
+.brand-box h1{font-size:17px;letter-spacing:.015em;margin:0}
+.status-cluster{gap:5px;justify-self:end}
+.status-pill{
+ min-height:34px;height:34px;gap:6px;padding:4px 8px;
+ border-radius:9px;box-shadow:none;
+ background:#24362c95;
+}
+.status-pill small{display:none}
+.status-pill strong{font-size:12px;white-space:nowrap}
+.status-icon{font-size:15px;width:auto;line-height:1}
+.population-pill{background:#28482d8c}
+.population-pill em{font-size:10px}
+.seed-pill{max-width:135px}
+.seed-pill strong{font-size:11px;max-width:83px}
+.seed-pill .chevron{font-size:11px}
+
+/* Integrate all three resources into the header rather than a map-sized card. */
+.topbar > .resource-strip{
+ position:relative;inset:auto;top:auto;left:auto;right:auto;bottom:auto;
+ transform:none;justify-self:center;align-self:center;
+ display:flex;align-items:center;gap:2px;
+ width:max-content;max-width:100%;
+ min-height:34px;padding:2px 5px;
+ border:1px solid #d1bc8d38;border-radius:10px;
+ background:#0e1d17a6;box-shadow:none;pointer-events:none;
+}
+.resource-stat{
+ min-width:78px;min-height:29px;padding:2px 8px;gap:5px;
+ justify-content:center;font-size:0;color:var(--hud-ink);
+ background:none;box-shadow:none;border:0;
+}
+.resource-stat + .resource-stat{border-left:1px solid #bba77a39;border-radius:0}
+.resource-stat .resource-emoji{font-size:16px!important;width:15px}
+.resource-stat strong{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+
+/* Layer is already shown by the bottom switch: do not repeat its name/paragraph. */
+.left-overlay{
+ top:calc(70px + env(safe-area-inset-top));left:12px;
+ display:block;width:max-content;max-width:min(240px,60vw);
+ text-shadow:none;pointer-events:none;
+}
+.region-heading,.phase-note{display:none}
+.brood-summary{
+ width:max-content;max-width:min(230px,68vw);
+ margin:0;padding:5px 9px;
+ background:#12251fc9;border:1px solid #b4a17a44;
+ border-radius:9px;box-shadow:none;
+ font:600 10px/1.4 Tahoma,system-ui,sans-serif;
+}
+.queen-status{display:none}
+.queen-status.is-alert{display:block;color:#ffbd98;margin-top:3px}
+
+/* Small, always-available command dock at screen edge. */
+.dig-tools{
+ position:absolute;top:auto;right:auto;bottom:calc(15px + env(safe-area-inset-bottom));
+ left:12px;width:max-content;max-width:calc(100vw - 24px);
+ min-height:48px;height:48px;
+ padding:3px;gap:4px;
+ display:flex;flex-direction:row;align-items:stretch;
+ background:var(--hud-glass);
+ border:1px solid var(--hud-line);
+ border-radius:12px;box-shadow:var(--hud-shadow);
+ backdrop-filter:blur(14px);
+ overflow:visible;pointer-events:none;z-index:8;
+}
+.dig-tools::before{display:none}
+.dig-tools > .tool-switch{
+ width:auto;min-height:40px;height:40px;
+ display:flex;flex-direction:row;gap:2px;align-items:stretch;
+ grid-row:auto;grid-column:auto;padding:2px;
+ background:#0715109c;border:0;border-radius:9px;
+ box-shadow:none;pointer-events:auto;
+}
+.tool-switch:has(#tool-room) .tool-button{
+ flex:none;min-width:67px;width:67px;height:36px;min-height:36px;
+ display:flex;flex-direction:row;gap:4px;
+ padding:0 5px;font-size:16px;
+ border-radius:8px;line-height:1;
+}
+.tool-switch:has(#tool-room) .tool-button span{
+ font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap;
+}
+.tool-button.active{background:#efc986;color:#241d12;box-shadow:none}
+.tool-button:not(.active){background:transparent;color:#e1e6da}
+.tool-button:not(.active):hover{background:#ffffff18}
+.dig-tools > .workforce-open{
+ display:flex;flex:0 0 auto;align-items:center;justify-content:center;
+ width:89px;min-height:40px;height:40px;max-width:none;
+ margin:0;padding:3px 6px;gap:0;
+ border:1px solid #bba47a42;border-radius:9px;
+ background:#1f372b;color:#f0deb8;
+ box-shadow:none;pointer-events:auto;
+ font-size:11px;font-weight:750;
+}
+.workforce-open > span{color:inherit;white-space:nowrap}
+.workforce-open strong{
+ position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+ overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;
+}
+.dig-tools > .orders-status{display:none}
+.dig-tools > .room-palette{
+ position:absolute;display:flex;flex-wrap:wrap;align-items:center;
+ left:0;right:auto;bottom:calc(100% + 7px);top:auto;
+ width:258px;max-width:min(280px,calc(100vw - 24px));
+ max-height:min(48dvh,290px);padding:8px;gap:4px;
+ background:#132720f6;border:1px solid #d0b88a68;border-radius:11px;
+ box-shadow:var(--hud-shadow);overflow:visible;
+ z-index:30;pointer-events:auto;
+}
+.room-palette>label{display:none}
+.room-palette .room-cost{font-size:10px;line-height:1.35;padding:2px 3px;color:#f2e0bd}
+.room-picker-trigger{min-height:38px;padding:5px 8px}
+.room-picker-mark{width:23px;height:23px;flex-basis:23px}
+.room-picker-options{max-height:min(46dvh,290px)}
+
+/* Top-right commands share a single tidy cluster. */
+.right-controls{
+ position:absolute;top:calc(70px + env(safe-area-inset-top));right:12px;bottom:auto;
+ gap:6px;align-items:flex-end;pointer-events:none;
+}
+.right-controls>*{pointer-events:auto}
+.control-card,.control-stack{
+ border-radius:10px;border:1px solid var(--hud-line);
+ background:var(--hud-glass);box-shadow:var(--hud-shadow);
+ padding:3px;
+}
+.speed-btn{min-width:35px;height:34px;font-size:11px;border-radius:7px}
+.speed-btn.active{background:#efc986}
+.control-stack{gap:0;display:flex;flex-direction:column}
+.control-stack .icon-button{width:35px;height:35px;font-size:21px}
+.debug-toggle{width:35px;height:35px;font-size:17px;border-radius:9px;box-shadow:var(--hud-shadow)}
+
+/* Two-state layer switch, without large labels or surrounding text. */
+.bottom-bar{
+ position:absolute;bottom:calc(15px + env(safe-area-inset-bottom));
+ left:0;right:0;
+ display:flex;align-items:center;justify-content:center;
+ pointer-events:none;z-index:6;
+}
+.bottom-bar>*{pointer-events:auto}
+.bottom-hint,.bottom-help{display:none}
+.layer-switch{
+ padding:3px;gap:2px;
+ border-radius:12px;border:1px solid var(--hud-line);
+ background:var(--hud-glass);box-shadow:var(--hud-shadow);
+}
+.layer-btn{height:39px;min-width:104px;gap:6px;font-size:11px;border-radius:9px}
+.layer-icon{font-size:17px}
+.layer-btn.selected{background:#efc986;color:#251d0f;box-shadow:none}
+
+/* One compact detail card, no instructional prose or redundant tutorial text. */
+.selection-card:not(.hidden){
+ top:calc(232px + env(safe-area-inset-top));bottom:auto;
+ left:auto;right:12px;width:224px;
+ max-height:min(32dvh,260px);overflow:auto;
+ padding:9px 10px;border-radius:11px;
+ background:#11221ceb;border:1px solid var(--hud-line);
+ box-shadow:var(--hud-shadow);z-index:7;
+}
+.selection-title{font-size:13px}
+.selection-title button{min-height:30px;min-width:30px}
+.selection-card p{font-size:11px;line-height:1.4;margin:5px 0}
+#selection-coords{color:#c2c6b7;font-size:10px}
+.selection-note{display:none}
+.cancel-dig,.portal-action{min-height:36px;padding:6px;font-size:11px}
+#app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+ top:calc(232px + env(safe-area-inset-top));right:266px;left:auto;
+}
+.debug-panel:not(.hidden){
+ top:calc(232px + env(safe-area-inset-top));right:12px;bottom:auto;
+ max-height:min(38dvh,260px);
+}
+
+/* Population report is the home for lower-priority queue/capacity details. */
+.colony-panel{
+ position:absolute;top:calc(64px + env(safe-area-inset-top));
+ right:12px;left:auto;width:min(338px,calc(100vw - 24px));
+ max-height:min(79dvh,610px);
+ border:1px solid var(--hud-line);
+ border-radius:13px;background:#10221cf7;
+ box-shadow:0 12px 42px #000a;
+ padding:12px;z-index:28;
+}
+.colony-panel-title{font-size:14px}
+.colony-grid{gap:6px 10px;font-size:11px}
+.colony-panel-note{margin:7px 0;padding-top:6px}
+.workforce-editor{gap:4px;margin-top:9px;padding-top:9px}
+.workforce-editor h3{font-size:12px}
+.workforce-editor input[type=range]{height:26px}
+.workforce-general{padding:5px 0;margin:4px 0}
+.workforce-bar{height:7px;margin:0 0 5px}
+.colony-details{border-top:1px solid #bfa57736;padding-top:6px;margin-top:6px}
+.colony-details .orders-status{
+ display:block;position:static;width:auto;max-width:100%;
+ margin:0;padding:3px 0;border:0;background:transparent;
+ font-size:10px;color:#c6d2c0;white-space:normal;
+}
+
+/* Tactical commands use the bottom-right, opposite the tool dock. */
+body #u6-dock{
+ left:auto;right:12px;top:auto;bottom:calc(15px + env(safe-area-inset-bottom));
+ transform:none;width:auto;max-width:calc(100vw - 24px);
+ gap:3px;z-index:9;
+}
+body #u6-dock button,body #u6-dock #u6-open{
+ min-height:42px;height:42px;padding:6px 9px;
+ border-radius:10px;font-size:11px;
+ background:#183027ef;box-shadow:var(--hud-shadow);
+}
+body #u6-dock #u6-open{color:#f6d5a5}
+#u6-dialog .u6-percent-control small,
+#u6-dialog .u6-sheet>small{display:none}
+#u6-dialog .u6-sheet h3 small{display:none}
+#u6-dialog #u6-notice:empty{display:none}
+#u6-dialog .u6-subnote{font-size:11px}
+
+/* iPad/tablet widths: resources fit on a short second row; bottom tools
+   float one control-height above the layer switch to avoid collisions. */
+@media (min-width:681px) and (max-width:1120px) and (min-height:501px){
+ .topbar{display:flex;justify-content:space-between;height:53px;min-height:53px;gap:8px}
+ .topbar>.resource-strip{
+  position:fixed;top:calc(59px + env(safe-area-inset-top));
+  left:50%;right:auto;transform:translateX(-50%);
+  z-index:5;
+ }
+ .topbar .resource-stat{min-width:77px}
+ .left-overlay{top:calc(100px + env(safe-area-inset-top))}
+ .dig-tools{bottom:calc(71px + env(safe-area-inset-bottom))}
+ body #u6-dock{bottom:calc(71px + env(safe-area-inset-bottom))}
+ .layer-switch{padding:3px}
+ .selection-card:not(.hidden){top:calc(219px + env(safe-area-inset-top));width:204px}
+ .debug-panel:not(.hidden){top:calc(219px + env(safe-area-inset-top))}
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  top:calc(219px + env(safe-area-inset-top));right:260px;left:auto;
+ }
+}
+
+/* Portrait phones: only one row of action buttons, not a two-storey card. */
+@media (max-width:680px) and (min-height:501px){
+ .topbar{
+  display:flex;justify-content:space-between;align-items:center;
+  height:49px;min-height:49px;padding:calc(5px + env(safe-area-inset-top)) 7px 5px;gap:3px;
+ }
+ .brand-box{gap:3px}
+ .brand-box h1{font-size:12px;white-space:nowrap}
+ .brand-icon{width:25px;height:25px;flex:0 0 25px;border-radius:6px}
+ .brand-icon svg{width:19px;height:19px}
+ .status-cluster{gap:2px;min-width:0}
+ .status-pill{height:29px;min-height:29px;padding:2px 4px;gap:3px}
+ .status-icon{display:none}
+ .status-pill strong{font-size:9px;white-space:nowrap}
+ .status-pill em{display:none}
+ .seed-pill{max-width:57px}
+ .seed-pill strong{font-size:9px;max-width:53px}
+ .seed-pill .chevron{display:none}
+ .topbar>.resource-strip{
+  position:fixed;top:calc(54px + env(safe-area-inset-top));
+  left:50%;right:auto;bottom:auto;transform:translateX(-50%);
+  width:max-content;max-width:calc(100vw - 16px);
+  display:flex;z-index:5;
+  padding:2px 3px;min-height:30px;
+ }
+ .resource-stat{min-width:67px;min-height:26px;padding:2px 5px}
+ .resource-stat strong{font-size:12px}
+ .resource-stat .resource-emoji{font-size:13px!important;width:12px}
+ .left-overlay{top:calc(91px + env(safe-area-inset-top));left:8px}
+ .brood-summary{padding:4px 6px;font-size:9px;max-width:170px}
+ .dig-tools{
+  left:7px;right:7px;bottom:calc(63px + env(safe-area-inset-bottom));
+  top:auto;width:auto;max-width:none;
+  height:49px;min-height:49px;padding:3px;gap:3px;
+  display:flex;flex-direction:row;grid-template-columns:none;grid-template-rows:none;
+  overflow:visible;
+ }
+ .dig-tools>.tool-switch{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr;
+  grid-row:auto;grid-column:auto;flex:1 1 auto;min-width:0;
+  height:41px;min-height:41px;padding:2px;gap:2px;
+ }
+ .tool-switch:has(#tool-room) .tool-button{
+  display:flex;flex-direction:column;gap:1px;
+  width:100%;min-width:0;height:37px;min-height:37px;padding:2px 1px;
+  font-size:16px;
+ }
+ .tool-switch:has(#tool-room) .tool-button span{font-size:9px;line-height:1}
+ .dig-tools>.workforce-open{
+  display:flex;flex:0 0 78px;width:78px;min-width:78px;
+  height:41px;min-height:41px;max-width:none;padding:1px 2px;
+  font-size:10px;
+ }
+ .dig-tools>.room-palette{
+  grid-row:auto;grid-column:auto;
+  left:0;bottom:calc(100% + 6px);
+  width:min(254px,calc(100vw - 16px));max-width:none;
+  max-height:min(38dvh,240px);padding:7px;
+ }
+ .room-picker-options{
+  left:0;right:0;top:auto;bottom:calc(100% + 6px);
+  width:100%;max-height:min(36dvh,210px);
+ }
+ .right-controls{
+  top:calc(91px + env(safe-area-inset-top));right:7px;bottom:auto;gap:4px;
+ }
+ .speed-btn{min-width:29px;height:32px;font-size:10px}
+ .control-stack{display:none}
+ .debug-toggle{width:32px;height:32px;font-size:15px}
+ .bottom-bar{bottom:calc(7px + env(safe-area-inset-bottom));left:0;right:0}
+ .layer-btn{height:38px;min-width:98px;font-size:11px}
+ .layer-icon{font-size:15px}
+ body #u6-dock{
+  top:auto;left:auto;right:7px;bottom:calc(123px + env(safe-area-inset-bottom));
+  transform:none;gap:3px;max-width:calc(100vw - 14px);
+ }
+ body #u6-dock button,body #u6-dock #u6-open{
+  min-height:36px;height:36px;padding:3px 6px;font-size:10px;border-radius:8px;
+ }
+ .selection-card:not(.hidden){
+  top:calc(178px + env(safe-area-inset-top));bottom:auto;
+  left:8px;right:auto;
+  width:min(194px,calc(100vw - 134px));
+  max-height:min(25dvh,124px);padding:8px;
+ }
+ .debug-panel:not(.hidden){
+  top:calc(179px + env(safe-area-inset-top));right:8px;left:auto;
+  width:min(180px,calc(100vw - 132px));max-height:min(25dvh,125px);
+ }
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  visibility:hidden;pointer-events:none;
+ }
+ #app:has(.room-palette:not(.hidden)) .selection-card:not(.hidden){
+  top:calc(170px + env(safe-area-inset-top));max-height:90px;
+ }
+ body:has(.room-palette:not(.hidden)) #u6-dock{
+  bottom:calc(226px + env(safe-area-inset-bottom));
+ }
+ body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-rally,
+ body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-defend{display:none}
+ .colony-panel{
+  top:calc(89px + env(safe-area-inset-top));right:7px;
+  width:min(320px,calc(100vw - 14px));max-height:min(75dvh,570px);
+ }
+ .toast{bottom:calc(178px + env(safe-area-inset-bottom))}
+}
+@media (max-width:355px) and (min-height:501px){
+ .brand-icon{display:none}
+ .brand-box h1{font-size:10px}
+ .status-pill strong{font-size:8px}
+ .seed-pill{max-width:43px}
+ .seed-pill strong{font-size:8px;max-width:40px}
+ .dig-tools>.workforce-open{flex-basis:69px;width:69px;min-width:69px;font-size:9px}
+ .tool-switch:has(#tool-room) .tool-button span{font-size:9px}
+ .resource-stat{min-width:60px;padding:1px 5px}
+ .selection-card:not(.hidden){width:172px}
+}
+
+/* Short landscape: keep every core action reachable without a tall sidebar. */
+@media (max-height:500px) and (orientation:landscape){
+ .topbar{
+  height:42px;min-height:42px;padding:calc(3px + env(safe-area-inset-top)) 8px 3px;
+  display:flex;justify-content:space-between;gap:8px;
+ }
+ .brand-box h1{font-size:12px}
+ .brand-icon{width:26px;height:26px}
+ .brand-icon svg{width:19px;height:19px}
+ .topbar>.resource-strip{
+  position:fixed;top:calc(46px + env(safe-area-inset-top));
+  left:9px;right:auto;transform:none;
+  z-index:5;min-height:27px;padding:1px 3px;
+ }
+ .resource-stat{min-width:69px;min-height:25px;padding:2px 6px}
+ .resource-stat strong{font-size:11px}
+ .resource-stat .resource-emoji{font-size:12px!important}
+ .left-overlay{display:none}
+ .dig-tools{
+  left:8px;right:auto;top:auto;bottom:calc(49px + env(safe-area-inset-bottom));
+  width:max-content;max-width:min(330px,44vw);min-height:41px;height:41px;
+  display:flex;flex-direction:row;overflow:visible;
+  padding:2px;
+ }
+ .dig-tools>.tool-switch{display:flex;gap:1px;height:35px;min-height:35px;padding:1px}
+ .tool-switch:has(#tool-room) .tool-button{
+  min-width:49px;width:49px;height:33px;min-height:33px;
+  flex-direction:column;gap:0;font-size:13px;padding:0;
+ }
+ .tool-switch:has(#tool-room) .tool-button span{font-size:8px}
+ .dig-tools>.workforce-open{
+  display:flex;min-height:35px;height:35px;width:72px;max-width:72px;
+  padding:2px;font-size:9px;
+ }
+ .dig-tools>.room-palette{
+  left:0;right:auto;bottom:calc(100% + 6px);top:auto;
+  max-width:240px;max-height:190px;padding:6px;
+ }
+ .room-picker-options{left:calc(100% + 6px);bottom:0;top:auto;max-height:190px;width:225px}
+ .right-controls{top:calc(49px + env(safe-area-inset-top));right:8px;bottom:auto;gap:4px}
+ .speed-btn{min-width:31px;height:29px;font-size:10px}
+ .debug-toggle{width:31px;height:30px}
+ .control-stack{display:none}
+ .bottom-bar{bottom:calc(5px + env(safe-area-inset-bottom))}
+ .layer-btn{height:33px;min-width:91px;font-size:10px}
+ body #u6-dock{
+  left:auto;right:8px;top:auto;
+  bottom:calc(49px + env(safe-area-inset-bottom));transform:none;gap:2px;
+  max-width:300px;
+ }
+ body #u6-dock button,body #u6-dock #u6-open{
+  min-height:35px;height:35px;padding:3px 6px;font-size:10px;
+ }
+ .selection-card:not(.hidden){
+  top:calc(135px + env(safe-area-inset-top));bottom:auto;
+  left:auto;right:calc(234px + env(safe-area-inset-right));
+  width:200px;max-height:min(37dvh,136px);padding:7px 9px;
+ }
+ .debug-panel:not(.hidden){
+  top:calc(132px + env(safe-area-inset-top));right:8px;bottom:auto;
+  max-height:min(42dvh,165px);
+ }
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  visibility:hidden;pointer-events:none;
+ }
+ .colony-panel{
+  top:calc(46px + env(safe-area-inset-top));right:8px;
+  width:min(300px,calc(100vw - 16px));max-height:calc(100dvh - 52px);
+ }
+ body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-rally,
+ body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-defend{display:none}
+ .toast{bottom:calc(92px + env(safe-area-inset-bottom))}
+}
+@media(prefers-reduced-motion:reduce){
+ .tool-button,.speed-btn,.layer-btn,.room-picker-trigger{transition:none}
+}
