@@ -9,6 +9,12 @@ def bundle_html():
     html=(root/'index.html').read_text()
     css=(root/'src/styles.css').read_text()
     html=html.replace('<link rel="stylesheet" href="./src/styles.css" />','<style>'+css+'</style>')
+    # U5/U6/V1/V2 browser runners use this same sandbox inliner. Include the
+    # production compact skin as well: otherwise the new DOM layout receives
+    # old CSS only, causing false hit targets, bogus map taps and UI overlap.
+    skin='<link rel="stylesheet" href="./src/ui/visual/v3-compact.css" />'
+    if skin in html:
+        html=html.replace(skin,'<style>'+(root/'src/ui/visual/v3-compact.css').read_text()+'</style>')
     mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','ui/combat-controls.js','main.js']
     out=['const __mods = {};']
     for m in mods:
