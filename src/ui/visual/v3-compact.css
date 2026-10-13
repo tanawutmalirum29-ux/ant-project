@@ -361,8 +361,11 @@ body #u6-dock #u6-open{color:#f6d5a5}
  body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-rally,
  body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-defend{display:none}
  .colony-panel{
-  top:calc(89px + env(safe-area-inset-top));right:7px;
-  width:min(320px,calc(100vw - 14px));max-height:min(75dvh,570px);
+  /* Leave both the upper speed controls and the bottom workforce toggle
+     physically exposed while the report scrolls in the center band. */
+  top:calc(168px + env(safe-area-inset-top));right:7px;
+  width:min(320px,calc(100vw - 14px));
+  max-height:min(65dvh,570px,calc(100dvh - 292px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
  }
  .toast{bottom:calc(178px + env(safe-area-inset-bottom))}
 }
