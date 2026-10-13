@@ -168,3 +168,25 @@ button,select,.room-picker-trigger,.room-picker-option{touch-action:manipulation
  .room-palette.room-picker-ready{overflow:visible;}
  .room-picker-options{z-index:40;}
 }
+
+
+/* R2-UIFIX-01: selection information must not intercept work/tool buttons.
+   On portrait handsets it shares a fixed upper band with the tactical lane,
+   and no longer extends down across the inspect/dig/room tool switch. */
+@media (max-width:680px) and (min-height:501px) {
+  .selection-card:not(.hidden) {
+    top:calc(207px + env(safe-area-inset-top));
+    bottom:auto;
+    left:8px;
+    right:auto;
+    width:min(190px,calc(100vw - 136px));
+    max-height:min(130px,calc(100dvh - 410px));
+    overflow:auto;
+  }
+  /* With debug open, the right column is reserved for diagnostics; the
+     military dock switches left while the hidden selection remains inert. */
+  .debug-panel:not(.hidden) {
+    width:min(180px,calc(100vw - 132px));
+    max-height:min(27dvh,128px);
+  }
+}
