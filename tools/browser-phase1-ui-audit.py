@@ -181,32 +181,57 @@ def audit_view(browser,html,spec,artifacts):
 
         def navigation():
             page.locator('#tool-inspect').click()
+            visible_controls=name in ('tablet','desktop')
+            camera_buttons=('#zoom-in','#zoom-out','#recenter')
+            # CSS deliberately removes these controls on phones and landscape.
+            # Never force-click a hidden button or mistake it for an input failure.
+            for selector in camera_buttons:
+                actual=page.locator(selector).is_visible()
+                assert actual is visible_controls, (
+                    name,selector,'expected visible' if visible_controls else 'expected hidden',actual)
+
             before=inspect(page)['camera']
-            page.locator('#zoom-in').click()
-            assert inspect(page)['camera']['zoom']>before['zoom']
-            page.locator('#zoom-out').click()
+            button_zoom=None
+            if visible_controls:
+                page.locator('#zoom-in').click()
+                enlarged=inspect(page)['camera']['zoom']
+                assert enlarged>before['zoom'],(before,enlarged)
+                page.locator('#zoom-out').click()
+                restored=inspect(page)['camera']['zoom']
+                assert restored<enlarged,(enlarged,restored)
+                button_zoom={'before':before['zoom'],'zoom_in':enlarged,'zoom_out':restored}
+
             start=exposed(page)
-            assert start,'no exposed canvas'
+            assert start,('no exposed canvas',name)
             end={'x':start['x']+35,'y':start['y']}
-            assert page.evaluate("""p=>document.elementFromPoint(p.x,p.y)===document.querySelector('#game-canvas')""",end)
+            assert page.evaluate("""p =>
+              document.elementFromPoint(p.x,p.y)===document.querySelector('#game-canvas')
+            """,end),('no unobstructed pan destination',name,start,end)
             old=inspect(page)['camera']
-            if mobile:touch(page,[[start],[{'x':start['x']+17,'y':start['y']}],[end],[]])
+            if mobile:
+                touch(page,[[start],[{'x':start['x']+17,'y':start['y']}],[end],[]])
             else:
                 page.mouse.move(start['x'],start['y'])
                 page.mouse.down()
                 page.mouse.move(end['x'],end['y'],steps=4)
                 page.mouse.up()
             new=inspect(page)['camera']
-            assert abs(new['x']-old['x'])>0.1 or abs(new['y']-old['y'])>0.1,(old,new)
-            page.locator('#recenter').click()
-            e=page.evaluate("""() => {
-              const g=__ANT_DEBUG__.game,t=g.world.entrances[0][g.layer];
-              return {x:(t.x+.5)*28,y:(t.y+.5)*28};
-            }""")
-            centered=inspect(page)['camera']
-            assert abs(centered['x']-e['x'])<1 and abs(centered['y']-e['y'])<1,(centered,e)
-            return {'before':before,'dragged':new,'recenter':centered}
-        test('camera pan, zoom buttons and recenter',navigation)
+            assert abs(new['x']-old['x'])>0.1 or abs(new['y']-old['y'])>0.1,(
+                'canvas pan did not affect camera',name,old,new)
+
+            centered=None
+            if visible_controls:
+                page.locator('#recenter').click()
+                e=page.evaluate("""() => {
+                  const g=__ANT_DEBUG__.game,t=g.world.entrances[0][g.layer];
+                  return {x:(t.x+.5)*28,y:(t.y+.5)*28};
+                }""")
+                centered=inspect(page)['camera']
+                assert abs(centered['x']-e['x'])<1 and abs(centered['y']-e['y'])<1,(
+                    'recenter did not reach entrance',centered,e)
+            return {'method':'touch' if mobile else 'mouse','button_controls_visible':visible_controls,
+                    'buttons':button_zoom,'before':before,'dragged':new,'recenter':centered}
+        test('camera pan, responsive zoom/recenter controls',navigation)
 
         def gestures():
             page.locator('#tool-inspect').click()
@@ -419,21 +444,63 @@ def audit_view(browser,html,spec,artifacts):
         test('combat roster, enlist, discharge and modal bounds',army)
 
         def rally():
-            page.locator('#recenter').click()
+            # Only the tablet/desktop expose Recenter; on phones/landscape
+            # the player must be able to set a rally via touch on the live map.
+            has_recenter=page.locator('#recenter').is_visible()
+            assert has_recenter is (name in ('tablet','desktop')),(
+                'unexpected recenter visibility',name,has_recenter)
+            if has_recenter:
+                page.locator('#recenter').click()
+            if page.locator('#selection-card').is_visible():
+                page.locator('#selection-close').click()
+            page.locator('#tool-inspect').click()
             page.locator('#u6-quick-rally').click()
             assert page.locator('#u6-target-tip').is_visible()
             page.locator('#u6-cancel-target').click()
             assert page.locator('#u6-target-tip').is_hidden()
+            assert page.locator('#u6-quick-rally').get_attribute('aria-pressed')=='false'
+
             page.locator('#u6-quick-rally').click()
-            cell=map_cell(page,'walkable');assert cell,'no exposed walkable target'
+            assert page.locator('#u6-target-tip').is_visible()
+            assert page.locator('#u6-quick-rally').get_attribute('aria-pressed')=='true'
+            cell=map_cell(page,'walkable')
+            # If the current camera has no unobstructed walkable tile,
+            # search using genuine canvas pan, not a direct camera write.
+            if not cell:
+                for direction in (-1,1,-1,1):
+                    origin=exposed(page)
+                    assert origin,('no exposed canvas for rally panning',name)
+                    dest={'x':origin['x']+direction*24,'y':origin['y']}
+                    if not page.evaluate("""p =>
+                      document.elementFromPoint(p.x,p.y)===document.querySelector('#game-canvas')
+                    """,dest):
+                        continue
+                    if mobile:
+                        touch(page,[[origin],[dest],[]])
+                    else:
+                        page.mouse.move(origin['x'],origin['y'])
+                        page.mouse.down()
+                        page.mouse.move(dest['x'],dest['y'],steps=4)
+                        page.mouse.up()
+                    cell=map_cell(page,'walkable')
+                    if cell:break
+            assert cell,('no exposed walkable rally target after user-accessible pan',name)
+            actual_hit=page.evaluate("""p => document.elementFromPoint(p.x,p.y)?.id""",cell['px'])
+            assert actual_hit=='game-canvas',('rally tile intercepted',name,cell,actual_hit)
             tap(page,cell['px'],mobile)
-            r=inspect(page)['rally']
-            assert r and r['x']==cell['x'] and r['y']==cell['y'],(r,cell)
+            state=inspect(page)
+            target=state['rally']
+            assert target and (target['x'],target['y'],target['layer'])==(
+                cell['x'],cell['y'],state['layer']),('rally target mismatch',state,cell)
+            assert state['mode']=='rally',('rally mode not engaged',state)
             assert page.locator('#u6-target-tip').is_hidden()
+            assert page.locator('#u6-quick-rally').get_attribute('aria-pressed')=='false'
             page.locator('#u6-quick-defend').click()
             assert inspect(page)['mode']=='defend'
-            return {'rally':r,'target':[cell['x'],cell['y']]}
-        test('rally select/cancel and defend mode',rally)
+            return {'rally':target,'target':[cell['x'],cell['y']],
+                    'input':'touch' if mobile else 'mouse',
+                    'recenter_clicked':has_recenter}
+        test('rally target via visible controls, map touch and cancel',rally)
 
         def responsive_errors():
             controls=['#tool-inspect','#tool-dig','#tool-room','#forage-plus','#forage-minus',
