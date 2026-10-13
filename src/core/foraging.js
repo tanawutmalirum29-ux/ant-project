@@ -169,7 +169,14 @@ export class Foraging {
   deliverCargo(ant, underground, fallback) {
     if(!ant.cargo?.amount){this.resetAnt(ant);return;}
     const type=ant.cargo.type;
-    if (this.tickCount<(this.retryAt.get(ant)||0) && ant.state==='forage-wait-storage')return;
+    if (this.tickCount<(this.retryAt.get(ant)||0) && ant.state==='forage-wait-storage') {
+      // Physical space opening at the CURRENT depot is cheap to check and must
+      // permit an immediate partial deposit (legacy U5/ECO behavior).
+      const localSpace=this.rooms?.storageSlots(type).some(slot=>slot.space>0 &&
+        this.rooms.footprint(slot.room).some(tile=>at(tile,ant)));
+      if (!localSpace)return;
+      this.retryAt.delete(ant);
+    }
     let target=this.deliveryTargets.get(ant);
     if (target && this.rooms) {
       const slot=this.rooms.storageSlots(type).find(s=>s.room.id===target.roomId);
