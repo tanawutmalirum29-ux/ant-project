@@ -34,7 +34,13 @@ export class UI {
     }
     $('colony-button').addEventListener('click', () => this.showColonyPanel($('colony-panel').classList.contains('hidden')));
     $('close-colony').addEventListener('click', () => this.showColonyPanel(false));
-    $('workforce-open').addEventListener('click', () => this.showColonyPanel(true));
+    $('workforce-open').addEventListener('click', () => {
+      const opening=$('colony-panel').classList.contains('hidden');
+      // This is a toggle, not a permanent navigation mode. Leave dig/room
+      // placement when entering or leaving the population report.
+      this.setTool('inspect');
+      this.showColonyPanel(opening);
+    });
     for(const kind of ['forage','nurse','soldier']) {
       $('alloc-'+kind).addEventListener('input', e=>{
         this.game.workforce.setShare(kind,Number(e.target.value));
@@ -210,6 +216,7 @@ export class UI {
   showColonyPanel(show) {
     $('colony-panel').classList.toggle('hidden',!show);
     $('colony-button').setAttribute('aria-expanded',String(show));
+    $('workforce-open').setAttribute('aria-expanded',String(show));
     if(show) this.updateMetrics();
   }
   changeSpeed(speed) {

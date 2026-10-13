@@ -41,3 +41,11 @@ test('HUD3-03 V3 loads after V2 corrections and does not modify simulation input
   }
   assert.match(app,/queen-status'\)\.classList\.toggle\('is-alert',queenAlert\)/);
 });
+
+test('HUD3-04 workforce compact button is a true toggle with inspect fallback',()=>{
+  assert.match(html,/id="workforce-open"[^>]*aria-expanded="false"/);
+  assert.match(app,/workforce-open'\)\.addEventListener\('click',\s*\(\)\s*=>\s*\{/);
+  assert.match(app,/const opening=\$\('colony-panel'\)\.classList\.contains\('hidden'\)/);
+  assert.match(app,/this\.setTool\('inspect'\);\s*this\.showColonyPanel\(opening\)/);
+  assert.match(app,/\$\('workforce-open'\)\.setAttribute\('aria-expanded',String\(show\)\)/);
+});
