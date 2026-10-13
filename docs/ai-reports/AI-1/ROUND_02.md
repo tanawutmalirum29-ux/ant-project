@@ -3,7 +3,8 @@
 **Status:** ASSIGNED / NOT STARTED (scaffold from outgoing HEAD; no agent work claimed)
 **Task:** R2-SIM-01 / PATH-01
 **Live GitHub report Issue:** https://github.com/tanawutmalirum29-ux/ant-project/issues/23
-**Starting main:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Historical gameplay baseline:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Actual branch base:** current `main` after planning PR #27, containing this report template; agent must record exact SHA
 **Branch to create:** `work/r2-ai1-colony-path-guard`
 
 **Exact writable files:** `src/core/colony.js`, new `tests/colony-path-guard.test.mjs`, this report file. Everything else READ-ONLY. No main push/merge.
