@@ -56,3 +56,34 @@
 .demo-label{max-width:210px;white-space:normal}
 @media(max-width:680px){.preview-room{transform:scale(.7)}.room-a{left:28%}.room-b{left:54%}.room-c{left:18%}.preview-ant{width:47px}.demo-label{font-size:8px;left:8px;right:auto;top:calc(193px + env(safe-area-inset-top));bottom:auto;max-width:158px;text-align:left}}
 @media(max-height:500px) and (orientation:landscape){.preview-room{transform:scale(.64)}.demo-label{top:auto;left:auto;bottom:8px;right:8px;max-width:102px;font-size:8px}}
+
+
+/* Standalone U4-era mock has two tools; live U5 has three.
+   Preview-only grid binding prevents forage and nurse buttons overlapping. */
+@media (max-width:680px) and (min-height:501px) {
+ .v2-preview .dig-tools {
+   display:grid;
+   grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+   grid-template-rows:52px 46px;
+   gap:5px;
+ }
+ .v2-preview .tool-switch {
+   grid-column:1/-1;
+   grid-row:1;
+   display:grid;
+   grid-template-columns:repeat(2,minmax(0,1fr));
+   grid-template-rows:1fr;
+ }
+ .v2-preview .tool-button {
+   min-width:0;
+   min-height:44px;
+   height:100%;
+   display:flex;
+   flex-direction:row;
+   align-items:center;
+   gap:5px;
+ }
+ .v2-preview .forage-control:not(.nurse-control) {grid-column:1;grid-row:2;}
+ .v2-preview .nurse-control {grid-column:2;grid-row:2;}
+ .v2-preview .orders-status {display:none;}
+}
