@@ -123,3 +123,16 @@
 #u6-dialog .u6-percent-control strong{color:#f7d499;font-size:16px;font-variant-numeric:tabular-nums;}
 #u6-dialog .u6-percent-control input{width:100%;height:30px;accent-color:#e8c287;cursor:pointer;touch-action:pan-y;}
 #u6-dialog .u6-percent-control small{color:#b8c7bb;font-size:10px;}
+
+/* When the room chooser expands on narrow portrait screens, its tool row
+   moves upward into the tactical quick-action column. Keep the army entry
+   accessible without letting those quick buttons block the tool toggle. */
+@media (max-width:680px) and (min-height:501px) {
+  body:has(.room-palette:not(.hidden)) #u6-dock {
+    top:calc(156px + env(safe-area-inset-top));
+  }
+  body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-rally,
+  body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-defend {
+    display:none;
+  }
+}
