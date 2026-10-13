@@ -1,5 +1,6 @@
 import { TERRAINS, SURFACE, UNDERGROUND, TILE, cellAt } from '../world/generate.js';
 import { tileHash } from '../core/random.js';
+import { ROOM_CATALOG } from '../core/rooms.js';
 
 const ROOM_TICKS = type=>({queen:1,nursery:65,food_store:90,water_store:80,rest:60,guard:85})[type]||1;
 const colors = {
@@ -40,7 +41,7 @@ export class Renderer {
     this.height = height;
     this.dpr = dpr;
   }
-  render(game, camera, selection, elapsedMs, digPreview = null) {
+  render(game, camera, selection, elapsedMs, digPreview = null, roomPreview = null, roomType = null) {
     const { ctx, width, height, dpr } = this;
     const layer = game.currentLayer;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -74,6 +75,7 @@ export class Renderer {
       this.drawRooms(ctx,game,bounds,camera);
       this.drawOrders(ctx, game, bounds, camera);
       if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
+      if(roomPreview&&roomType)this.drawRoomPreview(ctx,game,roomPreview,roomType,camera);
     } else this.drawResources(ctx, game, bounds, elapsedMs);
     if(game.layer===UNDERGROUND && game.lifecycle) this.drawBrood(ctx, game);
     this.drawAnts(ctx, game, elapsedMs, camera);
@@ -106,12 +108,27 @@ export class Renderer {
       ctx.globalAlpha=1;
       ctx.fillStyle='#181e19';ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(({queen:'Q',nursery:'N',food_store:'F',water_store:'W',rest:'R',guard:'G'})[room.type],x+w/2,y+h/2);
+      const stored=room.stock?Object.values(room.stock).reduce((a,b)=>a+b,0):0;
+      if(stored>0 && room.status==='ready'){
+        ctx.fillStyle='#f4edda';ctx.font='bold 10px system-ui';
+        ctx.fillText(`${stored}`,x+w/2,y+h-10);
+      }
       if(room.status==='building') {
         ctx.fillStyle='#1a241e';ctx.fillRect(x+4,y+h-8,w-8,5);
         ctx.fillStyle=color;ctx.fillRect(x+4,y+h-8,(w-8)*room.progress/ROOM_TICKS(room.type),5);
       }
       ctx.restore();
     }
+  }
+  drawRoomPreview(ctx,game,cell,type,camera) {
+    const def=ROOM_CATALOG[type];if(!def)return;
+    const status=game.rooms.validate(type,cell.x,cell.y);
+    const x=cell.x*TILE,y=cell.y*TILE,w=def.width*TILE,h=def.height*TILE;
+    ctx.save();ctx.fillStyle=status.ok?'#7be7a94f':'#ef766651';ctx.strokeStyle=status.ok?'#98ffd0':'#ff998b';
+    ctx.lineWidth=2/Math.max(camera.zoom,.65);ctx.setLineDash([5,3]);
+    ctx.fillRect(x+1,y+1,w-2,h-2);ctx.strokeRect(x+1,y+1,w-2,h-2);ctx.setLineDash([]);
+    ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f5efdd';
+    ctx.fillText(status.ok?'✓':'×',x+w/2,y+h/2);ctx.restore();
   }
   drawOrders(ctx,game,bounds,camera) {
     for(const job of game.colony.orders.values()) {
@@ -162,9 +179,9 @@ export class Renderer {
     const babies=game.lifecycle.brood;
     const q=game.colony.queen;
     for(let i=0;i<babies.length;i++) {
-      const b=babies[i],angle=i*2.39996,r=12+5*Math.sqrt(i);
-      const x=(q.x+.5)*TILE+Math.cos(angle)*r;
-      const y=(q.y+.5)*TILE+Math.sin(angle)*r;
+      const b=babies[i],angle=i*2.39996,r=2+(i%5)*2;
+      const x=((b.x??q.x)+.5)*TILE+Math.cos(angle)*r;
+      const y=((b.y??q.y)+.5)*TILE+Math.sin(angle)*r;
       ctx.fillStyle=b.stage==='egg'?'#fff1c9':b.stage==='larva'?'#e5c58e':'#aa724b';
       ctx.strokeStyle='#5c3825';ctx.lineWidth=1;
       ctx.beginPath();ctx.ellipse(x,y,b.stage==='pupa'?5:3.5,b.stage==='larva'?6:4.5,angle,0,Math.PI*2);ctx.fill();ctx.stroke();

@@ -18,6 +18,7 @@ export class UI {
     this.lastSpeed = 1;
     this.tool = 'inspect';
     this.digPreview = null;
+    this.roomPreview = null;
     this.bind();
     this.updateWorld();
     this.updateMetrics();
@@ -45,7 +46,7 @@ export class UI {
     $('tool-inspect').addEventListener('click', () => this.setTool('inspect'));
     $('tool-dig').addEventListener('click', () => this.setTool('dig'));
     $('tool-room').addEventListener('click', () => this.setTool('room'));
-    $('room-type').addEventListener('change', () => this.updateRoomCost());
+    $('room-type').addEventListener('change', () => { this.updateRoomCost();this.roomPreview=null; });
     $('cancel-room').addEventListener('click', () => {
       const s=this.selection, room=s?.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
       if(room && this.game.rooms.cancel(room.id))this.notice('ยกเลิกและคืนค่าก่อสร้างแล้ว');
@@ -66,7 +67,7 @@ export class UI {
       if (!seed) return;
       $('seed-dialog').close();
       this.onNewWorld(seed);
-      this.select(null);
+      this.select(null);this.roomPreview=null;
       this.updateWorld();
       this.notice('สร้างโลกใหม่สำเร็จ');
     });
@@ -99,6 +100,7 @@ export class UI {
       if(pointers.size===1) {
         start=p;dragDistance=0;usedMultiTouch=false;pinch=null;
         if(this.tool==='dig' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.digPreview={from:cell,to:cell};}
+        if(this.tool==='room' && this.game.layer===UNDERGROUND)this.roomPreview=cellAtPointer(p);
       }
       if(pointers.size>=2){usedMultiTouch=true;this.digPreview=null;start=null;pinch=pinchInfo();}
     });
@@ -118,7 +120,7 @@ export class UI {
         dragDistance+=Math.hypot(dx,dy);
         if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview && !usedMultiTouch){
           this.digPreview.to=cellAtPointer(p);
-        }else camera.pan(dx,dy,layer,...this.dimensions());
+        }else {camera.pan(dx,dy,layer,...this.dimensions());if(this.tool==='room'&&this.game.layer===UNDERGROUND)this.roomPreview=cellAtPointer(p);}
       }
     });
     const finish = (e,cancelled=false) => {
@@ -128,6 +130,7 @@ export class UI {
       if(!cancelled && pointers.size===0 && start && !usedMultiTouch){
         const cell=cellAtPointer(p);
         if(this.tool==='room' && this.game.layer===UNDERGROUND && dragDistance<7){
+          this.roomPreview={...cell};
           const result=this.game.rooms.queue($('room-type').value,cell.x,cell.y);
           this.notice(result.ok?'สั่งสร้างห้องแล้ว มดจะเดินมาทำงาน':this.roomError(result.reason));
           this.select({layer:this.game.layer,...cell});
@@ -153,7 +156,7 @@ export class UI {
   }
   setTool(tool) {
     if((tool==='dig'||tool==='room') && this.game.layer!==UNDERGROUND){this.notice('สั่งขุดได้เฉพาะโลกใต้ดิน');return;}
-    this.tool=tool;this.digPreview=null;
+    this.tool=tool;this.digPreview=null;this.roomPreview=null;
     for(const btn of document.querySelectorAll('.tool-button')){
       const active=btn.id===`tool-${tool}`;
       btn.classList.toggle('active',active);
@@ -222,12 +225,18 @@ export class UI {
     if(job) $('selection-work').textContent=`คำสั่งขุด: ${job.status==='digging'?'กำลังขุด':job.status==='assigned'?'กำลังเดินไปขุด':'รอมดงาน'} · ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
     $('selection-room').classList.toggle('hidden',!room);
     $('cancel-room').classList.toggle('hidden',!room || !['planned','building'].includes(room.status));
-    if(room)$('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${Math.floor(room.progress/Math.max(1,ROOM_CATALOG[room.type].ticks)*100)}%`;
+    if(room) {
+      const stored=room.stock?Object.entries(room.stock).filter(([,n])=>n>0).map(([type,n])=>({carbs:'อาหาร',protein:'โปรตีน',water:'น้ำ'})[type]+` ${n}`).join(' · '):'';
+      const cargo=room.status==='building'||room.status==='planned'?(room.pickups||[]).filter(p=>!p.collected).length:0;
+      const brood=room.type==='nursery'?this.game.lifecycle.brood.filter(b=>b.roomId===room.id).length:0;
+      const guards=room.type==='guard'?this.game.colony.workers.filter(w=>w.state==='room-guard'&&w.guardRoomId===room.id).length:0;
+      $('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${Math.floor(room.progress/Math.max(1,ROOM_CATALOG[room.type].ticks)*100)}%${cargo?` · รอรับวัสดุ ${cargo} ชุด`:''}${stored?' · คลัง: '+stored:''}${room.type==='nursery'?` · ตัวอ่อนในห้อง ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards} ตัว`:''}`;
+    }
     $('selection-resource').classList.toggle('hidden',!source);
     if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
-    const nursery=s.layer===UNDERGROUND && s.x===this.game.colony.queen.x && s.y===this.game.colony.queen.y;
+    const nursery=room?.type==='queen'||room?.type==='nursery';
     $('selection-brood').classList.toggle('hidden',!nursery);
-    if(nursery) $('selection-brood').textContent=`ห้องนางพญา · ไข่ ${this.game.lifecycle.eggs} · ตัวอ่อน ${this.game.lifecycle.larvae} · ดักแด้ ${this.game.lifecycle.pupae}`;
+    if(nursery) {const brood=this.game.lifecycle.brood.filter(b=>room.type==='queen'?!b.roomId:b.roomId===room.id);$('selection-brood').textContent=`ตัวอ่อนในห้องนี้ ${brood.length} · ไข่ ${brood.filter(b=>b.stage==='egg').length} · ตัวอ่อน ${brood.filter(b=>b.stage==='larva').length} · ดักแด้ ${brood.filter(b=>b.stage==='pupa').length}`;}
     $('selection-note').textContent=source?'มดหาอาหารจะมารับทรัพยากรโดยอัตโนมัติ':job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
   }
   notice(message) {

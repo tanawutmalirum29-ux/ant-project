@@ -131,6 +131,7 @@ test('U5.10 full warehouse halts deposits without loss, partial deposits resume 
  const g=new Game();g.colony.setForageSlots(0);
  const ant=g.colony.workers[0];
  ant.state='forage-wait-storage';ant.cargo={type:'water',amount:3};ant.resourceId=null;
+ ant.x=g.colony.queen.x;ant.y=g.colony.queen.y; // Test partial deposits at a real reached depot.
  g.foraging.inventory.water=BASE_CAPACITY.water-1;
  g.foraging.tick();
  assert.equal(g.foraging.inventory.water,BASE_CAPACITY.water);
