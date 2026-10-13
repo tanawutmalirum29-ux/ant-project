@@ -96,3 +96,5 @@
 @media(max-width:680px){.workforce-open{max-width:235px;padding:6px 8px;font-size:10px;gap:4px 8px;}.workforce-open strong{font-size:9px;}.colony-panel{top:calc(72px + env(safe-area-inset-top));right:8px;max-height:calc(100dvh - 100px);}}
 @media(max-height:500px) and (orientation:landscape){.workforce-open{max-width:205px;padding:4px 7px;}.colony-panel{top:6px;right:8px;max-height:calc(100dvh - 12px);}}
 @media(prefers-reduced-motion:reduce){.workforce-bar span{transition:none;}}
+
+@media(max-height:500px) and (orientation:landscape){.dig-tools:has(.room-palette:not(.hidden)) .workforce-open{display:none;}}
