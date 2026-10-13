@@ -1,0 +1,148 @@
+name: R2 Browser QA - Five Real Viewports
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/r2-uiqa-five-viewports.yml'
+      - 'index.html'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/browser*.py'
+      - 'docs/ai-reports/AI-3/ROUND_02.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR/main source
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Record runner and tested source
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ant-r2-qa"
+          {
+            echo "GITHUB_SHA=$GITHUB_SHA"
+            echo "GITHUB_REF=$GITHUB_REF"
+            echo "CHECKED_OUT_SHA=$(git rev-parse HEAD)"
+            echo "OS=$(uname -a)"
+            node --version
+            python --version
+            git --version
+          } | tee "$RUNNER_TEMP/ant-r2-qa/environment.txt"
+
+      - name: Execute unit suite and static build (record independent exits)
+        shell: bash
+        run: |
+          set +e
+          root="$RUNNER_TEMP/ant-r2-qa"
+          npm test > "$root/npm-test.log" 2>&1
+          code=$?
+          printf 'npm_test=%s\n' "$code" >> "$root/exit-codes.txt"
+          echo "npm test exit=$code"
+          tail -n 35 "$root/npm-test.log"
+          npm run build > "$root/npm-build.log" 2>&1
+          code=$?
+          printf 'npm_build=%s\n' "$code" >> "$root/exit-codes.txt"
+          echo "npm run build exit=$code"
+          tail -n 35 "$root/npm-build.log"
+          exit 0
+
+      - name: Install Playwright and Chromium
+        shell: bash
+        continue-on-error: true
+        run: |
+          set +e
+          root="$RUNNER_TEMP/ant-r2-qa"
+          python -m pip install --disable-pip-version-check playwright==1.57.0 > "$root/install.log" 2>&1
+          code=$?
+          if [ "$code" -eq 0 ]; then
+            python -m playwright install --with-deps chromium >> "$root/install.log" 2>&1
+            code=$?
+          fi
+          printf 'playwright_install=%s\n' "$code" >> "$root/exit-codes.txt"
+          echo "Playwright/Chromium install exit=$code"
+          tail -n 45 "$root/install.log"
+          exit "$code"
+
+      - name: Run production-browser five-viewport and legacy QA
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          root="$RUNNER_TEMP/ant-r2-qa"
+          mkdir -p "$root"
+          run_case() {
+            name="$1"
+            shift
+            "$@" > "$root/$name.log" 2>&1
+            code=$?
+            printf '%s=%s\n' "$name" "$code" >> "$root/exit-codes.txt"
+            echo "$name exit=$code"
+            tail -n 35 "$root/$name.log"
+          }
+          run_case py_compile python -m py_compile tools/browser-phase1-ui-audit.py
+          run_case ui_5_viewports python tools/browser-phase1-ui-audit.py --artifacts "$root/five-viewports"
+          run_case browser_v2_ui_fix python tools/browser-v2-ui-fix.py
+          run_case browser_u6 python tools/browser-u6.py
+          run_case browser_v2_live python tools/browser-v2-live.py
+          exit 0
+
+      - name: Upload logs, viewport JSON and screenshots even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-uiqa-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ant-r2-qa/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verdict from recorded evidence (never treat NOT_RUN as PASS)
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'ant-r2-qa'
+          exits={}
+          for line in (root/'exit-codes.txt').read_text().splitlines() if (root/'exit-codes.txt').exists() else []:
+              k, v=line.split('=',1)
+              exits[k]=int(v)
+          required=['npm_test','npm_build','playwright_install','py_compile','ui_5_viewports','browser_v2_ui_fix','browser_u6','browser_v2_live']
+          summary=root/'five-viewports'/'summary.json'
+          observed=[]
+          blocked=True
+          if summary.exists():
+              obj=json.loads(summary.read_text())
+              observed=obj.get('viewports', [])
+              blocked='blocked' in obj
+          viewport_count=len(observed)
+          print('Actual checkout:', os.environ.get('GITHUB_SHA'), 'viewport_results:', viewport_count)
+          for key in required:
+              print(f'{key}: {exits.get(key, "NOT_RUN")}')
+          passed=(viewport_count==5 and not blocked and all(exits.get(k)==0 for k in required))
+          lines=['# R2 Browser QA evidence', f'- SHA: {os.environ.get("GITHUB_SHA")}',
+                 f'- Browser viewports executed: {viewport_count}/5 (blocked={blocked})',
+                 f'- Overall Quality Gate: {"PASS" if passed else "FAIL / NOT VERIFIED"}']
+          lines += [f'- {k}: {exits.get(k, "NOT_RUN")}' for k in required]
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n'.join(lines)+'\n')
+          if not passed: raise SystemExit(1)
+          PY
