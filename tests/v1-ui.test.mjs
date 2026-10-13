@@ -44,7 +44,7 @@ test('V1 includes responsive, safe-area, reduced-motion and selection boundaries
   assert.match(theme, /\.selection-card\s*\{/);
   assert.match(theme, /\.debug-panel\s*\{/);
   assert.match(theme, /\.resource-stat/);
-  assert.match(theme, /\.workforce-open/);
+  assert.match(theme, /\.forage-control/);
   assert.doesNotMatch(theme, /@import|url\s*\(\s*["']?https?:/i, 'Visual layer must not rely on remote files');
   assert.doesNotMatch(theme, /#game-canvas\s*\{/, 'Visual layer must not override canvas interaction');
 });
