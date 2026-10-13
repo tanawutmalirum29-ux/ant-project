@@ -1,6 +1,7 @@
 import { SURFACE, UNDERGROUND, cellAt, portalAt, TERRAINS } from '../world/generate.js';
 import { isDiggable } from '../world/navigation.js';
 import { formatGameTime } from '../core/time.js';
+import { LIFE } from '../core/lifecycle.js';
 import { terrainName } from '../render/renderer.js';
 const $ = (id) => document.getElementById(id);
 
@@ -29,8 +30,12 @@ export class UI {
     for (const btn of document.querySelectorAll('[data-speed]')) {
       btn.addEventListener('click', () => this.changeSpeed(Number(btn.dataset.speed)));
     }
+    $('colony-button').addEventListener('click', () => this.showColonyPanel($('colony-panel').classList.contains('hidden')));
+    $('close-colony').addEventListener('click', () => this.showColonyPanel(false));
     $('forage-minus').addEventListener('click', () => this.changeForagers(-1));
     $('forage-plus').addEventListener('click', () => this.changeForagers(1));
+    $('nurse-minus').addEventListener('click', () => this.changeNurses(-1));
+    $('nurse-plus').addEventListener('click', () => this.changeNurses(1));
     $('zoom-in').addEventListener('click', () => this.zoom(1.25));
     $('zoom-out').addEventListener('click', () => this.zoom(1 / 1.25));
     $('recenter').addEventListener('click', () => this.recenter());
@@ -155,6 +160,16 @@ export class UI {
     this.game.colony.setForageSlots(count);
     this.updateMetrics();
   }
+  showColonyPanel(show) {
+    $('colony-panel').classList.toggle('hidden',!show);
+    $('colony-button').setAttribute('aria-expanded',String(show));
+    if(show) this.updateMetrics();
+  }
+  changeNurses(delta) {
+    const life=this.game.lifecycle;
+    life.setNurseSlots(Math.max(0,Math.min(this.game.colony.workers.length,life.nurseSlots+delta)));
+    this.updateMetrics();
+  }
   changeSpeed(speed) {
     if (speed > 0) this.lastSpeed = speed;
     this.game.setSpeed(speed);
@@ -189,6 +204,9 @@ export class UI {
     if(job) $('selection-work').textContent=`คำสั่งขุด: ${job.status==='digging'?'กำลังขุด':job.status==='assigned'?'กำลังเดินไปขุด':'รอมดงาน'} · ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
     $('selection-resource').classList.toggle('hidden',!source);
     if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
+    const nursery=s.layer===UNDERGROUND && s.x===this.game.colony.queen.x && s.y===this.game.colony.queen.y;
+    $('selection-brood').classList.toggle('hidden',!nursery);
+    if(nursery) $('selection-brood').textContent=`ห้องนางพญา · ไข่ ${this.game.lifecycle.eggs} · ตัวอ่อน ${this.game.lifecycle.larvae} · ดักแด้ ${this.game.lifecycle.pupae}`;
     $('selection-note').textContent=source?'มดหาอาหารจะมารับทรัพยากรโดยอัตโนมัติ':job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
   }
   notice(message) {
@@ -223,10 +241,24 @@ export class UI {
     $('game-time').textContent = formatGameTime(this.game.clock);
     for(const type of ['carbs','protein','water']) $(`stock-${type}`).textContent=String(this.game.foraging.inventory[type]);
     $('forage-count').textContent=`${this.game.colony.forageSlots}/${this.game.colony.workers.length}`;
+    $('nurse-count').textContent=`${this.game.lifecycle.nurseSlots}/${this.game.colony.workers.length}`;
+    $('nurse-minus').disabled=this.game.lifecycle.nurseSlots===0;
+    $('nurse-plus').disabled=this.game.lifecycle.nurseSlots===this.game.colony.workers.length;
+    const life=this.game.lifecycle;
+    $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae}`;
+    $('queen-status').textContent=this.game.colony.queen.alive?life.lastEvent:'นางพญาสิ้นชีวิต';
     $('forage-minus').disabled=this.game.colony.forageSlots===0;
     $('forage-plus').disabled=this.game.colony.forageSlots===this.game.colony.workers.length;
     $('population').textContent=String(this.game.population);
-    $('worker-status').textContent=`ขุด ${this.game.colony.busyCount} · ขนส่ง ${this.game.foraging.activeCount}`;
+    $('report-workers').textContent=String(this.game.colony.workers.length);
+    $('report-nurses').textContent=String(life.nurseCount);
+    $('report-brood').textContent=`${life.eggs} / ${life.larvae} / ${life.pupae}`;
+    $('report-births').textContent=`${life.births} / ${life.workerDeaths+life.broodDeaths}`;
+    $('report-needs').textContent=`${[...life.adultHealth.values()].filter(a=>a.hunger>=LIFE.feedInterval).length} / ${[...life.adultHealth.values()].filter(a=>a.thirst>=LIFE.drinkInterval).length}`;
+    $('report-queen-age').textContent=(life.queenHealth.age/4800).toFixed(1);
+    $('report-consumed').textContent=String(Object.values(life.consumed).reduce((a,b)=>a+b,0));
+    $('report-message').textContent=life.lastEvent;
+    $('worker-status').textContent=`ขุด ${this.game.colony.busyCount} · หาอาหาร ${this.game.foraging.activeCount} · เลี้ยง ${this.game.lifecycle.nurseCount}`;
     $('queue-status').textContent=`คิวขุด ${this.game.colony.pendingCount}`;
     this.refreshSelection();
     if (!this.debug) return;
@@ -240,5 +272,6 @@ export class UI {
     $('metric-pending').textContent = String(m.pendingTasks);
     $('metric-camera').textContent = `${Math.round(this.camera.x / 28)}, ${Math.round(this.camera.y / 28)} · ${this.camera.zoom.toFixed(2)}×`;
     $('metric-layer').textContent = this.game.layer;
+    $('metric-life').textContent=`${life.births} / ${life.workerDeaths+life.broodDeaths}`;
   }
 }

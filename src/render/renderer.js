@@ -73,6 +73,7 @@ export class Renderer {
       this.drawOrders(ctx, game, bounds, camera);
       if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
     } else this.drawResources(ctx, game, bounds, elapsedMs);
+    if(game.layer===UNDERGROUND && game.lifecycle) this.drawBrood(ctx, game);
     this.drawAnts(ctx, game, elapsedMs, camera);
     if (selection?.layer === game.layer && cellAt(layer, selection.x, selection.y) != null) {
       ctx.fillStyle = '#f3c67f24';
@@ -134,9 +135,21 @@ export class Renderer {
       ctx.restore();
     }
   }
+  drawBrood(ctx,game) {
+    const babies=game.lifecycle.brood;
+    const q=game.colony.queen;
+    for(let i=0;i<babies.length;i++) {
+      const b=babies[i],angle=i*2.39996,r=12+5*Math.sqrt(i);
+      const x=(q.x+.5)*TILE+Math.cos(angle)*r;
+      const y=(q.y+.5)*TILE+Math.sin(angle)*r;
+      ctx.fillStyle=b.stage==='egg'?'#fff1c9':b.stage==='larva'?'#e5c58e':'#aa724b';
+      ctx.strokeStyle='#5c3825';ctx.lineWidth=1;
+      ctx.beginPath();ctx.ellipse(x,y,b.stage==='pupa'?5:3.5,b.stage==='larva'?6:4.5,angle,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+  }
   drawAnts(ctx,game,elapsedMs,camera) {
     const c=game.colony;
-    if (c.queen.layer===game.layer) this.drawAnt(ctx,c.queen,true,elapsedMs);
+    if (c.queen.alive && c.queen.layer===game.layer) this.drawAnt(ctx,c.queen,true,elapsedMs);
     for(const ant of c.workers) if(ant.layer===game.layer) this.drawAnt(ctx,ant,false,elapsedMs);
   }
   drawAnt(ctx,ant,queen,elapsedMs) {
@@ -146,7 +159,7 @@ export class Renderer {
     const dir=ant.facing||0;
     const angle=[-Math.PI/2,0,Math.PI/2,Math.PI][dir];
     const scale=queen?1.42:.82;
-    const wobble=(ant.state==='walking'||ant.state?.startsWith('forage-'))?Math.sin(elapsedMs/85)*.5:0;
+    const wobble=(ant.state==='walking'||ant.state==='nursing'||ant.state?.startsWith('forage-'))?Math.sin(elapsedMs/85)*.5:0;
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.scale(scale,scale);
     ctx.fillStyle='#0c0b09aa';ctx.beginPath();ctx.ellipse(1,3,7,11,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=queen?'#402311':'#2b1b12';ctx.lineWidth=2;ctx.lineCap='round';
