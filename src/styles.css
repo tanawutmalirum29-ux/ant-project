@@ -68,3 +68,10 @@
 /* U5: the compact dock's transparent bounding area must never block map taps. */
 .dig-tools{pointer-events:none}
 .dig-tools>.tool-switch,.dig-tools>.forage-control,.dig-tools>.room-palette{pointer-events:auto}
+
+
+/* R2-UIFIX-01: the right-controls flex bounding box contains transparent
+   gaps around speed/debug controls. Those gaps must not swallow map tile
+   taps (e.g. 320×568 room placement), while real buttons remain interactive. */
+.right-controls{pointer-events:none}
+.right-controls>*{pointer-events:auto}
