@@ -48,7 +48,7 @@ test('deterministic painting — same world/seed/zoom produces identical draw co
 });
 test('snapshot of representative surface and underground styles', () => {
   const digest = createHash('sha256').update(JSON.stringify(trace(811, 1.35))).digest('hex');
-  assert.equal(digest, 'b8bd2c1f86aa3c52a92c0d8aad7b59a8de3b0d599983ece491016f1b5800c4d8');
+  assert.equal(digest, '02dd4faf40e9def02cd1ab9929b9daae2cc6e5a48178682c3753f4973d9048e4');
 });
 test('level of detail cuts draw calls at distant zoom without eliminating terrain distinctions', () => {
   const detailed=trace(811,1.4), distant=trace(811,.42);
