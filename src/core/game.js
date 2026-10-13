@@ -21,7 +21,7 @@ export class Game {
     this.rooms.lifecycle = this.lifecycle;
     this.combat = new Combat(this.world,this.colony,this.foraging,this.lifecycle,this.rooms);
     this.renderMotion = null;
-    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient()];
+    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
       for (const system of this.systems) system(this);
