@@ -6,7 +6,7 @@
 
 Repository: https://github.com/tanawutmalirum29-ux/ant-project
 
-**At handoff, main:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750` (owner-directed consolidation of previous work). Later commits to main, including the R2 planning docs merge, require re-reading the current ref; this SHA is the **R2 contributor starting base**, not a claim that main can never advance.
+**Before new planning docs, main gameplay baseline:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750` (owner-directed consolidation of old work). **Planning PR #27 subsequently merged all Round-2 documentation and per-agent report templates. Every Round-2 worker MUST start from current `main` containing these templates, NOT from that historical baseline.** Get `refs/heads/main` at takeover and record the actual new SHA; branch work from it, then reverify before merging.
 
 **Merged 2026-10-13:** PR #17 economy audit → `3ab15b1`; PR #19 browser harness → `5de999d`; PR #18 gameplay audit → `00c7ab5`; PR #16 Phase-0 docs → `615fac2`. GitHub compare from pre-merge base showed **only 7 documentation files, 2 test files, and 1 browser script**, no changes to production JS/CSS or workflow. Previous legacy docs `MASTER_PLAN.md`, `WORK_BOARD.md`, `AI_BRIEFS.md`, `FILE_OWNERSHIP.md` are historic only.
 
