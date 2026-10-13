@@ -14,7 +14,9 @@ const mass=g=>{
  const cargo=g.colony.workers.reduce((s,w)=>s+(w.cargo?.amount||0),0);
  const counted=['consumed','lost'].reduce((s,k)=>s+Object.values(g.lifecycle[k]).reduce((a,b)=>a+b,0),0);
  const materials=['held','spent'].reduce((s,k)=>s+Object.values(g.rooms[k]).reduce((a,b)=>a+b,0),0);
- return source+stock+cargo+counted+materials;
+ // A positive ecology journal is the only authorized source of new units.
+ const regenerated=Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
+ return source+stock+cargo+counted+materials-regenerated;
 };
 
 test('U5.1 deterministic queen chamber and per-resource starting capacities',()=>{
