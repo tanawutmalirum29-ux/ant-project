@@ -1,3 +1,9 @@
+## ผังทีมและนโยบาย AI (เสนอ Governance V2)
+
+- [ผังทีมและสถานะจริง](docs/ai-org/ACTIVE_TEAM.md) · [ทะเบียน AI](docs/ai-org/TEAM-REGISTRY.json) · [ทะเบียนลายเซ็น Release](docs/ai-org/RELEASE-SIGNATURES.md) · [คู่มือเปลี่ยนผ่าน](docs/ai-org/GOVERNANCE-V2-HANDOFF.md)
+- โครงสร้าง V2 อยู่ระหว่างเสนออนุมัติ ไม่เปิด Round ใหม่หรือแต่งตั้งแชทอัตโนมัติ; ประวัติการแต่งตั้ง 17 AI และ ROYAL-01 ยังคงเก็บไว้เพื่ออ้างอิง.
+- กฎสั่งงาน V2 ห้ามข้ามหัว รองแต่ละฝ่ายเซ็น QA จริง, Delivery ลงนามสุดท้าย แล้ว CEO ตรวจ Gate/merge เท่านั้น. Owner ส่งต่อข้อความและกำหนดเป้าหมาย ไม่ต้องกด Actions.
+
 # Ant Kingdom — อาณาจักรมดใต้พิภพ
 
 เกมจำลองการบริหารอาณาจักรมดแบบ **2D / Single-player** บนเว็บ พัฒนาด้วย JavaScript ES Modules, Canvas 2D และ CSS ใช้งานได้ทั้งคอมพิวเตอร์และมือถือ
