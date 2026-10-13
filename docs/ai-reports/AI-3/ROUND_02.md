@@ -1,13 +1,15 @@
 # AI-3 — R2-UIFIX-01 Mobile UI Hit-Target Correction
 
 **Date (ICT):** 2026-10-13  
-**Status:** IMPLEMENTED (CSS source), **PR Chromium validation PENDING** — never equate a CSS edit to runtime PASS.  
+**Status:** CSS hit-target fix implemented, 5/5 real Chromium viewports executed; full-audit gate **FAIL** (46 PASS / 14 FAIL), tracked separately.  
 **Task:** https://github.com/tanawutmalirum29-ux/ant-project/issues/32  
 **Previous QA report:** https://github.com/tanawutmalirum29-ux/ant-project/issues/25  
 **Pinned main/base:** `c108aab1b602a089eca40eb495b8ad4b26d408bf`  
 **Work branch:** `work/r2-ai3-ui-hit-targets`  
-**Draft PR / PR-merge tested SHA:** to be filled after PR workflow triggers  
-**Changed paths (exact):** `src/ui/combat.css`, `src/ui/visual/v2-fixes.css`, `docs/ai-reports/AI-3/ROUND_02.md`.  
+**Draft PR:** https://github.com/tanawutmalirum29-ux/ant-project/pull/34 — no self-merge  
+**CSS source branch SHA:** `a241cb99c1fa146c2c84423ccf454fd9ba081476`  
+**Actual PR-merge tested SHA:** `3fa25ba2b05a4eba5a1e49c705df2f4e84eba4fb`  
+**Changed paths (exact):** `src/ui/combat.css`, `src/ui/visual/v2-fixes.css`, `src/styles.css`, `docs/ai-reports/AI-3/ROUND_02.md`.  
 **Out-of-scope paths modified:** NONE. In particular no JS, gameplay, tests, harness, index or workflow changes.
 
 ## Root-cause evidence from the earlier live Chromium run
@@ -21,24 +23,53 @@ GitHub Actions original [run 38357247806](https://github.com/tanawutmalirum29-ux
 
 ## CSS-only implementation
 
-- **Portrait ≤680px and height ≥501px:** `#u6-dock` becomes a right-edge vertical 108px tactical column, its three buttons remain 44px minimum touch height, outside lower work-allocation / tool / layer rows. When Debug opens, move the dock to the left while allowing Debug to occupy a compact 180px right column; the preexisting selection card is suppressed only while Debug is open.
+- **Portrait ≤680px and height ≥501px:** `#u6-dock` becomes a right-edge vertical 80px tactical column, its three buttons remain 44px minimum touch height, outside lower work-allocation / tool / layer rows. When Debug opens, move the dock to the left while allowing Debug to occupy a compact 180px right column; the preexisting selection card is suppressed only while Debug is open.
 - **Portrait selection:** move `.selection-card:not(.hidden)` from the lower tool row into the upper-left information column at top 207px, at most 190px wide and 130px high with internal scrolling, so room/inspect buttons remain physically clickable. Does not hide selection under ordinary conditions.
-- **Short landscape ≤500px:** move the full tactical dock row from `left:35%; bottom:8px` (over layer switch) to horizontal center at top 106px. Preserve every military command and the existing CSS room picker.
+- **Short landscape ≤500px:** move the full tactical dock row from `left:35%; bottom:8px` (over layer switch) to horizontal center just above the layer switch (bottom 60px), below the room-option list. Preserve every military command and the existing CSS room picker.
+- **320px room palette expanded:** selection card retains visible header and internal scroll, but caps at 86px high above the moved tool row so Inspect remains clickable.
+- **Transparent right-side HUD gap:** `.right-controls` wrapper ignores pointer events, its real children remain interactive; this restores map tile hit targets without disabling buttons.
 - **Tablet / full desktop:** existing rules untouched except the specifically targeted short landscape breakpoint. Existing interface aesthetics, CSS focus indicators and pointer-events for genuine buttons preserved. `#room-type` and all game logic untouched.
 
-## CI matrix — await new PR workflow
+## Actual Chromium QA on PR #34 (2026-10-13, approx. 14:04 ICT)
 
-| Required viewport | Evidence | Status |
-|---|---|---|
-| 320×568 | per-viewport JSON/screenshot | PENDING |
-| 390×844 | per-viewport JSON/screenshot | PENDING |
-| 768×1024 | per-viewport JSON/screenshot | PENDING |
-| 844×390 | per-viewport JSON/screenshot | PENDING |
-| 1440×900 | per-viewport JSON/screenshot | PENDING |
+**Workflow:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38360138935 — overall **FAIL** (not a false PASS).  
+**Artifact (screenshots + JSONs + stdout + exits):** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38360138935/artifacts/11793209865 . Contains five `five-viewports/<viewport>/results.json` and available `initial.png`, `selection.png`, `selection-debug.png`, `room-success.png`, `room-invalid.png`, `fail-*.png`, plus `environment.txt` and `exit-codes.txt`. 13.6 MB, GitHub Actions artifact retention as configured.
 
-`py_compile`, five-viewport browser audit, `browser-v2-live.py`, `browser-u6.py`, `browser-v2-ui-fix.py`, `npm test`, `npm run build`: **NOT RUN yet for this PR**. Linux workspace outbound DNS does not permit Git clone, so GitHub Actions checkout is the definitive test environment. Current results will be documented only from the new run's real Actions logs/artifacts.
+**Tested CSS branch commit:** `a241cb99c1fa146c2c84423ccf454fd9ba081476`  
+**Actual checked-out GitHub PR merge-ref:** `3fa25ba2b05a4eba5a1e49c705df2f4e84eba4fb` (`refs/pull/34/merge`). Do not confuse with latest `main` after other workers' merges. Runner: Linux x86_64, Node `v22.23.3`, Python `3.12.15`, Playwright `1.57.0` with Chromium.
 
-**Quality gates:** Runtime collisions require evidence-based assessment per viewport; known dialogs left open or harness defects are separately triaged under [Issue #33](https://github.com/tanawutmalirum29-ux/ant-project/issues/33), not fixed in this CSS task. Changes are not merged by AI-3.
+| Viewport | Real case counts | Page errors | Console errors | Disposition |
+|---|---:|---:|---:|---|
+| 320×568 | **9 PASS / 3 FAIL** | 0 | 0 | Worker, real room SUCCESS and REJECT, tools/Pan/Pinch/Pickers PASS; roster fixture/modal cascade red |
+| 390×844 | **12 PASS / 0 FAIL** | 0 | 0 | All real audit cases pass |
+| 768×1024 | **8 PASS / 4 FAIL** | 0 | 0 | Recenter expectation, roster fixture, open-modal cascade |
+| 844×390 | **9 PASS / 3 FAIL** | 0 | 0 | All originally blocked layer/room targets operable; roster fixture/modal cascade red |
+| 1440×900 | **8 PASS / 4 FAIL** | 0 | 0 | Recenter expectation, roster fixture, open-modal cascade |
+
+**TOTAL: 5/5 viewports executed, 46 PASS / 14 FAIL among 60 cases. No Page/Console errors.**
+
+### Recorded exit codes (same Actions artifact)
+
+| Command | Exit | Interpretation |
+|---|---:|---|
+| `npm test` | **0** | 152/152 tests passed on PR merge checkout (parallel AI-1/AI-2 work had integrated) |
+| `npm run build` | **0** | Successful static build (not AWS deployment evidence) |
+| Playwright/Chromium install | **0** | Browser provisioned |
+| `python -m py_compile tools/browser-phase1-ui-audit.py` | **0** | Harness syntax compiles; not proof of correct assertions |
+| `python tools/browser-phase1-ui-audit.py --artifacts <runner>/five-viewports` | **1** | 46 PASS / 14 FAIL across real five viewport JSONs |
+| `python tools/browser-v2-ui-fix.py` | **0** | 5/5 viewport smoke checks |
+| `python tools/browser-u6.py` | **0** | 5/5 viewport combat checks |
+| `python tools/browser-v2-live.py` | **0** | Real room flow 5/5, legacy 844 landscape layer-timeout resolved |
+| Combined workflow verdict | **1** | Full audit still red, accurately preserved |
+
+### Fail classification / follow-up gate
+
+- **Original P1 UI collision resolved:** `#forage-plus`, Inspect/Room palette, `#surface-button` and `#underground-button` remain usable alongside three military dock buttons in 320, 390 and 844 test evidence. The transparent `.right-controls` flex region does not swallow legitimate canvas map/room-placement taps. The 320 room queue success and invalid overlap reject now **PASS**. Existing visual colors, CSS room picker `#room-type` source-of-truth, focus states, and map gestures are retained.
+- **Army fixture (small/tablet/landscape/desktop):** `assert recruit.count()>0` fails when no eligible recruit is present in the test state. Test aborts while actual modal `#u6-dialog` stays open; subsequent Rally and layout tests encounter correct modal interception. This is a test scenario / cleanup **candidate**, not evidence that the relocated tactical dock blocks map controls. Issue #33 owns harness decisions.
+- **Recenter (tablet/desktop):** Test expects entrance world y=434 but observes camera y=512 or 450. Possible viewport camera clamp vs assertion. **UNVERIFIED SUSPECT**: neither genuine gameplay regression nor harness defect conclusively determined; escalate to HEAD/Issue #33 without JS edits.
+- **No JS exceptions:** 0 page JS/console errors for all five viewports in actual results. Overall browser audit **FAIL** remains red until HEAD resolves independently.
+- **Iteration record:** [run 38358832242](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38358832242) found initial dock map+room-option obstruction; [run 38359340262](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38359340262) confirmed all three legacy scripts green; [run 38359689393](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38359689393) showed 320 selection still blocking Inspect after successful room; **final run 38360138935** fixes that sequence.
+- **Review only:** Request AI-HEAD to review this Draft PR and screenshots, then decide merge and independent Issue #33 work. No changes to JS, source gameplay, browser scripts/tests, HTML or workflows. AI-3 has not merged its PR.
 
 ---
 
