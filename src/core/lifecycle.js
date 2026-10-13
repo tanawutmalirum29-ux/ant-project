@@ -1,4 +1,4 @@
-import { UNDERGROUND } from '../world/generate.js';
+import { UNDERGROUND, TERRAINS } from '../world/generate.js';
 import { findPath, isWalkable, reachablePaths } from '../world/navigation.js';
 import { WORKER_SPEED } from './colony.js';
 
@@ -85,9 +85,14 @@ export class Lifecycle {
       if(reserved>=8)continue;
       const reach=reachablePaths(layer,ant);
       if(!reach)continue;
+      const occupants=p=>this.brood.filter(b=>b!==baby &&
+        ((!b.carrierId&&b.x===p.x&&b.y===p.y)||
+         (b.targetTile?.x===p.x&&b.targetTile?.y===p.y))).length;
+      // Eight slots spread across the four real nursery tiles (two per tile).
       const tiles=this.rooms.footprint(room).filter(p=>
-        reach.distance(p.x,p.y)>=0 && !this.occupiedBroodTile(p.x,p.y,baby));
-      tiles.sort((a,b)=>reach.distance(a.x,a.y)-reach.distance(b.x,b.y)||a.y-b.y||a.x-b.x);
+        reach.distance(p.x,p.y)>=0 && occupants(p)<2);
+      tiles.sort((a,b)=>occupants(a)-occupants(b)||
+        reach.distance(a.x,a.y)-reach.distance(b.x,b.y)||a.y-b.y||a.x-b.x);
       if(tiles.length)return {tile:tiles[0],roomId:room.id,kind:'nursery'};
     }
     return null;
@@ -106,7 +111,7 @@ export class Lifecycle {
       spots.push({x,y,d,terrain,travel:reach.distance(x,y)});
     }
     // Prefer previously hollowed chamber floors, then low-cost connected paths.
-    spots.sort((a,b)=>(a.terrain===14?0:1)-(b.terrain===14?0:1)||
+    spots.sort((a,b)=>(a.terrain===TERRAINS.CHAMBER?0:1)-(b.terrain===TERRAINS.CHAMBER?0:1)||
       a.travel-b.travel||a.d-b.d||a.y-b.y||a.x-b.x);
     return spots.length?{tile:{x:spots[0].x,y:spots[0].y},roomId:null,kind:'temporary'}:null;
   }
