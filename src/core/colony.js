@@ -75,7 +75,8 @@ export class Colony {
     const intruderAlert=combat?.enemies.some(e=>e.layer===UNDERGROUND);
     for(const ant of this.workers) {
       if(intruderAlert){
-        this.stopAmbient(ant);
+        if(ant.state==='idle')this.stopAmbient(ant);
+        else {ant.ambientActive=false;ant.ambientSteps=0;}
         continue;
       }
       // This runs AFTER every real work scheduler in Game.systems.
