@@ -1,0 +1,36 @@
+name: V1 Visual Integrity
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'src/ui/visual/**'
+      - 'src/styles.css'
+      - 'tests/v1-ui.test.mjs'
+      - 'tools/browser-v1.py'
+      - '.github/workflows/v1-verify.yml'
+  workflow_dispatch:
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: U1-U3 and visual regression
+        run: npm test
+      - name: Amplify compatible build
+        run: npm run build
+      - name: Verify deployment artifacts
+        run: |
+          test -s dist/index.html
+          test -s dist/src/main.js
+          test -s dist/src/styles.css
+          test -s dist/src/ui/visual/v1.css
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install chromium
+      - name: Actual U3 game interaction and V1 responsive smoke
+        run: python tools/browser-v1.py
