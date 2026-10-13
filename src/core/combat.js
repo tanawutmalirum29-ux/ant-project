@@ -22,14 +22,31 @@ export class Combat {
     this.world=world;this.colony=colony;this.foraging=foraging;
     this.lifecycle=lifecycle;this.rooms=rooms;
     this.enemies=[];this.nextEnemyId=1;this.tickCount=0;
-    this.soldierSlots=0;this.mode='defend';this.rally=null;
+    this.soldierSlots=1;this.mode='defend';this.rally=null;
     this.spawned=0;this.defeated=0;this.casualties=0;this.portalCrossings=0;
     this.queenHP=COMBAT.queenHP;
     this.rng=createRandom(world.seed^0x6c0b47);
-    this.lastEvent='เขตป้องกันพร้อม';
+    this.lastEvent='มดทหารประจำการพร้อม';
+    this.allocate();
   }
   get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier');}
   get threatCount(){return this.enemies.length;}
+  get availableRecruits(){return this.colony.workers.filter(a=>this.canRecruit(a));}
+  canRecruit(a){return this.colony.workers.includes(a)&&!a.combatRole&&a.layer===UNDERGROUND&&!this.colony.isForager(a)&&a.orderId==null&&['idle','room-rest','room-guard'].includes(stateOf(a));}
+  recruit(a){
+    if(!this.canRecruit(a))return false;
+    if(a.state==='room-rest')this.rooms?.releaseRestWorker(a);
+    if(a.state==='room-guard')this.rooms?.release(a);
+    a.combatRole='soldier';a.combatHP??=COMBAT.soldierHP;a.combatCooldown=0;
+    a.retreating=false;a.combatGoal=null;a.state='combat-guard';a.path=[];a.next=null;a.motion=0;
+    this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);return true;
+  }
+  demobilize(a){
+    if(!this.soldiers.includes(a))return false;
+    this.soldierSlots=Math.max(0,this.soldiers.length-1);
+    this.releaseSoldier(a);return true;
+  }
+
   raiseAlarm(){
     const result=this.spawn(this.rng.next()<.6?'beetle':'raider');
     if(result)this.lastEvent='ตรวจพบศัตรูที่ผิวดิน';
@@ -48,8 +65,25 @@ export class Combat {
   setRally(layer,x,y){
     if(![SURFACE,UNDERGROUND].includes(layer)||!Number.isInteger(x)||!Number.isInteger(y)||
       !isWalkable(this.world.layers[layer],x,y))return false;
-    this.rally={layer,x,y};this.mode='rally';return true;
+    const origin=layer===UNDERGROUND?this.colony.queen:this.world.entrances[0].surface;
+    if(!findPath(this.world.layers[layer],origin,{x,y}))return false;
+    this.rally={layer,x,y};this.mode='rally';
+    this.lastEvent=`กำลังพลเคลื่อนสู่จุดรวมพล ${x},${y}`;
+    for(const a of this.soldiers)this.clearMotion(a);
+    return true;
   }
+  getRallyGoal(ant){
+    if(!this.rally)return null;
+    const idx=Math.max(0,this.soldiers.indexOf(ant));
+    const offsets=[[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1],[2,0],[-2,0],[0,2],[0,-2]];
+    const map=this.world.layers[this.rally.layer];
+    for(let i=0;i<offsets.length;i++){
+      const [dx,dy]=offsets[(idx+i)%offsets.length],g={layer:this.rally.layer,x:this.rally.x+dx,y:this.rally.y+dy};
+      if(isWalkable(map,g.x,g.y)&&findPath(map,this.rally,g))return g;
+    }
+    return this.rally;
+  }
+  get ralliedCount(){if(!this.rally)return 0;return this.soldiers.filter(a=>{const g=this.getRallyGoal(a);return a.layer===g.layer&&same(a,g)&&!a.next;}).length;}
   releaseSoldier(ant){
     if(ant.combatRole!=='soldier')return;
     delete ant.combatRole;delete ant.combatCooldown;
@@ -64,14 +98,7 @@ export class Combat {
     if(missing<=0)return;
     for(const ant of this.colony.workers) {
       if(missing===0)break;
-      if(ant.combatRole||ant.layer!==UNDERGROUND||this.colony.isForager(ant)||ant.orderId!=null)continue;
-      if(!['idle','room-rest','room-guard'].includes(stateOf(ant)))continue;
-      if(stateOf(ant)==='room-rest')this.rooms?.releaseRestWorker(ant);
-      if(stateOf(ant)==='room-guard')this.rooms?.release(ant);
-      ant.combatRole='soldier';ant.combatHP??=COMBAT.soldierHP;ant.combatCooldown=0;
-      ant.retreating=false;ant.combatGoal=null;
-      ant.state='combat-guard';ant.path=[];ant.next=null;ant.motion=0;
-      missing--;
+      if(this.recruit(ant))missing--;
     }
   }
   /** Testable manual spawn and deterministic scheduled spawn. Never create an enemy on solid terrain. */
@@ -155,7 +182,8 @@ export class Combat {
     const withdrawing=this.mode==='retreat'||wounded;
     ant.retreating=withdrawing;
     let destination=null;
-    const threat=withdrawing?null:this.chooseThreat(ant);
+    const threat=withdrawing?null:this.mode==='rally'?
+      this.enemies.filter(e=>e.layer===ant.layer&&distance(e,ant)<=COMBAT.alertRadius).sort((a,b)=>distance(a,ant)-distance(b,ant))[0]||null:this.chooseThreat(ant);
     if(threat){
       if(threat.layer===ant.layer&&distance(threat,ant)<=1){
         ant.state='combat-attack';this.clearMotion(ant);
@@ -168,7 +196,7 @@ export class Combat {
       destination={layer:threat.layer,x:threat.x,y:threat.y};
       ant.state='combat-intercept';
     } else if(withdrawing){destination=this.findRecovery();ant.state='combat-retreat';}
-    else if(this.mode==='rally'&&this.rally){destination=this.rally;ant.state='combat-rally';}
+    else if(this.mode==='rally'&&this.rally){destination=this.getRallyGoal(ant);ant.state='combat-rally';}
     else {destination=this.findGuardStation();ant.state='combat-guard';}
     if(ant.layer!==destination.layer){
       const portal=this.world.entrances[0][ant.layer];

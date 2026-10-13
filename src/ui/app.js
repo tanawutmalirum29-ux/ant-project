@@ -129,7 +129,9 @@ export class UI {
       pointers.delete(e.pointerId);
       if(!cancelled && pointers.size===0 && start && !usedMultiTouch){
         const cell=cellAtPointer(p);
-        if(this.tool==='room' && this.game.layer===UNDERGROUND && dragDistance<7){
+        if(dragDistance<7 && this.mapTapHandler?.({layer:this.game.layer,...cell})===true){
+          // A confirmed military map tap is handled by the tactical dock.
+        } else if(this.tool==='room' && this.game.layer===UNDERGROUND && dragDistance<7){
           this.roomPreview={...cell};
           const result=this.game.rooms.queue($('room-type').value,cell.x,cell.y);
           this.notice(result.ok?'สั่งสร้างห้องแล้ว มดจะเดินมาทำงาน':this.roomError(result.reason));

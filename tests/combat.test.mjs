@@ -11,7 +11,7 @@ const isValid=(g,unit)=>isWalkable(g.world.layers[unit.layer],unit.x,unit.y);
 const mass=g=>g.foraging.nodes.reduce((s,n)=>s+n.amount,0)+Object.values(g.foraging.inventory).reduce((s,n)=>s+n,0)+g.colony.workers.reduce((s,a)=>s+(a.cargo?.amount||0),0)+['consumed','lost'].reduce((s,k)=>s+Object.values(g.lifecycle[k]).reduce((a,b)=>a+b,0),0)+['held','spent'].reduce((s,k)=>s+Object.values(g.rooms[k]).reduce((a,b)=>a+b,0),0);
 
 test('U6.1 idle baseline preserves earlier gameplay and does not spawn early',()=>{
- const g=new Game('old-case');assert.equal(g.combat.soldierSlots,0);assert.equal(g.combat.threatCount,0);
+ const g=new Game('old-case');assert.equal(g.combat.soldierSlots,1);assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.threatCount,0);
  tick(g,230);assert.equal(g.combat.threatCount,0);assert.equal(g.colony.population,6);
 });
 test('U6.2 soldier policy recruits only eligible idle non-foragers and can demobilize',()=>{
@@ -83,7 +83,7 @@ test('U6.9 enemy attacks queen only after reaching her tile neighborhood and can
  const count=g.lifecycle.births;tick(g,200);assert.equal(g.lifecycle.births,count);
 });
 test('U6.10 killed worker returns assigned dig order and resource ledger remains consistent',()=>{
- const g=setup('casualty');const ant=g.colony.workers[0];
+ const g=setup('casualty');g.combat.setSoldierSlots(0);const ant=g.colony.workers[0];
  const soil={x:ant.x+5,y:ant.y+1};
  const m=mass(g); // external damage changes no resource quantities.
  const enemy=g.combat.spawn('beetle',UNDERGROUND,ant.x,ant.y);
@@ -126,7 +126,7 @@ test('U6.14 injuries do not grant magic instant healing away from nest',()=>{
 test('U6.15 seed world reset clears enemy, corpses, and soldier choices',()=>{
  const g=setup('reset');g.combat.setSoldierSlots(2);g.combat.spawn('beetle');
  const fresh=new Game('reset');
- assert.equal(fresh.combat.soldiers.length,0);assert.equal(fresh.combat.threatCount,0);
+ assert.equal(fresh.combat.soldiers.length,1);assert.equal(fresh.combat.soldierSlots,1);assert.equal(fresh.combat.threatCount,0);
  assert.equal(fresh.combat.tickCount,0);assert.equal(fresh.combat.defeated,0);
 });
 test('U6.16 long battlefield simulation respects tile collision and resource conservation',()=>{
@@ -159,4 +159,55 @@ test('U6.18 damage persists if a soldier returns to ordinary worker duties',()=>
  assert.ok(enemy);tick(g);
  assert.equal(g.colony.workers.includes(soldier),false);
  assert.equal(g.combat.casualties,1);
+});
+
+test('U6.19 one actual defender is assigned when the world starts, without spawning extra ants',()=>{
+ const g=new Game('u6-default');assert.equal(g.combat.soldierSlots,1);assert.equal(g.combat.soldiers.length,1);
+ assert.equal(g.colony.workers.length,5);assert.equal(g.colony.forageSlots,2);assert.equal(g.lifecycle.nurseSlots,1);
+ tick(g,50);assert.equal(g.combat.soldiers.length,1);
+});
+test('U6.20 individual recruitment and dismissal change exactly the selected worker',()=>{
+ const g=new Game('u6-roster'),candidate=g.combat.availableRecruits[0];
+ assert.ok(candidate);assert.equal(g.combat.recruit(candidate),true);assert.equal(g.combat.soldiers.length,2);
+ assert.equal(g.combat.demobilize(candidate),true);tick(g,10);
+ assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.soldierSlots,1);
+ assert.equal(g.combat.demobilize(candidate),false);
+});
+test('U6.21 busy foragers cannot be conscripted and injuries survive dismissal/re-enlistment',()=>{
+ const g=new Game('u6-busy'),forager=g.colony.workers.at(-1);
+ assert.equal(g.colony.isForager(forager),true);assert.equal(g.combat.recruit(forager),false);
+ const soldier=g.combat.soldiers[0];soldier.combatHP=4;
+ assert.equal(g.combat.demobilize(soldier),true);assert.equal(soldier.combatHP,4);
+ assert.equal(g.combat.recruit(soldier),true);assert.equal(soldier.combatHP,4);
+});
+test('U6.22 reject an open but disconnected tile as an impossible rally',()=>{
+ const g=new Game('u6-isolated'),map=g.world.layers[UNDERGROUND];
+ writeCell(map,1,1,TERRAINS.TUNNEL);assert.equal(isWalkable(map,1,1),true);
+ assert.equal(g.combat.setRally(UNDERGROUND,1,1),false);assert.equal(g.combat.rally,null);
+});
+test('U6.23 distant enemy cannot override player rally command',()=>{
+ const g=setup('u6-priority'),ant=g.combat.soldiers[0];
+ const goal={x:g.colony.queen.x,y:g.colony.queen.y-4};
+ assert.equal(g.combat.setRally(UNDERGROUND,goal.x,goal.y),true);
+ assert.ok(g.combat.spawn('raider',SURFACE,entry(g,SURFACE).x+11,entry(g,SURFACE).y));
+ tick(g,20);assert.equal(g.combat.mode,'rally');assert.equal(ant.layer,UNDERGROUND);
+ assert.equal(ant.x,goal.x);assert.equal(ant.y,goal.y);assert.equal(g.combat.ralliedCount,1);
+});
+test('U6.24 multiple soldiers occupy unique reachable formation tiles',()=>{
+ const g=setup('u6-formation');g.combat.setSoldierSlots(2);
+ assert.equal(g.combat.soldiers.length,2);
+ const target={x:g.colony.queen.x,y:g.colony.queen.y-4};
+ assert.equal(g.combat.setRally(UNDERGROUND,target.x,target.y),true);
+ const goals=g.combat.soldiers.map(a=>g.combat.getRallyGoal(a));
+ assert.notDeepEqual(goals[0],goals[1]);
+ for(let i=0;i<80&&g.combat.ralliedCount<2;i++)tick(g);
+ assert.equal(g.combat.ralliedCount,2);
+ assert.ok(g.combat.soldiers.every(a=>isValid(g,a)));
+});
+test('U6.25 rally never moves any soldier while game is paused',()=>{
+ const g=setup('u6-pause-garrison'),p={x:g.colony.queen.x,y:g.colony.queen.y-4};
+ assert.equal(g.combat.setRally(UNDERGROUND,p.x,p.y),true);
+ const before=g.combat.soldiers.map(a=>({x:a.x,y:a.y,state:a.state}));
+ g.setSpeed(0);tick(g,90);
+ assert.deepEqual(g.combat.soldiers.map(a=>({x:a.x,y:a.y,state:a.state})),before);
 });
