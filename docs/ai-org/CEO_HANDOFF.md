@@ -1,3 +1,5 @@
+> **ขั้นตอนสำคัญก่อนเริ่มงานใหม่:** [คู่มือแต่งตั้งต่อเป็นทอด ๆ 17 แชท](ACTIVATION_CHAIN.md) — เริ่มจาก CEO ออกคำสั่ง CTO, CTO ออกคำสั่งหัวหน้า 5 คน, หัวหน้าออกคำสั่งลูกน้องอีก 10 คน; ทุกคนต้องส่ง READY กลับก่อน CEO เปิด ONE ROUND. **เจ้าของเพียงส่งต่อข้อความ ไม่ต้องคิดคำสั่งเอง.**
+
 # Ant Kingdom — CEO Handoff / Start a new chat
 
 **This is the handoff from the final AI-HEAD to the new CEO; 13 October 2026 (Asia/Bangkok).**

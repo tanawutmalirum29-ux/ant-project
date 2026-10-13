@@ -8,6 +8,10 @@ This document is the shared contract for **17 dedicated ChatGPT chats**. One cha
 - **5 leads, each overseeing two engineers**: `SIM-LEAD`→SIM-01/02; `COMBAT-LEAD`→COMBAT-01/02; `UI-LEAD`→UI-01/02; `PLATFORM-LEAD`→PLATFORM-01/02; `QA-LEAD`→QA-01/02.
 - **QA-LEAD is independent**: sends objective QA PASS/HOLD **directly to CEO**, copy CTO. CTO cannot override QA HOLD.
 
+## STEP 0 — Cascading role appointment (MANDATORY)
+ก่อนกำหนด Round Mission ต้องใช้ [ACTIVATION_CHAIN.md](ACTIVATION_CHAIN.md) ให้ครบ: Owner แต่งตั้ง CEO ในแชทใหม่ → CEO ออกคำสั่งแต่งตั้ง CTO เต็มบล็อก → CTO ออก 5 บล็อกถึงหัวหน้า → หัวหน้าแต่ละคนออก 2 บล็อกถึงผู้พัฒนา → ผู้พัฒนาตอบ ACTIVATION_ACK ไปหัวหน้า → หัวหน้ารับครบสองคนส่ง DEPT_ACTIVATED CTO → CTO รับครบ 5 แผนกส่ง ORG_ACTIVATED 17/17 CEO. ทุกข้อความต้องมีตำแหน่งผู้รับชัดเจนและงานขั้นถัดไป.
+**ห้ามเปิด/แก้ภารกิจ Gameplay ขณะ ORG_PENDING.** การมีไฟล์บทบาท 17 ไฟล์ไม่ถือว่าได้แต่งตั้งจริง. ไม่มีแชท AI ใดส่งถึงแชทอื่นได้เอง; เจ้าของเปิดแชทและคัดลอกบล็อกเท่านั้น. QA Lead ส่งข้อความพร้อมแต่งตั้งถึง CTO แต่ PASS/HOLD ของงานจริงส่ง CEO โดยตรง.
+
 ## One playable mission per round, and department sub-tasks
 1. **CEO creates ONE [Rxx] master Issue** after reading the latest game source and current GitHub. It must specify player-facing goal, scope IN/OUT, base main SHA, expected measurable Definition of Done, cross-department invariants, risk and release criteria. Only CEO decides the Round's goal; no CTO/lead/worker creates another main mission.
 2. **CTO examines source contracts** and writes **five Department Issues** linked to ONE master issue; if an area has no coding work this Round, assign an impact-review/N-A task. CTO freezes shared APIs, exact file write owners, and creates/arranges `dept/Rxx-SIM`, `dept/Rxx-COMBAT`, `dept/Rxx-UI`, `dept/Rxx-PLATFORM`, `dept/Rxx-QA` and `integration/Rxx` branches from an explicit SHA.
