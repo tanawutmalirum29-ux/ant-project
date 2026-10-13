@@ -1,0 +1,170 @@
+/* UI V2.1 - hit-safe selection card, map-only zoom and CSS room chooser.
+   Pure presentation: game simulation, room inventory and canvas handlers unchanged. */
+html,body{overscroll-behavior:none;}
+#app{touch-action:manipulation;}
+#game-canvas{touch-action:none;}
+button,select,.room-picker-trigger,.room-picker-option{touch-action:manipulation;}
+.selection-card:not(.hidden){z-index:6;overscroll-behavior:contain;touch-action:pan-y;}
+.selection-card button{touch-action:manipulation;}
+/* Right controls always remain physically accessible. Selection information is
+   below them on wide screens, never over the debug, zoom or recenter buttons. */
+@media (min-width:681px) and (min-height:501px){
+ .selection-card:not(.hidden){
+  top:calc(411px + env(safe-area-inset-top));bottom:auto;
+  right:18px;left:auto;
+  max-height:min(39vh,calc(100dvh - 475px));
+ }
+ .debug-panel:not(.hidden){
+  top:calc(411px + env(safe-area-inset-top));bottom:auto;
+  right:18px;max-height:min(39vh,calc(100dvh - 475px));
+ }
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  top:calc(411px + env(safe-area-inset-top));
+  right:auto;left:clamp(245px,34vw,440px);
+ }
+}
+@media (max-width:680px) and (min-height:501px){
+ .selection-card:not(.hidden){
+  top:auto;left:8px;right:auto;
+  bottom:calc(214px + env(safe-area-inset-bottom));
+  width:min(210px,calc(100vw - 115px));
+  max-height:min(27vh,135px);overflow:auto;
+ }
+ .debug-panel:not(.hidden){
+  top:calc(218px + env(safe-area-inset-top));right:8px;bottom:auto;
+  max-height:min(27vh,128px);overflow:auto;
+ }
+ /* A 320px handset cannot fit two floating panels side by side.
+    Keep selection state and restore it automatically after debug closes. */
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  visibility:hidden;pointer-events:none;
+ }
+}
+@media (max-height:500px) and (orientation:landscape){
+ .selection-card:not(.hidden){
+  top:calc(165px + env(safe-area-inset-top));
+  bottom:auto;left:auto;
+  right:calc(250px + env(safe-area-inset-right));
+  width:min(215px,calc(100vw - 505px));
+  max-height:min(26vh,105px);overflow:auto;
+ }
+ .debug-panel:not(.hidden){
+  top:calc(162px + env(safe-area-inset-top));
+  right:10px;bottom:auto;
+  max-height:min(47vh,180px);
+ }
+ #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
+  visibility:hidden;pointer-events:none;
+ }
+}
+/* Visual room picker: native select is retained to preserve U5 change handlers,
+   automation and no-JavaScript fallback, but is visually removed after setup. */
+.room-palette{position:relative;overflow:visible;}
+.room-palette.room-picker-ready select#room-type{
+ position:absolute;width:1px;height:1px;
+ padding:0;margin:0;border:0;opacity:0;
+ clip-path:inset(50%);pointer-events:none;
+}
+.room-picker{position:relative;flex:1 1 100%;min-width:0;}
+.room-picker-trigger{
+ width:100%;min-height:44px;
+ display:flex;align-items:center;gap:8px;
+ padding:7px 10px;
+ border:1px solid #d5ba8177;border-radius:9px;
+ background:linear-gradient(160deg,#35513b,#192d24);
+ box-shadow:inset 0 1px #fff2,0 3px 10px #0004;
+ text-align:left;color:#faeaca;
+ font:700 12px/1.3 Tahoma,sans-serif;
+}
+.room-picker-trigger:hover{border-color:#f4d398;}
+.room-picker-trigger:focus-visible,.room-picker-option:focus-visible{
+ outline:2px solid #f3d29a;outline-offset:2px;
+}
+.room-picker-mark{
+ width:28px;height:28px;flex:0 0 28px;
+ border-radius:8px;display:grid;place-items:center;
+ background:#dcb5731c;color:#f6cc85;
+ font-size:18px;
+}
+.room-picker-name{min-width:0;flex:1;white-space:normal;}
+.room-picker-arrow{
+ color:#efc78d;font-size:17px;
+ transform:rotate(0);transition:transform .16s;
+}
+.room-picker-trigger[aria-expanded="true"] .room-picker-arrow{transform:rotate(180deg);}
+.room-picker-options{
+ position:absolute;z-index:30;
+ left:calc(100% + 10px);top:0;
+ width:248px;
+ max-height:min(52vh,310px);overflow:auto;
+ overscroll-behavior:contain;touch-action:pan-y;
+ display:flex;flex-direction:column;gap:5px;
+ padding:7px;
+ border:1px solid #f0cf9888;border-radius:12px;
+ background:#11231bf7;
+ box-shadow:0 17px 44px #000b;
+ backdrop-filter:blur(16px);
+}
+.room-picker-options[hidden]{display:none!important;}
+.room-picker-option{
+ width:100%;min-height:48px;
+ display:flex;align-items:center;gap:9px;
+ padding:7px 9px;border-radius:9px;
+ border:1px solid #9b86544c;
+ background:#20392bdc;color:#f4e5c9;
+ text-align:left;
+ font:700 12px/1.3 Tahoma,sans-serif;
+}
+.room-picker-option .room-picker-mark{width:32px;height:32px;flex-basis:32px;}
+.room-picker-option:hover{background:#31503a;}
+.room-picker-option[aria-selected="true"]{
+ background:linear-gradient(140deg,#f1d39c,#cda56d);
+ color:#2a2216;border-color:#f2dbb0;
+}
+.room-picker-option[aria-selected="true"] .room-picker-mark{
+ color:#523b20;background:#785b2b24;
+}
+.room-picker-option[aria-selected="true"]::after{
+ content:"✓";font-size:17px;margin-left:auto;
+}
+.room-picker-cost{font-size:10px;color:#cfbc94;line-height:1.5;}
+.room-palette .room-cost{margin-top:2px;}
+@media (max-width:680px) and (min-height:501px){
+ .room-picker-options{
+  left:0;right:0;top:auto;
+  bottom:calc(100% + 8px);
+  width:100%;max-height:min(42dvh,280px);
+  display:grid;grid-template-columns:1fr;
+ }
+ .room-picker-option{min-height:44px;padding:5px 8px;}
+ .room-picker-trigger{min-height:44px;}
+}
+@media (max-height:500px) and (orientation:landscape){
+ .room-picker-options{
+  left:calc(100% + 10px);
+  top:auto;bottom:0;
+  max-height:min(68dvh,245px);
+  width:250px;
+ }
+ .room-picker-trigger{min-height:38px;}
+}
+/* Keep the room menu interactive even when the dock itself ignores pointer hits. */
+.dig-tools>.room-palette,
+.room-palette>.room-picker,
+.room-picker-trigger,
+.room-picker-options{pointer-events:auto;}
+@media (prefers-reduced-motion:reduce){
+ .room-picker-arrow{transition:none;}
+}
+
+
+/* U5 landscape dock previously scroll-clipped any popover outside its width.
+   Show the V2.1 CSS room chooser in full while retaining normal map hits. */
+@media (max-height:500px) and (orientation:landscape) {
+ .dig-tools:has(.room-palette:not(.hidden)) {
+   overflow:visible;
+   max-height:none;
+ }
+ .room-palette.room-picker-ready{overflow:visible;}
+ .room-picker-options{z-index:40;}
+}
