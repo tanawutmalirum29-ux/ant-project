@@ -18,13 +18,13 @@ test('V2 live skin preserves U1-U4 selectors and U5 game bindings',()=>{
  for(const id of b)assert.ok(a.includes(id),'Live game lost a V2 preview U1-U4 selector: '+id);
  for(const id of ['tool-room','room-palette','room-type','room-cost','room-summary','selection-room','cancel-room'])assert.ok(a.includes(id),'Missing U5 integration control: '+id);
  const required=['game-canvas','game-time','stock-carbs','stock-protein','stock-water','population','colony-button',
- 'colony-panel','tool-inspect','tool-dig','forage-plus','nurse-plus','surface-button','underground-button',
+ 'colony-panel','tool-inspect','tool-dig','workforce-open','alloc-forage','alloc-nurse','surface-button','underground-button',
  'debug-panel','selection-card','seed-dialog','seed-button','pause-button'];
  for(const id of required)assert.ok(a.includes(id),'Missing existing live control: '+id);
 });
 test('V2 has explicit responsive and accessible states, without simulation hooks',()=>{
  for(const term of ['.topbar','.resource-strip','.dig-tools','.layer-switch','.selection-card',
- '.colony-panel','.forage-control','.nurse-control','.debug-panel','.speed-btn','safe-area-inset-bottom',
+ '.colony-panel','.workforce-open','.workforce-editor','.debug-panel','.speed-btn','safe-area-inset-bottom',
  'prefers-reduced-motion','max-width:680px','max-height:500px','max-width:355px',
  '44px']) assert.ok(css.includes(term),'Missing V2 visual contract: '+term);
  assert.doesNotMatch(css,/@import|url\s*\(\s*["']?https?:|#game-canvas\s*\{/i);
