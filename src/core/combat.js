@@ -221,7 +221,8 @@ export class Combat {
     try{
       const soldiers=this.soldiers;
       // Never steal existing workers in a dig, forage, nursery or construction job.
-      for(const ant of soldiers.slice(this.soldierSlots))this.releaseSoldier(ant);
+      // Queen rescue remains above normal workforce downsizing.
+      if(!this.queenThreat())for(const ant of soldiers.slice(this.soldierSlots))this.releaseSoldier(ant);
       let missing=this.soldierSlots-this.soldiers.length;
       if(missing>0)for(const ant of this.colony.workers){
         if(missing===0)break;
