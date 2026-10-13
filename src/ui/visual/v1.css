@@ -154,3 +154,15 @@
 @media (prefers-reduced-motion: reduce) {
   .tool-button, .layer-btn, .speed-btn {transition: none;}
 }
+
+/* Visual bridge for U4; the brood and population values still come from gameplay. */
+.brood-summary {background: #14241ee8; border-color: var(--v1-edge); border-radius: 10px; padding: 6px 8px; margin-top: 7px;}
+.colony-panel {background: #13231df5; border-color: var(--v1-edge); box-shadow: var(--v1-shadow); max-width: calc(100vw - 18px);}
+@media (max-width: 680px) and (min-height: 501px) {
+  .brood-summary {max-width: 206px; padding: 5px 7px; margin-top: 6px; font-size: 9px;}
+  .queen-status {max-width: 188px;}
+  .colony-panel {top: calc(94px + env(safe-area-inset-top)); right: 9px; max-height: 48vh;}
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .colony-panel {top: calc(73px + env(safe-area-inset-top)); right: 10px; max-height: 65vh;}
+}

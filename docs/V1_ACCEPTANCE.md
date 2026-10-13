@@ -2,12 +2,13 @@
 
 ## Scope (visual branch only)
 
-Base: U3 commit `3b9e0309797f5b9205e4706554288e06773724c0`.
+Started at U3 commit `3b9e0309797f5b9205e4706554288e06773724c0`, then integrated U4 `39cb106993d6272efac66fb11c00f9ab307cbed9` into the **visual branch only**.
 Branch: `visual-development-v1`.
 
 V1 adds one **visual-only** stylesheet after the existing CSS. Existing element IDs, DOM event listeners, map renderer, simulation, tool logic, and U3 resource/forager data bindings stay unchanged.
 
 - Smaller top HUD and resource chips: time, population, seed, carbs, protein, water.
+- U4 visual bridge for brood status, nurse assignment and population report; no U4 logic changed.
 - Compact left construction and forager allocation dock.
 - Centered map-layer switch; speed/zoom/debug controls remain clickable.
 - Adaptive portrait phones, narrow 320px screens, tablets, short landscape and desktop.
@@ -23,7 +24,7 @@ No game logic, renderer, world generation, build rules or gameplay tests changed
 
 **Browser layout fixture:** Loaded representative U3 HUD markup and the V1 CSS directly into headless Chromium for five viewport sizes: 320×568, 390×844, 768×1024, 844×390, 1440×900. Verified horizontal centering of layer switch; inspected screenshot layouts; exercised fixture speed/tool/layer styling, debug button and seed modal. The fixture deliberately uses simulated visual data: it does **not** prove the actual U3 gameplay loop.
 
-**Full repo checks required for sign-off:** On a checkout of the V1 branch run `npm test` (U1–U3 tests plus V1 contract) and `npm run build` (Amplify static output), then exercise the hosted page on an actual phone. These are not claimed as passed unless independently executed.
+**CI sign-off:** The V1 GitHub Actions workflow runs the repository's full `npm test`, `npm run build`, checks deploy artifacts, and exercises real game interactions in Chromium at all five viewports (U3 and U4 controls). Actual hosted URL and physical phone still require manual confirmation.
 
 ## Real game manual acceptance (after merging)
 
