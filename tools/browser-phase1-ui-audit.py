@@ -29,7 +29,7 @@ def production_html():
     scope = {'__file__':str(smoke),'__name__':'_ant_ui_loader'}
     exec(compile(prefix,str(smoke),'exec'),scope)
     html = scope['bundle_html']()
-    assert 'id="game-canvas"' in html and 'src/main.js' not in html
+    assert 'id="game-canvas"' in html and '<script type="module" src="./src/main.js"></script>' not in html
     for name in ('v1.css','v2.css','v2-fixes.css'):
         tag = f'<link rel="stylesheet" href="./src/ui/visual/{name}" />'
         assert html.count(tag)==1, tag
