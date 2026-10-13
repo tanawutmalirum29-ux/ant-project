@@ -153,7 +153,7 @@ export class Combat {
     const reachable=new Map(soldiers.map(a=>[a,eligible(a)]));
     const validSlot=new Set(slots.map(formationKey));
     // Reserve unchanged goals first, independent of incidental worker-array order.
-    if(!geometryChanged&&prev){
+    if(prev&&prev.world===this.world&&prev.centerKey===centerKey){
       for(const ant of soldiers){
         const existing=prev.goals.get(ant),key=existing&&formationKey(existing);
         if(reachable.get(ant)&&key&&validSlot.has(key)&&!reserved.has(key)){
@@ -161,7 +161,7 @@ export class Combat {
         }
       }
     }
-    const sorted=[...soldiers].sort((a,b)=>String(a.id).localeCompare(String(b.id),'en'));
+    const sorted=[...soldiers].sort((a,b)=>String(a.id).localeCompare(String(b.id),'en',{numeric:true}));
     let nextIndex=0;
     for(const ant of sorted){
       if(goals.has(ant))continue;
@@ -325,7 +325,8 @@ export class Combat {
     else if(this.mode==='rally'&&this.rally){
       destination=this.getRallyGoal(ant);
       if(!destination){
-        if(ant.state==='combat-rally')this.clearMotion(ant);
+        // No current threat/retreat remains in this branch; cancel stale rally/guard steps.
+        if(ant.next||ant.path?.length||ant.goal)this.clearMotion(ant);
         ant.state=this.getFormationStatus(ant)==='Unreachable'?'combat-unreachable':'combat-standby';
         return;
       }
