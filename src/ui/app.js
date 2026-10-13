@@ -34,10 +34,14 @@ export class UI {
     }
     $('colony-button').addEventListener('click', () => this.showColonyPanel($('colony-panel').classList.contains('hidden')));
     $('close-colony').addEventListener('click', () => this.showColonyPanel(false));
-    $('forage-minus').addEventListener('click', () => this.changeForagers(-1));
-    $('forage-plus').addEventListener('click', () => this.changeForagers(1));
-    $('nurse-minus').addEventListener('click', () => this.changeNurses(-1));
-    $('nurse-plus').addEventListener('click', () => this.changeNurses(1));
+    $('workforce-open').addEventListener('click', () => this.showColonyPanel(true));
+    for(const kind of ['forage','nurse','soldier']) {
+      $('alloc-'+kind).addEventListener('input', e=>{
+        this.game.workforce.setShare(kind,Number(e.target.value));
+        this.updateMetrics();
+        this.combatControls?.update(true);
+      });
+    }
     $('zoom-in').addEventListener('click', () => this.zoom(1.25));
     $('zoom-out').addEventListener('click', () => this.zoom(1 / 1.25));
     $('recenter').addEventListener('click', () => this.recenter());
@@ -177,20 +181,10 @@ export class UI {
   }
   roomError(reason) {return ({'unknown-room':'ไม่รู้จักห้อง','invalid-position':'ตำแหน่งไม่ถูกต้อง','out-of-bounds':'พื้นที่เกินขอบแผนที่','needs-excavation':'ต้องขุดพื้นที่ให้โล่งทั้ง 2×2 ก่อน','overlap':'พื้นที่มีห้องอยู่แล้ว','disconnected':'ห้องต้องเชื่อมกับรัง','entrance':'ห้ามปิดปากรัง','queue-full':'คิวสร้างห้องเต็ม','insufficient-resources':'ทรัพยากรในคลังยังไม่พอ'})[reason]||'ไม่สามารถสร้างห้องได้';}
   updateRoomCost(){const def=ROOM_CATALOG[$('room-type').value];if(def)$('room-cost').textContent=`ใช้ ${Object.entries(def.cost).map(([k,n])=>({carbs:'พลังงาน',protein:'โปรตีน',water:'น้ำ'})[k]+n).join(' · ')} · ขนาด ${def.width}×${def.height}`;}
-  changeForagers(delta) {
-    const count=Math.max(0,Math.min(this.game.colony.workers.length,this.game.colony.forageSlots+delta));
-    this.game.colony.setForageSlots(count);
-    this.updateMetrics();
-  }
   showColonyPanel(show) {
     $('colony-panel').classList.toggle('hidden',!show);
     $('colony-button').setAttribute('aria-expanded',String(show));
     if(show) this.updateMetrics();
-  }
-  changeNurses(delta) {
-    const life=this.game.lifecycle;
-    life.setNurseSlots(Math.max(0,Math.min(this.game.colony.workers.length,life.nurseSlots+delta)));
-    this.updateMetrics();
   }
   changeSpeed(speed) {
     if (speed > 0) this.lastSpeed = speed;
@@ -282,16 +276,23 @@ export class UI {
   updateMetrics() {
     $('game-time').textContent = formatGameTime(this.game.clock);
     for(const type of ['carbs','protein','water']) $(`stock-${type}`).textContent=String(this.game.foraging.inventory[type]);
-    $('forage-count').textContent=`${this.game.colony.forageSlots}/${this.game.colony.workers.length}`;
-    $('nurse-count').textContent=`${this.game.lifecycle.nurseSlots}/${this.game.colony.workers.length}`;
-    $('nurse-minus').disabled=this.game.lifecycle.nurseSlots===0;
-    $('nurse-plus').disabled=this.game.lifecycle.nurseSlots===this.game.colony.workers.length;
+    const policy=this.game.workforce,shares=policy.shares,planned=policy.plan();
+    const workers=this.game.colony.workers.length;
+    $('forage-count').textContent=`${shares.forage}% · ${this.game.colony.forageSlots}/${workers}`;
+    $('nurse-count').textContent=`${shares.nurse}% · ${this.game.lifecycle.nurseSlots}/${workers}`;
+    for(const kind of ['forage','nurse','soldier']){
+      const percent=shares[kind],input=$('alloc-'+kind);
+      input.max=String(100-Object.entries(shares).reduce((sum,[key,value])=>sum+(key===kind?0:value),0));
+      input.value=String(percent);
+      $('alloc-'+kind+'-label').textContent=`${percent}% · ${planned[kind]} ตัว`;
+      $('alloc-bar-'+kind).style.width=percent+'%';
+    }
+    $('alloc-general-label').textContent=`${policy.generalPercent}% · ${planned.general} ตัว`;
+    $('alloc-bar-general').style.width=policy.generalPercent+'%';
     const life=this.game.lifecycle;
     const temporaryBrood=life.brood.filter(b=>b.site==='temporary').length;
     $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae}${temporaryBrood?` · พักชั่วคราว ${temporaryBrood}`:''}`;
     $('queen-status').textContent=this.game.colony.queen.alive?life.lastEvent:'นางพญาสิ้นชีวิต';
-    $('forage-minus').disabled=this.game.colony.forageSlots===0;
-    $('forage-plus').disabled=this.game.colony.forageSlots===this.game.colony.workers.length;
     $('population').textContent=String(this.game.population);
     $('report-workers').textContent=String(this.game.colony.workers.length);
     $('report-nurses').textContent=String(life.nurseCount);
