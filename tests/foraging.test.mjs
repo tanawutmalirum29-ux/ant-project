@@ -13,6 +13,8 @@ const consumed = g => Object.values(g.lifecycle.consumed).reduce((a,b)=>a+b,0);
 const lost = g => Object.values(g.lifecycle.lost).reduce((a,b)=>a+b,0);
 const conserved = g => deposited(g)+inTransit(g)+g.foraging.remaining+consumed(g)+lost(g);
 const initial = g => g.foraging.nodes.reduce((a,b)=>a+b.initialAmount,0);
+// Ecology is an explicit external inflow. Physical cargo/reservations are not new mass.
+const regenerated = g => Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 const validAll = g => g.colony.workers.every(w => isWalkable(g.world.layers[w.layer],w.x,w.y));
 
 test('U3.1 seeded source generation is stable, accessible and does not cover nest portal',()=>{
@@ -55,7 +57,7 @@ test('U3.3 no food is created or duplicated: exact mass conservation across trip
   for(let i=0;i<2000;i++){
     g.update(100);
     if(i%7===0){
-      assert.equal(conserved(g),total);
+      assert.equal(conserved(g),total+regenerated(g));
       assert.equal(g.foraging.delivered,deposited(g)+consumed(g));
       for(const node of g.foraging.nodes) {
         assert.ok(node.amount>=0);assert.ok(node.reserved>=0);assert.ok(node.reserved<=node.amount);
@@ -75,14 +77,14 @@ test('U3.4 pause and speed freeze/advance both ant movement and food stock witho
   assert.equal(snapshot,JSON.stringify({workers:g.colony.workers,inventory:g.foraging.inventory,nodes:g.foraging.nodes}));
   g.setSpeed(4);run(g,200);
   assert.equal(g.clock.ticks,ticks+800);
-  assert.equal(conserved(g),initial(g));
+  assert.equal(conserved(g),initial(g)+regenerated(g));
 });
 test('U3.5 layer switching does not pause, duplicate or teleport ants',()=>{
   const g=new Game(),total=initial(g);
   for(let i=0;i<800;i++){
     if(i%3===0)g.toggleLayer();
     g.update(100);
-    if(i%17===0){assert.equal(conserved(g),total);assert.ok(validAll(g));}
+    if(i%17===0){assert.equal(conserved(g),total+regenerated(g));assert.ok(validAll(g));}
   }
   assert.ok(deposited(g)>0);
 });
@@ -104,7 +106,7 @@ test('U3.6 adjustable forager allocation coexists with U2 digging',()=>{
   run(g,450);
   assert.equal(cellAt(l,f.x,f.y),TERRAINS.TUNNEL);
   assert.ok(g.foraging.delivered>0);
-  assert.equal(conserved(g),initial(g));
+  assert.equal(conserved(g),initial(g)+regenerated(g));
   g.colony.setForageSlots(5);
   run(g,450);
   assert.ok(g.foraging.completedTrips>2);
@@ -133,7 +135,7 @@ test('U3.9 long-run workers stay on valid terrain, carry safely, and count depos
   const total=initial(g);
   for(let i=0;i<3200;i++){
     g.update(100);
-    if(i%67===0){assert.ok(validAll(g));assert.equal(conserved(g),total);}
+    if(i%67===0){assert.ok(validAll(g));assert.equal(conserved(g),total+regenerated(g));}
   }
   assert.ok(g.foraging.completedTrips>=35, 'physical warehouse visits take longer than the former instant depot credit');
   assert.ok(g.foraging.nodes.some(n=>n.amount< n.initialAmount));
