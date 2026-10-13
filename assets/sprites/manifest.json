@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "license": "original-generated-for-ant-kingdom",
+  "sprites": [
+    {
+      "id": "worker-ant",
+      "path": "worker-ant.svg",
+      "size": [
+        120,
+        96
+      ],
+      "anchor": [
+        60,
+        80
+      ],
+      "use": "worker and forager concept; not wired"
+    },
+    {
+      "id": "queen-ant",
+      "path": "queen-ant.svg",
+      "size": [
+        156,
+        110
+      ],
+      "anchor": [
+        78,
+        92
+      ],
+      "use": "queen concept; not wired"
+    },
+    {
+      "id": "brood",
+      "path": "brood.svg",
+      "size": [
+        140,
+        96
+      ],
+      "anchor": [
+        70,
+        88
+      ],
+      "use": "egg, larva and pupa concept; not wired"
+    },
+    {
+      "id": "store-room",
+      "path": "store-room.svg",
+      "size": [
+        180,
+        124
+      ],
+      "anchor": [
+        90,
+        117
+      ],
+      "use": "U5 room fixture; not wired"
+    }
+  ]
+}
