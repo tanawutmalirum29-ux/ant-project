@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "registry_version": "GOV-V2-PROPOSAL-001",
+  "governance_status": "PENDING_CEO_REVIEW",
+  "round_id": null,
+  "round_status": "STANDBY",
+  "baseline_main_sha": "7d2458a13154716b09649903d1b26c86c8848845",
+  "canonical_governance": "https://github.com/tanawutmalirum29-ux/appointment-CEO/pull/2",
+  "role_slots": [
+    {
+      "role_id": "CEO",
+      "parent_role_id": null,
+      "scope": "Strategy, role capacity, release signature gate and sole main merge",
+      "required_for_release": true
+    },
+    {
+      "role_id": "DCEO-DELIVERY",
+      "parent_role_id": "CEO",
+      "scope": "Integrated candidate, roster governance, LAST release signer",
+      "required_for_release": true
+    },
+    {
+      "role_id": "DCEO-SYS",
+      "parent_role_id": "DCEO-DELIVERY",
+      "scope": "Simulation, economy, workers, AI, combat and pathfinding",
+      "required_for_release": "if_systems_affected"
+    },
+    {
+      "role_id": "DCEO-EXP",
+      "parent_role_id": "DCEO-DELIVERY",
+      "scope": "HUD, renderer, graphics, mobile accessibility and Thai",
+      "required_for_release": "if_experience_affected"
+    },
+    {
+      "role_id": "DCEO-PLAT",
+      "parent_role_id": "DCEO-DELIVERY",
+      "scope": "Build, CI, tooling, performance and deploy contract",
+      "required_for_release": "if_platform_affected"
+    },
+    {
+      "role_id": "DCEO-QA",
+      "parent_role_id": "DCEO-DELIVERY",
+      "scope": "Independent game/browser/regression QA and binding HOLD",
+      "required_for_release": true
+    }
+  ],
+  "appointments": [],
+  "pending_staffing_requests": [],
+  "active_release_candidate": null,
+  "history": [
+    {
+      "round_id": "ROYAL-01",
+      "status": "COMPLETED",
+      "main_merge_sha": "7d2458a13154716b09649903d1b26c86c8848845",
+      "ceo_receipt": "https://github.com/tanawutmalirum29-ux/ant-project/issues/75#issuecomment-6156508967",
+      "department_receipt": "https://github.com/tanawutmalirum29-ux/ant-project/issues/76#issuecomment-6156429607",
+      "note": "Historical role issues #76-#82 completed; no role here is activated for a new round."
+    }
+  ],
+  "policy": {
+    "one_direct_parent": true,
+    "adjacent_hop_orders_only": true,
+    "owner_zero_click": true,
+    "release_last_signer": "DCEO-DELIVERY",
+    "independent_quality_signer": "DCEO-QA",
+    "team_core_engineers_per_lead": 2,
+    "staffing_capacity_approved_by": "CEO"
+  }
+}
