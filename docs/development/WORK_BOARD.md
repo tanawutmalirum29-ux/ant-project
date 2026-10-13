@@ -4,13 +4,13 @@ Based on d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237. Status is truthfully DRAFT/PL
 | Task ID | Owner | Priority | Scope | Depends on | Risk | Status | Acceptance / How to test |
 |---|---|---|---|---|---|---|---|
 | PH0-HEAD-01 | HEAD | P0 | Audit main source/test/integration and evidence | none | medium (remote only) | Source reviewed; runtime pending | Six system documents cite exact SHA, no invented test PASS |
-| PH0-HEAD-02 | HEAD | P0 | Draft plan/ownership/contracts/QA/briefs | PH0-HEAD-01 | low | Draft PR pending review | Docs-only diff; owner review |
+| PH0-HEAD-02 | HEAD | P0 | Draft plan/ownership/contracts/QA/briefs | PH0-HEAD-01 | low | Consolidation authorized; PR #16 docs to be merged last | Docs-only diff; owner review |
 | PH0-HEAD-03 | OWNER | P0 | Approve/adjust test-only Wave 1 | PH0-HEAD-02 | low | APPROVED 2026-10-13 (test-only) | Explicit owner authorization |
-| P1-ECO-01 | AI-1 | P0 | Resource+logistics invariants tests | PH0-HEAD-03 | medium | Verified on PR #17; NO MERGE | node --test new file, npm test, npm run build; strict ledger |
-| P1-AI-01 | AI-2 | P0 | Ant allocation/motion/rally state tests | PH0-HEAD-03 | medium | Investigation verified; PR #18 Draft / 2 diagnostic FAIL; NO MERGE | node --test new file; no double task/illegal steps |
-| P1-UI-01 | AI-3 | P1 | Browser interaction regression harness | PH0-HEAD-03 | medium | PR #19 head e18c593 +564; responsive source fixes accepted; runtime NOT RUN; HOLD MERGE | Chromium 5 viewports, screenshots, no JS errors/overlap |
+| P1-ECO-01 | AI-1 | P0 | Resource+logistics invariants tests | PH0-HEAD-03 | medium | MERGED PR #17 as 3ab15b1; previous CI pass | node --test new file, npm test, npm run build; strict ledger |
+| P1-AI-01 | AI-2 | P0 | Ant allocation/motion/rally state tests | PH0-HEAD-03 | medium | MERGED PR #18 as 00c7ab5; 2 KNOWN FAILURES remain | node --test new file; no double task/illegal steps |
+| P1-UI-01 | AI-3 | P1 | Browser interaction regression harness | PH0-HEAD-03 | medium | MERGED PR #19 as 5de999d; runtime NOT RUN | Chromium 5 viewports, screenshots, no JS errors/overlap |
 | P1-ECO-02 | AI-1 | P0 if confirmed | Fix reproduced accounting bug ONLY | P1-ECO-01 + approved allowlist | high | Not authorized | Repro red→green, full regression, exact ledger preserved |
-| P1-AI-02 | AI-2 | P2 design | Dynamic Formation C — DESIGN SPEC + ADDENDUM (no implementation) | P1-AI-01, Issue #21, owner design approval | medium | Technical design accepted by HEAD; OWNER must freeze R8/D12/API contract; implementation NOT authorized | Owner signoff parameters, bounded formation and stable goals, exact allowlist, no production edits |
+| P1-AI-02 | AI-2 | P2 design | Dynamic Formation C — DESIGN SPEC + ADDENDUM (no implementation) | P1-AI-01, Issue #21, owner design approval | medium | DESIGN DOCUMENTED ONLY; superseded active instructions pending new owner plan; implementation NOT authorized | Owner signoff parameters, bounded formation and stable goals, exact allowlist, no production edits |
 | P1-UI-02 | AI-3 | P1 if confirmed | Fix reproduced mobile/visual bug ONLY | P1-UI-01 + approved allowlist | medium | Not authorized | Actual browser 5 viewports; no gameplay change |
 | P1-HEAD-INT | HEAD | P0 | Review and one-by-one integration | accepted P1 PRs | high | Planned | CI+local+regression results differentiated; owner approval for core merge |
 | P2-PERF-01 | HEAD (TBD) | P1 | Performance baseline/profile | accepted P1 regressions | medium | Proposed | 50/100/150 ants; 1/8/16/32 rooms; machine+ticks+p95 |
@@ -90,3 +90,11 @@ Owner explicitly approved Phase 0 plan and Wave 1 **test-only** work. AI-1/2/3 a
 - **Owner contract freeze pending:** numerical R8/D12, no holding area, null-return `getRallyGoal`, `ralliedCount` restricted to active Rally Arrived status (behavior change vs baseline), preserve-valid-goal/history policy, baseline-only invalidation. Technical detail: repeated same-location `setRally` should preserve existing motion-reset side effect unless separately approved to change; no needless cache geometry recomputation.
 - Implementation proposal **not approved**: `src/core/combat.js` and new `tests/formation-dynamic.test.mjs` only, on a separate implementation branch after owner explicit code authorization. No HUD/terrain/workflow edits, no PR #18 merge, no gameplay changes.
 - Status: **DESIGN REVIEW COMPLETE — WAIT OWNER SIGNOFF / IMPLEMENTATION NOT AUTHORIZED**.
+
+## Consolidation decision and executed merge checkpoints — 2026-10-13
+- Owner explicitly ordered consolidation of all existing AI work into `main` to simplify management and start planning from a single shared baseline. Previous test-only NO-MERGE gates were superseded for **these existing audit PRs**, not generalized authorization to write Production or merge future work.
+- PR #17 Economy audit: MERGED (squash) as `3ab15b1b385c61ba51a31e4e652347f91bb345b3`; previous U5/U6 CI passing, 1 test-only file.
+- PR #19 UI browser harness: MERGED (squash) as `5de999d9beca6eb36ac30cf54c64520ecd6bc6ab`; 1 test-only file, actual game browser QA NOT RUN. Issue #22 retains limitation.
+- PR #18 Gameplay audit: MERGED (squash) as `00c7ab5a7b29f86b8aeeffa31704598c0023d73c`; 1 test-only file; exactly two prior reproducible failing diagnostic tests remain on PATH-01 and FORM-01. No assertions weakened and no gameplay fix performed; main CI expected to fail until future explicitly authorized work.
+- PR #16 documents: planned as final squash merge after updating historical guidance; this document records pre-merge checkpoint. Check live PR/main after processing; do not infer merged until GitHub confirms.
+- **Team reset:** AI-1/AI-2/AI-3 previous tasks stop after handoff. This closes **the prior assignment round only**; project development stays active, with all new implementation and assignments awaiting a new owner-approved plan. Dynamic Formation C remains design-only; no implementation authorization. All three AI agents must not concurrently merge or push independently during the consolidation.
