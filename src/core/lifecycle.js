@@ -83,13 +83,13 @@ export class Lifecycle {
       if(room.type!=='nursery'||room.status!=='ready'||!room.connected)continue;
       if(room.id===baby.roomId)continue;
       const reserved=this.brood.filter(b=>b.roomId===room.id||b.targetRoomId===room.id).length;
-      if(reserved>=8)continue;
+      if(reserved>=(room.broodSlots??room.width*room.height*2))continue;
       const reach=reachablePaths(layer,ant);
       if(!reach)continue;
       const occupants=p=>this.brood.filter(b=>b!==baby &&
         ((!b.carrierId&&b.x===p.x&&b.y===p.y)||
          (b.targetTile?.x===p.x&&b.targetTile?.y===p.y))).length;
-      // Eight slots spread across the four real nursery tiles (two per tile).
+      // Two real brood slots per nursery floor tile, regardless of room dimensions.
       const tiles=this.rooms.footprint(room).filter(p=>
         reach.distance(p.x,p.y)>=0 && occupants(p)<2);
       // Stable slots retain the original room origin for the first delivery.

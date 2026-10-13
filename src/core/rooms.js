@@ -12,6 +12,22 @@ export const ROOM_CATALOG = Object.freeze({
   rest:        Object.freeze({ name:'ห้องพักมดงาน', width:2, height:2, ticks:60, cost:{carbs:2,protein:1}, capacity:{} }),
   guard:       Object.freeze({ name:'ห้องเตรียมป้องกัน', width:2, height:2, ticks:85, cost:{carbs:3,protein:2}, capacity:{} })
 });
+/** Bounded rectangular rooms: 2×2 remains a single-tap default, while dragging
+ * can choose any shape of at least four connected tiles, up to 8×8.
+ * Effects/time/materials derive from occupied area and never appear early. */
+export const ROOM_LIMITS = Object.freeze({minArea:4,maxWidth:8,maxHeight:8});
+export function roomPlan(type,width=ROOM_CATALOG[type]?.width,height=ROOM_CATALOG[type]?.height) {
+  const def=ROOM_CATALOG[type];
+  if(!def||type==='queen')return null;
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<=0||height<=0)return null;
+  const area=width*height;
+  if(area<ROOM_LIMITS.minArea||width>ROOM_LIMITS.maxWidth||height>ROOM_LIMITS.maxHeight)return null;
+  const factor=area/(def.width*def.height);
+  return {type,width,height,area,cost:Object.fromEntries(Object.entries(def.cost).map(([k,v])=>[k,Math.ceil(v*factor)])),
+    ticks:Math.ceil(def.ticks*factor),
+    capacity:Object.fromEntries(Object.entries(def.capacity).map(([k,v])=>[k,Math.floor(v*factor)])),
+    broodSlots:type==='nursery'?area*2:0};
+}
 const key=(x,y)=>`${x},${y}`;
 const same=(a,b)=>a.x===b.x&&a.y===b.y;
 
@@ -49,7 +65,7 @@ export class Rooms {
   storageSlots(type) {
     return this.rooms.filter(r=>r.status==='ready' &&
       (r.type==='queen'||(type==='water'?r.type==='water_store':r.type==='food_store')))
-      .map(r=>({room:r,space:Math.max(0,(r.type==='queen'?BASE_CAPACITY[type]:(ROOM_CATALOG[r.type].capacity[type]||0))-(r.stock?.[type]||0))}));
+      .map(r=>({room:r,space:Math.max(0,(r.type==='queen'?BASE_CAPACITY[type]:(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0))-(r.stock?.[type]||0))}));
   }
   // Storage requires a physical visit; source distance, destination space and
   // accessibility are computed from the worker's ACTUAL underground tile.
@@ -126,21 +142,26 @@ export class Rooms {
   get busyCount() {return this.colony.workers.filter(w=>w.state==='room-walk'||w.state==='room-build').length;}
   capacityFor(type) {
     if(!RESOURCE_TYPES.includes(type))throw new RangeError('Unknown resource type');
-    return BASE_CAPACITY[type]+this.rooms.reduce((sum,r)=>r.status==='ready'?sum+(ROOM_CATALOG[r.type].capacity[type]||0):sum,0);
+    return BASE_CAPACITY[type]+this.rooms.reduce((sum,r)=>r.status==='ready'?sum+(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0):sum,0);
   }
   capacities() {return Object.fromEntries(RESOURCE_TYPES.map(type=>[type,this.capacityFor(type)]));}
-  get broodCapacity() {return 18+this.rooms.filter(r=>r.type==='nursery'&&r.status==='ready').length*8;}
-  /** Validate *all* occupied cells and a path from the living queen chamber. */
-  validate(type,x,y) {
+  get broodCapacity() {return 18+this.rooms.filter(r=>r.type==='nursery'&&r.status==='ready').reduce((total,r)=>total+(r.broodSlots??(r.width*r.height*2)),0);}
+  /** Validate the entire rectangle; no partial placement/partial payment. */
+  validate(type,x,y,width=ROOM_CATALOG[type]?.width,height=ROOM_CATALOG[type]?.height) {
     const def=ROOM_CATALOG[type];
-    if(!def||type==='queen') return {ok:false,reason:'unknown-room'};
-    if(!Number.isInteger(x)||!Number.isInteger(y))return {ok:false,reason:'invalid-position'};
+    if(!def||type==='queen')return {ok:false,reason:'unknown-room'};
+    if(!Number.isInteger(x)||!Number.isInteger(y)||!Number.isInteger(width)||!Number.isInteger(height)||
+       width<1||height<1)return {ok:false,reason:'invalid-position'};
+    if(width>ROOM_LIMITS.maxWidth||height>ROOM_LIMITS.maxHeight)return {ok:false,reason:'size-too-large'};
+    if(width*height<ROOM_LIMITS.minArea)return {ok:false,reason:'size-too-small'};
+    const plan=roomPlan(type,width,height);
+    if(!plan)return {ok:false,reason:'invalid-position'};
     if(!this.colony.queen.alive)return {ok:false,reason:'disconnected'};
     const l=this.world.layers[UNDERGROUND];
-    if(x<1||y<1||x+def.width>=l.width||y+def.height>=l.height)return {ok:false,reason:'out-of-bounds'};
+    if(x<1||y<1||x+width>=l.width||y+height>=l.height)return {ok:false,reason:'out-of-bounds'};
     const paths=reachablePaths(l,this.colony.queen);
     if(!paths)return {ok:false,reason:'disconnected'};
-    for(let yy=y;yy<y+def.height;yy++)for(let xx=x;xx<x+def.width;xx++) {
+    for(let yy=y;yy<y+height;yy++)for(let xx=x;xx<x+width;xx++) {
       if(!isWalkable(l,xx,yy))return {ok:false,reason:'needs-excavation'};
       if(this.getRoom(xx,yy))return {ok:false,reason:'overlap'};
       if(paths.distance(xx,yy)<0)return {ok:false,reason:'disconnected'};
@@ -148,20 +169,22 @@ export class Rooms {
     }
     if(this.queuedCount>=32)return {ok:false,reason:'queue-full'};
     this.syncInventory();
-    for(const [kind,amount] of Object.entries(def.cost)) {
+    for(const [kind,amount] of Object.entries(plan.cost)) {
       const available=this.storageSlots(kind).reduce((n,v)=>n+v.room.stock[kind],0);
       if(available<amount)return {ok:false,reason:'insufficient-resources'};
     }
-    return {ok:true,reason:'ok'};
+    return {ok:true,reason:'ok',plan};
   }
-  queue(type,x,y) {
-    const verdict=this.validate(type,x,y);
+  queue(type,x,y,width=ROOM_CATALOG[type]?.width,height=ROOM_CATALOG[type]?.height) {
+    const verdict=this.validate(type,x,y,width,height);
     if(!verdict.ok)return {...verdict,room:null};
-    const def=ROOM_CATALOG[type];
-    const pickups=this.reserveMaterials(def.cost);
-    for(const [kind,amount] of Object.entries(def.cost))this.held[kind]+=amount;
-    const room={id:`room-${this.nextId++}`,type,x,y,width:def.width,height:def.height,
-      progress:0,status:'planned',connected:true,workerId:null,cost:{...def.cost},pickups,stock:{carbs:0,protein:0,water:0}};
+    const plan=verdict.plan;
+    const pickups=this.reserveMaterials(plan.cost);
+    for(const [kind,amount] of Object.entries(plan.cost))this.held[kind]+=amount;
+    const room={id:`room-${this.nextId++}`,type,x,y,width,height,
+      ticks:plan.ticks,capacity:plan.capacity,broodSlots:plan.broodSlots,
+      progress:0,status:'planned',connected:true,workerId:null,
+      cost:{...plan.cost},pickups,stock:{carbs:0,protein:0,water:0}};
     this.rooms.push(room);
     return {ok:true,reason:'ok',room};
   }
@@ -206,12 +229,14 @@ export class Rooms {
     }
   }
   pickWorkSite(layer,ant,room) {
-    let best=null;
+    const reach=reachablePaths(layer,ant);
+    if(!reach)return null;
+    let best=null,dist=Infinity;
     for(const tile of this.footprint(room)) {
-      const path=findPath(layer,ant,tile);
-      if(path && (!best||path.length<best.path.length))best={tile,path};
+      const d=reach.distance(tile.x,tile.y);
+      if(d>=0&&d<dist){best=tile;dist=d;}
     }
-    return best;
+    return best?{tile:best,path:reach.path(best.x,best.y)}:null;
   }
   assign() {
     const layer=this.world.layers[UNDERGROUND];
@@ -269,7 +294,7 @@ export class Rooms {
     }
     ant.state='room-build';ant.path=[];ant.next=null;ant.motion=0;
     room.progress++;
-    if(room.progress>=ROOM_CATALOG[room.type].ticks) {
+    if(room.progress>=(room.ticks??ROOM_CATALOG[room.type].ticks)) {
       for(const [kind,amount] of Object.entries(room.cost)){
         this.held[kind]-=amount;this.spent[kind]+=amount;
       }

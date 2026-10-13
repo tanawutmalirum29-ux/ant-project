@@ -2,7 +2,7 @@ import { SURFACE, UNDERGROUND, cellAt, portalAt, TERRAINS } from '../world/gener
 import { isDiggable } from '../world/navigation.js';
 import { formatGameTime } from '../core/time.js';
 import { LIFE } from '../core/lifecycle.js';
-import { ROOM_CATALOG } from '../core/rooms.js';
+import { ROOM_CATALOG, roomPlan, ROOM_LIMITS } from '../core/rooms.js';
 import { terrainName } from '../render/renderer.js';
 const $ = (id) => document.getElementById(id);
 
@@ -51,7 +51,7 @@ export class UI {
     // Re-clicking an active action tool exits to inspection (same as G/R keys).
     $('tool-dig').addEventListener('click', () => this.setTool(this.tool === 'dig' ? 'inspect' : 'dig'));
     $('tool-room').addEventListener('click', () => this.setTool(this.tool === 'room' ? 'inspect' : 'room'));
-    $('room-type').addEventListener('change', () => { this.updateRoomCost();this.roomPreview=null; });
+    $('room-type').addEventListener('change', () => { this.roomPreview=null;this.updateRoomCost(); });
     $('cancel-room').addEventListener('click', () => {
       const s=this.selection, room=s?.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
       if(room && this.game.rooms.cancel(room.id))this.notice('ยกเลิกและคืนค่าก่อสร้างแล้ว');
@@ -105,9 +105,9 @@ export class UI {
       if(pointers.size===1) {
         start=p;dragDistance=0;usedMultiTouch=false;pinch=null;
         if(this.tool==='dig' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.digPreview={from:cell,to:cell};}
-        if(this.tool==='room' && this.game.layer===UNDERGROUND)this.roomPreview=cellAtPointer(p);
+        if(this.tool==='room' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.roomPreview={from:cell,to:cell,dragging:false};this.updateRoomCost();}
       }
-      if(pointers.size>=2){usedMultiTouch=true;this.digPreview=null;start=null;pinch=pinchInfo();}
+      if(pointers.size>=2){usedMultiTouch=true;this.digPreview=null;this.roomPreview=null;this.updateRoomCost();start=null;pinch=pinchInfo();}
     });
     el.addEventListener('pointermove',e=>{
       if(!pointers.has(e.pointerId)) return;
@@ -125,7 +125,12 @@ export class UI {
         dragDistance+=Math.hypot(dx,dy);
         if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview && !usedMultiTouch){
           this.digPreview.to=cellAtPointer(p);
-        }else {camera.pan(dx,dy,layer,...this.dimensions());if(this.tool==='room'&&this.game.layer===UNDERGROUND)this.roomPreview=cellAtPointer(p);}
+        }else if(this.tool==='room' && this.game.layer===UNDERGROUND && this.roomPreview && !usedMultiTouch){
+          // Drag defines a rectangle rather than panning the camera.
+          this.roomPreview.to=cellAtPointer(p);
+          this.roomPreview.dragging=dragDistance>=7;
+          this.updateRoomCost();
+        }else camera.pan(dx,dy,layer,...this.dimensions());
       }
     });
     const finish = (e,cancelled=false) => {
@@ -136,11 +141,17 @@ export class UI {
         const cell=cellAtPointer(p);
         if(dragDistance<7 && this.mapTapHandler?.({layer:this.game.layer,...cell})===true){
           // A confirmed military map tap is handled by the tactical dock.
-        } else if(this.tool==='room' && this.game.layer===UNDERGROUND && dragDistance<7){
-          this.roomPreview={...cell};
-          const result=this.game.rooms.queue($('room-type').value,cell.x,cell.y);
-          this.notice(result.ok?'สั่งสร้างห้องแล้ว มดจะเดินมาทำงาน':this.roomError(result.reason));
-          this.select({layer:this.game.layer,...cell});
+        } else if(this.tool==='room' && this.game.layer===UNDERGROUND && this.roomPreview) {
+          // A tap keeps the familiar 2×2 quick placement. A real drag chooses
+          // the inclusive rectangle between pointer-down and pointer-up.
+          const from=this.roomPreview.from,to=dragDistance<7?from:cell;
+          const x=Math.min(from.x,to.x),y=Math.min(from.y,to.y);
+          const width=dragDistance<7?2:Math.abs(from.x-to.x)+1;
+          const height=dragDistance<7?2:Math.abs(from.y-to.y)+1;
+          const result=this.game.rooms.queue($('room-type').value,x,y,width,height);
+          this.notice(result.ok?`สั่งสร้างห้อง ${width}×${height} แล้ว มดจะเดินมาทำงาน`:this.roomError(result.reason));
+          if(result.ok)this.select({layer:this.game.layer,x,y});
+          this.roomPreview=null;this.updateRoomCost();
         } else if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview){
           const result=this.game.colony.queueRectangle(this.digPreview.from,this.digPreview.to);
           if(result.added) this.notice(`สั่งขุด ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`);
@@ -153,7 +164,7 @@ export class UI {
         }
       }
       if(pointers.size===1){start=null;pinch=null;this.digPreview=null;}
-      if(pointers.size===0){pinch=null;start=null;usedMultiTouch=false;this.digPreview=null;}
+      if(pointers.size===0){pinch=null;start=null;usedMultiTouch=false;this.digPreview=null;this.roomPreview=null;this.updateRoomCost();}
     };
     el.addEventListener('pointerup',e=>finish(e));
     el.addEventListener('pointercancel',e=>finish(e,true));
@@ -182,8 +193,20 @@ export class UI {
     this.select(null);
     this.updateWorld();
   }
-  roomError(reason) {return ({'unknown-room':'ไม่รู้จักห้อง','invalid-position':'ตำแหน่งไม่ถูกต้อง','out-of-bounds':'พื้นที่เกินขอบแผนที่','needs-excavation':'ต้องขุดพื้นที่ให้โล่งทั้ง 2×2 ก่อน','overlap':'พื้นที่มีห้องอยู่แล้ว','disconnected':'ห้องต้องเชื่อมกับรัง','entrance':'ห้ามปิดปากรัง','queue-full':'คิวสร้างห้องเต็ม','insufficient-resources':'ทรัพยากรในคลังยังไม่พอ'})[reason]||'ไม่สามารถสร้างห้องได้';}
-  updateRoomCost(){const def=ROOM_CATALOG[$('room-type').value];if(def)$('room-cost').textContent=`ใช้ ${Object.entries(def.cost).map(([k,n])=>({carbs:'พลังงาน',protein:'โปรตีน',water:'น้ำ'})[k]+n).join(' · ')} · ขนาด ${def.width}×${def.height}`;}
+  roomError(reason) {return ({'unknown-room':'ไม่รู้จักห้อง','invalid-position':'ตำแหน่งไม่ถูกต้อง','size-too-small':'พื้นที่อย่างน้อย 4 ช่อง (เช่น 2×2 หรือ 1×4)','size-too-large':'ห้องกว้างหรือยาวได้สูงสุด 8 ช่อง','out-of-bounds':'พื้นที่เกินขอบแผนที่','needs-excavation':'ต้องขุดพื้นที่ทั้งหมดให้โล่งก่อน','overlap':'พื้นที่มีห้องอยู่แล้ว','disconnected':'ห้องต้องเชื่อมกับรัง','entrance':'ห้ามปิดปากรัง','queue-full':'คิวสร้างห้องเต็ม','insufficient-resources':'ทรัพยากรในคลังยังไม่พอ'})[reason]||'ไม่สามารถสร้างห้องได้';}
+  updateRoomCost(){
+    const def=ROOM_CATALOG[$('room-type').value];if(!def)return;
+    const preview=this.roomPreview;
+    const x=preview?Math.min(preview.from.x,preview.to.x):null;
+    const y=preview?Math.min(preview.from.y,preview.to.y):null;
+    const width=preview?.dragging?Math.abs(preview.to.x-preview.from.x)+1:def.width;
+    const height=preview?.dragging?Math.abs(preview.to.y-preview.from.y)+1:def.height;
+    const plan=roomPlan($('room-type').value,width,height);
+    const cost=plan?.cost||def.cost;
+    const amount=Object.entries(cost).map(([k,n])=>({carbs:'พลังงาน',protein:'โปรตีน',water:'น้ำ'})[k]+n).join(' · ');
+    const verdict=preview?this.game.rooms.validate($('room-type').value,x,y,width,height):null;
+    $('room-cost').textContent=`แตะ: 2×2 · ลาก: ${width}×${height} (${width*height} ช่อง) · ใช้ ${amount}${verdict&&!verdict.ok?' · '+this.roomError(verdict.reason):''}`;
+  }
   showColonyPanel(show) {
     $('colony-panel').classList.toggle('hidden',!show);
     $('colony-button').setAttribute('aria-expanded',String(show));
@@ -236,7 +259,7 @@ export class UI {
       const cargo=room.status==='building'||room.status==='planned'?(room.pickups||[]).filter(p=>!p.collected).length:0;
       const brood=room.type==='nursery'?this.game.lifecycle.brood.filter(b=>b.roomId===room.id).length:0;
       const guards=room.type==='guard'?this.game.colony.workers.filter(w=>w.state==='room-guard'&&w.guardRoomId===room.id).length:0;
-      $('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${Math.floor(room.progress/Math.max(1,ROOM_CATALOG[room.type].ticks)*100)}%${cargo?` · รอรับวัสดุ ${cargo} ชุด`:''}${stored?' · คลัง: '+stored:''}${room.type==='nursery'?` · ตัวอ่อนในห้อง ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards} ตัว`:''}`;
+      $('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${room.width}×${room.height} · ${Math.floor(room.progress/Math.max(1,room.ticks??ROOM_CATALOG[room.type].ticks)*100)}%${cargo?` · รอรับวัสดุ ${cargo} ชุด`:''}${stored?' · คลัง: '+stored:''}${room.type==='nursery'?` · ตัวอ่อนในห้อง ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards} ตัว`:''}`;
     }
     $('selection-resource').classList.toggle('hidden',!source);
     if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
