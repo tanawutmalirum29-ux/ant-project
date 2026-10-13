@@ -18,6 +18,13 @@ with sync_playwright() as pw:
         page.locator('#tool-room').click()
         assert page.locator('#room-palette').is_visible()
         assert page.locator('#tool-room').get_attribute('aria-pressed')=='true'
+        # The room tool is a toggle. The second tap should exit, not build.
+        page.locator('#tool-room').click()
+        assert page.locator('#tool-inspect').get_attribute('aria-pressed')=='true'
+        assert page.locator('#room-palette').is_hidden()
+        assert page.evaluate('() => __ANT_DEBUG__.game.rooms.queuedCount')==0
+        page.locator('#tool-room').click()
+        assert page.locator('#room-palette').is_visible()
         assert 'ใช้' in page.locator('#room-cost').inner_text()
         page.locator('#room-type').select_option('food_store')
         # Real UI pointer click: all values are game state except funding and camera re-centering.
