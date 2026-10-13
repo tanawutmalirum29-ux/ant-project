@@ -244,6 +244,13 @@ const RESOURCE_COLORS = Object.freeze({
 });
 const RESOURCE_MUTED = '#83958b';
 
+const WEATHER_DRAW_BUDGET = 280;
+/** Weather is optional until the Integration Lead wires it into Game. */
+export function weatherVisualKind(game) {
+  const kind = game?.weather?.kind;
+  return kind === 'rain' || kind === 'dry' ? kind : 'clear';
+}
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -297,6 +304,8 @@ export class Renderer {
       for (let y = bounds.y0; y <= bounds.y1 + 1; y++) { ctx.moveTo(bounds.x0 * TILE, y * TILE); ctx.lineTo((bounds.x1 + 1) * TILE, y * TILE); }
       ctx.stroke();
     }
+    // Weather is a ground-layer effect, deliberately BELOW resources and ants.
+    if (game.layer === SURFACE) this.drawWeather(ctx, game, bounds, camera.zoom, elapsedMs);
     for (const entrance of game.world.entrances) {
       const p = entrance[game.layer];
       if (p.x >= bounds.x0 && p.x <= bounds.x1 && p.y >= bounds.y0 && p.y <= bounds.y1) this.drawEntrance(ctx, p, game.layer, elapsedMs);
@@ -324,6 +333,67 @@ export class Renderer {
     g.addColorStop(1, '#050c0b70');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
+  }
+  /**
+   * Surface weather: one translucent ground wash and a bounded, batched
+   * set of seeded rain/dust strokes. All points are in world coordinates.
+   * No weather objects, random generators, gradients or images per frame.
+   */
+  drawWeather(ctx, game, bounds, zoom, elapsedMs) {
+    if (game.layer !== SURFACE) return;
+    const kind = weatherVisualKind(game);
+    const left = bounds.x0 * TILE, top = bounds.y0 * TILE;
+    const width = (bounds.x1 - bounds.x0 + 1) * TILE;
+    const height = (bounds.y1 - bounds.y0 + 1) * TILE;
+    if (width <= 0 || height <= 0) return;
+    const scale = Math.max(.15, Number.isFinite(zoom) && zoom > 0 ? zoom : 1);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left, top, width, height);
+    ctx.clip();
+    // Slight warm daylight, cool wet stone/soil, dry ochre haze.
+    ctx.fillStyle = kind === 'rain' ? '#6b9eaf1d'
+      : kind === 'dry' ? '#d6a06726' : '#f3dfaa0e';
+    ctx.fillRect(left, top, width, height);
+    if (kind === 'clear') { ctx.restore(); return; }
+
+    // Adaptive world-space lattice: approximately stable screen density at
+    // phone and desktop zoom, capped to avoid unbounded path work.
+    const stride = Math.max(TILE * 2, Math.ceil(84 / scale),
+      Math.ceil(Math.sqrt(width * height / (WEATHER_DRAW_BUDGET - 16))));
+    const x0 = Math.floor(left / stride), x1 = Math.floor((left + width) / stride);
+    const y0 = Math.floor(top / stride), y1 = Math.floor((top + height) / stride);
+    const seed = game.world?.seed ?? 0;
+    const drift = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) * .052 : 0;
+    const rain = kind === 'rain';
+    ctx.strokeStyle = rain ? '#bee2ee8c' : '#eed09a78';
+    ctx.lineWidth = (rain ? 1.05 : 1.25) / scale;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    let marks = 0;
+    for (let gy = y0; gy <= y1 && marks < WEATHER_DRAW_BUDGET; gy++) {
+      for (let gx = x0; gx <= x1 && marks < WEATHER_DRAW_BUDGET; gx++) {
+        const offset = tileHash(seed, gx, gy, 823);
+        if (!rain && offset < .30) continue;
+        const x = (gx + .16 + offset * .68) * stride;
+        const y = gy * stride + (rain
+          ? (tileHash(seed, gx, gy, 119) * stride + drift) % stride
+          : (.16 + tileHash(seed, gx, gy, 122) * .68) * stride);
+        if (rain) {
+          // Lean, faint rain — no broad white screen-space particle layer.
+          ctx.moveTo(x + 2.6 / scale, y - 5.5 / scale);
+          ctx.lineTo(x - 2.6 / scale, y + 5.5 / scale);
+        } else {
+          // Sparse dry-soil hairline: short and low contrast, never a new tile.
+          ctx.moveTo(x - 4 / scale, y - 1 / scale);
+          ctx.lineTo(x, y + 1 / scale);
+          ctx.lineTo(x + 3.5 / scale, y - 2 / scale);
+        }
+        marks++;
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
   }
   /** Individually rendered, deterministic room furniture rather than a flat
    * color block. All paths live on the canvas; no image downloads or animation
