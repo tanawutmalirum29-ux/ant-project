@@ -1,5 +1,5 @@
 import { UNDERGROUND } from '../world/generate.js';
-import { findPath, isWalkable } from '../world/navigation.js';
+import { findPath, isWalkable, reachablePaths } from '../world/navigation.js';
 import { WORKER_SPEED } from './colony.js';
 
 // All durations are simulation ticks (10 ticks / real second at x1).
@@ -51,6 +51,89 @@ export class Lifecycle {
     this.consumed[type]+=amount;
     return true;
   }
+  /** One grounded brood per tile; in-transit destinations are reserved as well. */
+  occupiedBroodTile(x,y,except=null) {
+    return this.brood.some(b=>b!==except &&
+      ((!b.carrierId && b.x===x && b.y===y) ||
+       (b.targetTile?.x===x && b.targetTile?.y===y)));
+  }
+  /** Lay beside (never underneath) the queen; if all safe tiles are full, pause laying. */
+  layingSite() {
+    const q=this.colony.queen, layer=this.colony.world.layers[UNDERGROUND];
+    const reach=reachablePaths(layer,q);
+    if(!reach)return null;
+    const tiles=[];
+    for(let y=q.y-3;y<=q.y+3;y++)for(let x=q.x-3;x<=q.x+3;x++){
+      const d=Math.abs(x-q.x)+Math.abs(y-q.y);
+      if(d===0||d>3||reach.distance(x,y)<0||this.occupiedBroodTile(x,y)||
+         this.rooms?.getRoom(x,y))continue;
+      tiles.push({x,y,d});
+    }
+    // Closest available safe chamber tile first; deterministic tied ordering.
+    tiles.sort((a,b)=>a.d-b.d||a.y-b.y||a.x-b.x);
+    return tiles[0]||null;
+  }
+  /** A real nursery reserves one of its tiles, not a common stacked top-left tile. */
+  nurseryDestination(baby,ant) {
+    const rooms=this.rooms?.rooms;
+    if(!rooms)return null;
+    const layer=this.colony.world.layers[UNDERGROUND];
+    for(const room of rooms){
+      if(room.type!=='nursery'||room.status!=='ready'||!room.connected)continue;
+      if(room.id===baby.roomId)continue;
+      const reserved=this.brood.filter(b=>b.roomId===room.id||b.targetRoomId===room.id).length;
+      if(reserved>=8)continue;
+      const reach=reachablePaths(layer,ant);
+      if(!reach)continue;
+      const tiles=this.rooms.footprint(room).filter(p=>
+        reach.distance(p.x,p.y)>=0 && !this.occupiedBroodTile(p.x,p.y,baby));
+      tiles.sort((a,b)=>reach.distance(a.x,a.y)-reach.distance(b.x,b.y)||a.y-b.y||a.x-b.x);
+      if(tiles.length)return {tile:tiles[0],roomId:room.id,kind:'nursery'};
+    }
+    return null;
+  }
+  /** No nursery yet: nursing ants use reachable chamber / tunnel staging tiles. */
+  temporaryDestination(baby,ant) {
+    const q=this.colony.queen,layer=this.colony.world.layers[UNDERGROUND];
+    const reach=reachablePaths(layer,ant);
+    if(!reach)return null;
+    const spots=[];
+    for(let y=q.y-9;y<=q.y+9;y++)for(let x=q.x-9;x<=q.x+9;x++){
+      const d=Math.abs(x-q.x)+Math.abs(y-q.y);
+      if(d<4||d>9||reach.distance(x,y)<0||
+         this.rooms?.getRoom(x,y)||this.occupiedBroodTile(x,y,baby))continue;
+      const terrain=layer.cells[y*layer.width+x];
+      spots.push({x,y,d,terrain,travel:reach.distance(x,y)});
+    }
+    // Prefer previously hollowed chamber floors, then low-cost connected paths.
+    spots.sort((a,b)=>(a.terrain===14?0:1)-(b.terrain===14?0:1)||
+      a.travel-b.travel||a.d-b.d||a.y-b.y||a.x-b.x);
+    return spots.length?{tile:{x:spots[0].x,y:spots[0].y},roomId:null,kind:'temporary'}:null;
+  }
+  /** A damaged nursery or path never teleports its occupants to safety. */
+  isValidBroodSite(baby) {
+    if(baby.carrierId)return true;
+    const map=this.colony.world.layers[UNDERGROUND];
+    if(!isWalkable(map,baby.x,baby.y))return false;
+    if(baby.roomId){
+      const room=this.rooms?.rooms.find(r=>r.id===baby.roomId);
+      return !!room && room.type==='nursery' && room.status==='ready' &&
+        room.connected && this.rooms.footprint(room).some(t=>same(t,baby));
+    }
+    return baby.site==='temporary' && !this.rooms?.getRoom(baby.x,baby.y);
+  }
+  /** A nurse, not an instantaneous assignment, carries every relocated brood. */
+  clearBroodCarry(ant) {
+    for(const baby of this.brood){
+      if(baby.pickupBy!==ant.id && baby.carrierId!==ant.id)continue;
+      if(baby.carrierId===ant.id){
+        baby.x=ant.x;baby.y=ant.y;baby.roomId=null;baby.site='fresh';
+        baby.carrierId=null;
+      }
+      baby.pickupBy=null;baby.targetRoomId=null;baby.targetTile=null;baby.targetKind=null;
+    }
+    ant.broodCargo=null;
+  }
   /** Remove stale work assignments, release source reservations, account for lost cargo. */
   killWorker(ant) {
     if(!this.colony.workers.includes(ant)) return false;
@@ -58,11 +141,7 @@ export class Lifecycle {
       const job=this.colony.ordersById.get(ant.orderId);
       if(job && job.workerId===ant.id) {job.workerId=null;job.status='queued';}
     }
-    if(ant.broodCargo) {
-      const baby=this.brood.find(b=>b.id===ant.broodCargo);
-      if(baby){baby.carrierId=null;baby.x=ant.x;baby.y=ant.y;baby.roomId=null;baby.targetRoomId=null;}
-      ant.broodCargo=null;
-    }
+    this.clearBroodCarry(ant);
     this.rooms?.onWorkerDeath(ant);
     this.foraging.releaseReservation(ant);
     if(ant.cargo?.amount) {
@@ -78,11 +157,7 @@ export class Lifecycle {
   }
   releaseNurse(ant) {
     if(ant.state!=='nursing') return;
-    if(ant.broodCargo){
-      const baby=this.brood.find(b=>b.id===ant.broodCargo);
-      if(baby){baby.carrierId=null;baby.x=ant.x;baby.y=ant.y;baby.roomId=null;baby.targetRoomId=null;}
-      ant.broodCargo=null;
-    }
+    this.clearBroodCarry(ant);
     ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;ant.nurseDestination=null;
   }
   releaseExcessNurses() {
@@ -98,6 +173,7 @@ export class Lifecycle {
     let count=0;
     for(const ant of this.colony.workers) {
       if(ant.state!=='idle'||ant.orderId!=null||ant.layer!==UNDERGROUND||this.colony.isForager(ant))continue;
+      this.colony.stopAmbient(ant);
       ant.state='nursing';ant.path=[];ant.next=null;ant.motion=0;
       if(++count===shortage) break;
     }
@@ -127,16 +203,6 @@ export class Lifecycle {
     if(ant.motion>=1){ant.x=ant.next.x;ant.y=ant.next.y;ant.path.shift();ant.motion=0;ant.next=null;}
     return same(ant,destination);
   }
-  nurseryDestination(baby) {
-    if(!this.rooms)return null;
-    for(const room of this.rooms.rooms) {
-      if(room.type!=='nursery'||room.status!=='ready')continue;
-      if(room.id===baby.roomId)return room;
-      const occupants=this.brood.filter(b=>b.roomId===room.id||b.targetRoomId===room.id).length;
-      if(occupants<8)return room;
-    }
-    return null;
-  }
   stepNurses() {
     const queen=this.colony.queen;
     const layer=this.colony.world.layers[UNDERGROUND];
@@ -146,33 +212,47 @@ export class Lifecycle {
       if(ant.layer!==UNDERGROUND||!isWalkable(layer,ant.x,ant.y)){this.releaseNurse(ant);continue;}
       if(ant.broodCargo){
         const baby=this.brood.find(b=>b.id===ant.broodCargo);
-        const room=baby&&this.rooms?.rooms.find(r=>r.id===baby.targetRoomId&&r.status==='ready');
-        if(!baby||!room){this.releaseNurse(ant);continue;}
-        const goal={x:room.x,y:room.y};
-        this.nurseWalk(ant,goal);
+        const room=baby?.targetRoomId?this.rooms?.rooms.find(r=>r.id===baby.targetRoomId&&r.status==='ready'&&r.connected):null;
+        const valid=!!baby && !!baby.targetTile && isWalkable(layer,baby.targetTile.x,baby.targetTile.y) &&
+          (baby.targetKind==='temporary'||!!room);
+        if(!valid){this.clearBroodCarry(ant);ant.path=[];ant.next=null;ant.motion=0;continue;}
+        const arrived=this.nurseWalk(ant,baby.targetTile);
         baby.x=ant.x;baby.y=ant.y;
-        if(same(ant,goal)) {
-          baby.carrierId=null;baby.roomId=room.id;baby.targetRoomId=null;
+        if(arrived) {
+          baby.carrierId=null;baby.pickupBy=null;baby.roomId=room?.id||null;
+          baby.site=room?'nursery':'temporary';
+          baby.targetRoomId=null;baby.targetTile=null;baby.targetKind=null;
           ant.broodCargo=null;ant.path=[];ant.next=null;ant.motion=0;
         }
         continue;
       }
-      // New eggs start physically in the queen chamber. Nurses collect and
-      // carry them to a finished nursery; no instant transfer on room completion.
-      const moving=this.brood.find(b=>!b.carrierId&&!b.roomId&&!b.targetRoomId&&this.nurseryDestination(b)&&isWalkable(layer,b.x??queen.x,b.y??queen.y));
-      if(moving){
-        const room=this.nurseryDestination(moving);
-        const origin={x:moving.x??queen.x,y:moving.y??queen.y};
+      // Prefer transferring unassigned brood into real nurseries. Without one,
+      // physically move fresh/unhoused brood to spread-out temporary nest tiles.
+      let moving=null;
+      for(const baby of this.brood) {
+        if(baby.carrierId||(baby.pickupBy&&baby.pickupBy!==ant.id))continue;
+        if(!isWalkable(layer,baby.x,baby.y))continue;
+        if(baby.pickupBy===ant.id&&baby.targetTile){moving=baby;break;}
+        if(baby.roomId&&this.isValidBroodSite(baby))continue;
+        const destination=this.nurseryDestination(baby,ant)||
+          (!this.isValidBroodSite(baby)?this.temporaryDestination(baby,ant):null);
+        if(!destination)continue;
+        baby.pickupBy=ant.id;baby.targetTile=destination.tile;
+        baby.targetRoomId=destination.roomId;baby.targetKind=destination.kind;
+        moving=baby;break;
+      }
+      if(moving) {
+        const origin={x:moving.x,y:moving.y};
         if(this.nurseWalk(ant,origin)){
-          moving.carrierId=ant.id;moving.targetRoomId=room.id;
+          moving.carrierId=ant.id;
           ant.broodCargo=moving.id;ant.path=[];ant.next=null;ant.motion=0;
         }
         continue;
       }
-      // The nurse must visit the exact tile where a larva lives to give care.
+      // Actual care requires an actual trip to the larva's current tile.
       const larvae=this.brood.filter(b=>b.stage==='larva'&&!b.carrierId&&b.care<LIFE.requiredCare);
-      const baby=larvae.find(b=>findPath(layer,ant,{x:b.x??queen.x,y:b.y??queen.y})!==null);
-      const destination=baby?{x:baby.x??queen.x,y:baby.y??queen.y}:queen;
+      const baby=larvae.find(b=>findPath(layer,ant,{x:b.x,y:b.y})!==null);
+      const destination=baby?{x:baby.x,y:baby.y}:queen;
       if(this.nurseWalk(ant,destination) && baby && same(ant,destination))caretakers.push({ant,baby});
     }
     for(const {baby} of caretakers) {
@@ -199,10 +279,13 @@ export class Lifecycle {
   layEgg() {
     if(!this.colony.queen.alive || this.tickCount%LIFE.layInterval!==0 ||
       this.brood.length>=(this.rooms?.broodCapacity ?? LIFE.broodLimit) || this.totalPopulation>=LIFE.maxPopulation) return;
+    const site=this.layingSite();
+    if(!site){this.lastEvent='ที่วางไข่ใกล้นางพญาเต็ม — ต้องมีมดพี่เลี้ยงหรือขยายพื้นที่';return;}
     // Queens lay only after foragers have actually deposited protein.
     if(!this.consume('protein')) {this.lastEvent='รอโปรตีนสำหรับนางพญาวางไข่';return;}
-    this.brood.push({id:`brood-${this.nextBroodId++}`,stage:'egg',age:0,care:0,waiting:0,x:this.colony.queen.x,y:this.colony.queen.y,roomId:null,carrierId:null,targetRoomId:null});
-    this.lastEvent='นางพญาวางไข่ใหม่แล้ว';
+    this.brood.push({id:`brood-${this.nextBroodId++}`,stage:'egg',age:0,care:0,waiting:0,
+      x:site.x,y:site.y,site:'fresh',roomId:null,carrierId:null,pickupBy:null,targetRoomId:null,targetTile:null,targetKind:null});
+    this.lastEvent='นางพญาวางไข่ใหม่แล้ว — รอมดพี่เลี้ยงขนย้าย';
   }
   promote(baby) {
     const q=this.colony.queen;
