@@ -128,9 +128,6 @@
    moves upward into the tactical quick-action column. Keep the army entry
    accessible without letting those quick buttons block the tool toggle. */
 @media (max-width:680px) and (min-height:501px) {
-  body:has(.room-palette:not(.hidden)) #u6-dock {
-    top:calc(156px + env(safe-area-inset-top));
-  }
   body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-rally,
   body:has(.room-palette:not(.hidden)) #u6-dock #u6-quick-defend {
     display:none;
