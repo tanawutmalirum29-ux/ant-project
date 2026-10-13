@@ -39,3 +39,5 @@ jobs:
           python -m playwright install chromium
       - name: U5 physical logistics in five viewports
         run: python tools/browser-u5-logistics.py
+      - name: V2.1 actual UI integration in five viewports
+        run: python tools/browser-v2-ui-fix.py
