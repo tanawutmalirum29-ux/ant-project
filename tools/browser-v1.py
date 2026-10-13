@@ -34,29 +34,31 @@ with sync_playwright() as p:
         page.set_content(html, wait_until='domcontentloaded')
         page.wait_for_function('window.__ANT_DEBUG__ && __ANT_DEBUG__.game.population === 6')
         assert page.locator('#game-canvas').is_visible(), name
-        assert page.locator('#forage-count').inner_text() == '2/5', name
+        assert page.locator('#forage-count').inner_text() == '40% · 2/5', name
         assert page.evaluate('''() => {
           const r=document.querySelector('.layer-switch').getBoundingClientRect();
           return Math.abs(r.x+r.width/2-innerWidth/2)<2;
         }'''), f'{name}: layer dock not centered'
-        controls = ['#seed-button', '#tool-inspect', '#tool-dig', '#forage-plus',
-                    '#forage-minus', '#nurse-minus', '#nurse-plus', '#colony-button', '#pause-button', '#debug-toggle',
+        controls = ['#seed-button', '#tool-inspect', '#tool-dig', '#workforce-open',
+                    '#colony-button', '#pause-button', '#debug-toggle',
                     '#surface-button', '#underground-button']
         for selector in controls:
             bounds = page.locator(selector).bounding_box()
             assert bounds, (name, selector, 'missing')
             assert bounds['x'] >= -1 and bounds['x']+bounds['width'] <= width+1, (name, selector, bounds)
             assert bounds['y'] >= -1 and bounds['y']+bounds['height'] <= height+1, (name, selector, bounds)
-        page.locator('#forage-plus').click()
-        assert page.locator('#forage-count').inner_text() == '3/5', name
-        page.locator('#forage-minus').click()
-        assert page.locator('#forage-count').inner_text() == '2/5', name
         assert page.locator('#nurse-count').is_visible(), name
-        original_nurse = page.locator('#nurse-count').inner_text()
-        page.locator('#nurse-plus').click()
-        assert page.locator('#nurse-count').inner_text() != original_nurse, name
-        page.locator('#nurse-minus').click()
-        assert page.locator('#nurse-count').inner_text() == original_nurse, name
+        page.locator('#workforce-open').click()
+        assert page.locator('#colony-panel').is_visible()
+        page.locator('#alloc-forage').evaluate('(el)=>{el.value="50";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#forage-count').inner_text() == '50% · 3/5', name
+        page.locator('#alloc-forage').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#forage-count').inner_text() == '40% · 2/5', name
+        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#nurse-count').inner_text() == '40% · 2/5', name
+        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#nurse-count').inner_text() == '20% · 1/5', name
+        page.locator('#close-colony').click()
         page.locator('#colony-button').click()
         assert page.locator('#colony-panel').is_visible(), name
         page.locator('#close-colony').click()
