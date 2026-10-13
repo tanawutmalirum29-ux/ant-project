@@ -47,7 +47,8 @@ with sync_playwright() as pw:
         assert page.evaluate('() => __ANT_DEBUG__.game.rooms.queuedCount')==1,name
         assert page.locator('#selection-room').is_visible()
         assert page.locator('#cancel-room').is_visible()
-        assert 'คลังอาหาร' in page.locator('#selection-room').inner_text()
+        assert 'คลังอาหาร' in page.locator('#selection-terrain').inner_text()
+        assert '2×2' in page.locator('#selection-room').inner_text()
         page.locator('#cancel-room').click()
         assert page.evaluate('() => __ANT_DEBUG__.game.rooms.queuedCount')==0,name
         assert page.evaluate('() => __ANT_DEBUG__.game.foraging.inventory.carbs')==15
