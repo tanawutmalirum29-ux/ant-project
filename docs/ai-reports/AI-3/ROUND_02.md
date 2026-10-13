@@ -1,3 +1,29 @@
+# AI-3 — R2-UIQA-HARNESS-01 Browser QA Harness Correction
+
+**Task:** https://github.com/tanawutmalirum29-ux/ant-project/issues/33  
+**Date (ICT):** 2026-10-13  
+**Status:** IMPLEMENTED — awaiting actual GitHub Actions browser validation (do not assume PASS)  
+**Original current-main base:** `fee90a9d35cf742d452c2c01ecef14397fb52e21`  
+**Branch:** `work/r2-ai3-browser-harness-correction` (new, old #34 branch untouched)  
+**Change paths only:** `tools/browser-phase1-ui-audit.py`, `docs/ai-reports/AI-3/ROUND_02.md`  
+**Harness initial implementation commit:** `4959d86ebd8051ace2813c0c960ef2fdb0026de5`  
+**Draft PR:** to be linked after creation
+
+## Technical correction summary (source-only until runner returns)
+
+1. **Recenter** — Preserve zoom-in, zoom-out, genuine canvas pan and Recenter click assertions. Compare observed camera center to independently calculated `Camera.clamp` bounds: half canvas dimensions divided by real zoom, real map width/height × 28 and actual entrance coordinates. Assert 1 world-pixel tolerance for both axes; never change camera state during this check.
+2. **Real combat roster** — If a naturally eligible recruit exists, test recruit then demobilize using visible controls. If all workers are busy, inspect real eligibility read-only, demobilize an actual existing soldier through the roster UI and re-enlist that same worker; assert soldier count transitions and correct identifier. Do not fabricate ants or mutate game internals.
+3. **Modal isolation** — Enclose combat test in `try/finally`. Verify a genuine `showModal()` dialog is open, and close with the real close button even if roster test fails. Assert modal is truly closed; no force-clicks.
+4. **Source SHA truth** — Replace hardcoded old `main_sha` with `subprocess.run(['git','rev-parse','HEAD'])` on the runner, `tested_sha`/GitHub `GITHUB_REF` and `checkout_kind=pr_merge` for synthetic PR refs. Outside a checkout report `null` instead of inventing main. All 12 cases × 5 viewports retained, all original input/room/layout/JS assertions retained.
+
+## Requested CI and acceptance evidence
+
+R2 Five Real Viewports workflow must produce 5 separate `results.json`, true screenshot artifacts, and `exit-codes.txt` with `npm test`, `npm run build`, `py_compile`, full UI audit and 3 independent browser scripts. Do not declare completion until 60/60 true PASS on one PR-tested checkout. Existing 55/60 run: https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38362234085 . No production files edited or main merged.
+
+---
+
+## Prior AI-3 Round 2 work (historical and unchanged)
+
 # AI-3 — R2-UIFIX-01 Mobile UI Hit-Target Correction
 
 **Date (ICT):** 2026-10-13  
