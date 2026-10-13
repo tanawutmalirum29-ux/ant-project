@@ -8,7 +8,7 @@ const tick=(g,n=1)=>{for(let i=0;i<n;i++)g.update(100);};
 const setup=(seed='U6')=>{const g=new Game(seed);g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});return g;};
 const entry=(g,layer)=>g.world.entrances[0][layer];
 const isValid=(g,unit)=>isWalkable(g.world.layers[unit.layer],unit.x,unit.y);
-const mass=g=>g.foraging.nodes.reduce((s,n)=>s+n.amount,0)+Object.values(g.foraging.inventory).reduce((s,n)=>s+n,0)+g.colony.workers.reduce((s,a)=>s+(a.cargo?.amount||0),0)+['consumed','lost'].reduce((s,k)=>s+Object.values(g.lifecycle[k]).reduce((a,b)=>a+b,0),0)+['held','spent'].reduce((s,k)=>s+Object.values(g.rooms[k]).reduce((a,b)=>a+b,0),0);
+const mass=g=>g.foraging.nodes.reduce((s,n)=>s+n.amount,0)+Object.values(g.foraging.inventory).reduce((s,n)=>s+n,0)+g.colony.workers.reduce((s,a)=>s+(a.cargo?.amount||0),0)+['consumed','lost'].reduce((s,k)=>s+Object.values(g.lifecycle[k]).reduce((a,b)=>a+b,0),0)+['held','spent'].reduce((s,k)=>s+Object.values(g.rooms[k]).reduce((a,b)=>a+b,0),0)-Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 
 test('U6.1 idle baseline preserves earlier gameplay and does not spawn early',()=>{
  const g=new Game('old-case');assert.equal(g.combat.soldierSlots,1);assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.threatCount,0);
