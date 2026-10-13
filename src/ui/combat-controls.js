@@ -96,6 +96,7 @@ export class CombatControls {
   placeRally(tile){
     if(!this.targeting)return false;
     if(this.combat.setRally(tile.layer,tile.x,tile.y)){
+      this.ui.renderer.showRallyPing(this.ui.game,tile.layer,tile.x,tile.y);
       this.cancelRally();this.ui.notice(`กำลังรวมพลที่ ${tile.x}, ${tile.y}`);
       this.report('รวมพลสำเร็จ: มดทหารกำลังเดินทาง');
     }else this.ui.notice('ช่องนี้เป็นสิ่งกีดขวางหรือเดินทางไปไม่ได้');
