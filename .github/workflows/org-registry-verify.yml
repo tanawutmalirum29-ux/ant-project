@@ -1,0 +1,28 @@
+name: AI Team Registry Structural Check (Governance V2)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/ai-org/**'
+      - 'tools/check-ai-org.mjs'
+      - '.github/workflows/org-registry-verify.yml'
+  push:
+    branches:
+      - 'docs/governance-v2-live-org-chart'
+      - 'org/registry'
+    paths:
+      - 'docs/ai-org/**'
+      - 'tools/check-ai-org.mjs'
+      - '.github/workflows/org-registry-verify.yml'
+permissions:
+  contents: read
+jobs:
+  verify-roster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify roster parent graph / unique roles / ACK provenance shape
+        run: node tools/check-ai-org.mjs
