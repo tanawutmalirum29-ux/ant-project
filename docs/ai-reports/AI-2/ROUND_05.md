@@ -6,7 +6,7 @@
 **Status:** DESIGN DOCUMENT COMMITTED — AWAITING AI-HEAD REVIEW; NO IMPLEMENTATION  
 **Verified main base at branch creation:** 504378726d0dabe432d48887340e388f7486ad43  
 **Branch:** plan/r5-ai2-performance-profiling  
-**Draft PR:** to be linked on PR creation  
+**Draft PR:** https://github.com/tanawutmalirum29-ux/ant-project/pull/38 — OPEN / DRAFT / UNMERGED  
 **Full plan:** [R5_PERFORMANCE_PROFILING_PLAN.md](../../development/R5_PERFORMANCE_PROFILING_PLAN.md)
 
 ## Authority and scope
