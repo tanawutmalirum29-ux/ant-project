@@ -6,7 +6,7 @@ Based on d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237. Status is truthfully DRAFT/PL
 | PH0-HEAD-01 | HEAD | P0 | Audit main source/test/integration and evidence | none | medium (remote only) | Source reviewed; runtime pending | Six system documents cite exact SHA, no invented test PASS |
 | PH0-HEAD-02 | HEAD | P0 | Draft plan/ownership/contracts/QA/briefs | PH0-HEAD-01 | low | Draft PR pending review | Docs-only diff; owner review |
 | PH0-HEAD-03 | OWNER | P0 | Approve/adjust test-only Wave 1 | PH0-HEAD-02 | low | APPROVED 2026-10-13 (test-only) | Explicit owner authorization |
-| P1-ECO-01 | AI-1 | P0 | Resource+logistics invariants tests | PH0-HEAD-03 | medium | Authorized; awaiting contributor PR | node --test new file, npm test, npm run build; strict ledger |
+| P1-ECO-01 | AI-1 | P0 | Resource+logistics invariants tests | PH0-HEAD-03 | medium | Verified on PR #17; NO MERGE | node --test new file, npm test, npm run build; strict ledger |
 | P1-AI-01 | AI-2 | P0 | Ant allocation/motion/rally state tests | PH0-HEAD-03 | medium | Authorized; awaiting contributor PR | node --test new file; no double task/illegal steps |
 | P1-UI-01 | AI-3 | P1 | Browser interaction regression harness | PH0-HEAD-03 | medium | Authorized; awaiting contributor PR | Chromium 5 viewports, screenshots, no JS errors/overlap |
 | P1-ECO-02 | AI-1 | P0 if confirmed | Fix reproduced accounting bug ONLY | P1-ECO-01 + approved allowlist | high | Not authorized | Repro red→green, full regression, exact ledger preserved |
@@ -19,7 +19,7 @@ Based on d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237. Status is truthfully DRAFT/PL
 | P3-GAME-02 | TBD | P3 | Saves / squads / crowding, only with design | P2/P3 review | high | Idea only | Separate approved architecture and prototype |
 
 ## Actual contributor progress at creation
-AI-1: no PR or work evidence yet.
+AI-1: PR #17 verified by HEAD on 2026-10-13. Commit c23f02da37290888301c6be63e57f75cecddd2b7; changed 1 permitted test file (+397); U5 and U6 Actions 109/109 pass, build and browser green; standalone test-file command not independently run; no merge approval.
 AI-2: no PR or work evidence yet.
 AI-3: no PR or work evidence yet.
 HEAD: source-level inspection and new plan draft; local/CI/browser/AWS verification NOT completed.
@@ -32,3 +32,10 @@ Use ID/owner/priority/affected system/seed/main SHA/steps/ticks/expected/actual/
 
 ## Decision record — 2026-10-13
 Owner explicitly approved Phase 0 plan and Wave 1 **test-only** work. AI-1/2/3 are authorized to create ONLY their exact new test/harness files on task branches. Core gameplay edits, shared files and any important merges remain UNAPPROVED. AI-HEAD has NOT launched independent contributor sessions, and no contributor PR is yet recorded by this decision. Phase 0 PR #16 remains Draft; no merge approval was given.
+
+## HEAD verification log — P1-ECO-01 (2026-10-13)
+- PR: https://github.com/tanawutmalirum29-ux/ant-project/pull/17; reviewer comment/review ID 5498856126.
+- Commit c23f02da37290888301c6be63e57f75cecddd2b7, baseline d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237, diff contains only tests/economy-accounting.audit.test.mjs (+397 lines).
+- Source reviewed; ECO-01 through ECO-12 passed in U5 Actions run 38346615774 and U6 run 38346615771; 109/109 tests, builds successful, browser jobs successful.
+- Exact standalone node --test test file command NOT independently evidenced (included by npm test glob). No new verified gameplay bug. Additional population/device/AWS gates NOT checked.
+- Gate status: Verified on PR for test-only scope; HOLD MERGE pending owner and HEAD integration approval. No authorization for any production code changes.
