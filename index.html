@@ -27,15 +27,26 @@
       </div>
     </header>
 
+    <div class="resource-strip" role="status" aria-label="ทรัพยากรในคลัง">
+      <div class="resource-stat"><span class="resource-emoji">◉</span><span>อาหารพลังงาน</span><strong id="stock-carbs">0</strong></div>
+      <div class="resource-stat"><span class="resource-emoji">◆</span><span>โปรตีน</span><strong id="stock-protein">0</strong></div>
+      <div class="resource-stat"><span class="resource-emoji">◈</span><span>น้ำ</span><strong id="stock-water">0</strong></div>
+    </div>
     <aside class="left-overlay" aria-label="ข้อมูลบริเวณแผนที่">
       <div class="region-heading"><div class="region-overline">CURRENT REGION <span>•</span> 01 / 02</div><h2 id="region-name">ใต้ผืนดิน</h2><p id="region-subtitle">อุโมงค์แห่งอาณาจักรเริ่มต้น</p></div>
-      <div class="phase-note"><span class="phase-dot"></span><span>DIG & NAVIGATION <b>U2</b></span></div>
+      <div class="phase-note"><span class="phase-dot"></span><span>FORAGING & TRANSPORT <b>U3</b></span></div>
     </aside>
 
     <aside class="dig-tools" aria-label="เครื่องมือก่อสร้าง">
       <div class="tool-switch">
         <button type="button" class="tool-button active" id="tool-inspect" aria-pressed="true" title="ดูข้อมูลช่อง">⌕ <span>สำรวจ</span></button>
         <button type="button" class="tool-button" id="tool-dig" aria-pressed="false" title="เลือกแล้วลากเพื่อสั่งขุด">⚒ <span>สั่งขุด</span></button>
+      </div>
+      <div class="forage-control" aria-label="กำหนดจำนวนมดหาอาหาร">
+        <span>มดหาอาหาร</span>
+        <button id="forage-minus" type="button" aria-label="ลดจำนวนมดหาอาหาร">−</button>
+        <strong id="forage-count">2/5</strong>
+        <button id="forage-plus" type="button" aria-label="เพิ่มจำนวนมดหาอาหาร">+</button>
       </div>
       <div class="orders-status"><span id="worker-status">มดงาน 0/5</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 0</span></div>
     </aside>
@@ -56,7 +67,7 @@
     </div>
 
     <aside class="debug-panel hidden" id="debug-panel" aria-live="off">
-      <div class="panel-head">SIMULATION / DEBUG <span>U2</span></div>
+      <div class="panel-head">SIMULATION / DEBUG <span>U3</span></div>
       <div class="metric"><span>FPS</span><strong id="metric-fps">—</strong></div>
       <div class="metric"><span>TPS</span><strong id="metric-tps">—</strong></div>
       <div class="metric"><span>Simulation</span><strong id="metric-sim">— ms</strong></div>
@@ -73,6 +84,7 @@
       <button id="portal-button" class="portal-action hidden">เปลี่ยนไปอีกชั้น ↗</button>
       <p id="selection-work" class="selection-work hidden"></p>
       <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
+<p class="selection-resource hidden" id="selection-resource"></p>
       <span class="selection-note" id="selection-note">เลือกเครื่องมือขุดแล้วแตะหรือลากบนดินเพื่อสั่งมดงาน</span>
     </aside>
 

@@ -114,7 +114,7 @@ test('U2.8 blocked and unreachable orders are not mined by teleporting workers',
   run(g,250);
   assert.equal(g.colony.completed,0);
   assert.equal(g.colony.pendingCount,1);
-  for(const w of g.colony.workers)assert.ok(isWalkable(l,w.x,w.y));
+  for(const w of g.colony.workers)assert.ok(isWalkable(g.world.layers[w.layer],w.x,w.y));
   const reachable=reachablePaths(l,g.colony.workers[0]);
   assert.equal(reachable.distance(target.x,target.y),-1);
   assert.ok(f);
@@ -128,5 +128,5 @@ test('U2.9 stress: hundreds of orders stay unique and never change rocks',()=>{
   assert.ok(g.colony.orders.size<=MAX_ORDERS);
   assert.equal(g.colony.ordersById.size,g.colony.orders.size);
   for(const [x,y] of originalRock)assert.equal(cellAt(l,x,y),TERRAINS.ROCK);
-  for(const w of g.colony.workers)assert.ok(isWalkable(l,w.x,w.y));
+  for(const w of g.colony.workers)assert.ok(isWalkable(g.world.layers[w.layer],w.x,w.y));
 });

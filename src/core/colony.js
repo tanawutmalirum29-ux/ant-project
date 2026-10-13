@@ -15,6 +15,7 @@ export class Colony {
     this.completed = 0;
     this.nextOrder = 1;
     this.tickCount = 0;
+    this.forageSlots = 2;
     const layer = world.layers[UNDERGROUND];
     const entrance = world.entrances[0].underground;
     const center = { x: entrance.x, y: entrance.y + 9 };
@@ -27,6 +28,8 @@ export class Colony {
       return { id:`worker-${i+1}`, caste:'worker', layer:UNDERGROUND, x,y, facing:i%4, next:null, motion:0, path:[], orderId:null, state:'idle' };
     });
   }
+  isForager(ant) { return this.workers.indexOf(ant) >= WORKER_COUNT - this.forageSlots; }
+  setForageSlots(count) { if (!Number.isInteger(count) || count<0 || count>WORKER_COUNT) throw new RangeError('Invalid forager count'); this.forageSlots=count; }
   get population() { return this.workers.length + 1; }
   get pendingCount() { return this.orders.size; }
   get busyCount() { return this.workers.filter(a=>a.orderId!=null).length; }
@@ -57,6 +60,7 @@ export class Colony {
   }
   release(ant) { ant.orderId=null;ant.state='idle';ant.path=[];ant.next=null;ant.motion=0; }
   chooseOrder(ant) {
+    if (ant.state!=='idle' || this.isForager(ant)) return;
     const layer=this.world.layers[UNDERGROUND], reach=reachablePaths(layer,ant);
     if(!reach) return;
     let best=null;
@@ -80,6 +84,7 @@ export class Colony {
     this.tickCount++;
     const layer=this.world.layers[UNDERGROUND];
     for(const ant of this.workers) {
+      if(ant.state.startsWith('forage-')) continue;
       if(ant.orderId==null) {
         // Retry unreachable work periodically; completed tunnels make new work accessible.
         if(this.orders.size && (this.tickCount%5===0 || this.tickCount===1)) this.chooseOrder(ant);

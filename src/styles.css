@@ -22,3 +22,19 @@
 .cancel-dig{border:1px solid #d29b7888;color:#f1c6a7;background:#5d3029bb;border-radius:7px;padding:8px 10px;font-size:11px;width:100%;margin-bottom:9px}
 @media(max-width:680px){.dig-tools{bottom:calc(102px + env(safe-area-inset-bottom));left:11px}.tool-button{min-width:73px;height:36px;padding:0 7px;gap:5px}.tool-button span{font-size:10px}.orders-status{font-size:9px;max-width:185px;white-space:nowrap}.selection-card{bottom:calc(195px + env(safe-area-inset-bottom));max-height:42vh;overflow:auto}}
 @media(max-height:500px) and (orientation:landscape){.dig-tools{bottom:52px;left:10px}.tool-button{height:30px}.selection-card{left:195px;bottom:53px;max-height:67vh}.orders-status{display:none}}
+
+/* U3 resource HUD & compact worker allocation */
+.resource-strip{position:absolute;z-index:5;top:83px;left:24px;display:flex;gap:5px;pointer-events:none}
+.resource-stat{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d6b88a35;border-radius:9px;background:#13221de8;color:#becbbb;font-size:11px;box-shadow:0 4px 20px #0003}
+.resource-stat strong{color:#fae5b6;font-size:13px;font-variant-numeric:tabular-nums}
+.resource-emoji{font-size:14px;color:#e8c28c}
+.resource-stat:nth-child(2) .resource-emoji{color:#e3957e}.resource-stat:nth-child(3) .resource-emoji{color:#83cedb}
+.forage-control{display:flex;align-items:center;gap:7px;color:#d9dccc;font-size:11px;background:#172820e9;border:1px solid #d6b88a35;border-radius:9px;padding:3px 5px 3px 9px}
+.forage-control button{border:1px solid #d6b88a45;background:#26382e;color:#ffe5b9;border-radius:6px;width:26px;height:25px;font-size:16px}
+.forage-control button:disabled{opacity:.35}.forage-control strong{min-width:23px;text-align:center;font-size:11px}
+.selection-resource{font-size:11px;line-height:1.5;color:#eace93}
+@media(max-width:680px){.resource-strip{top:calc(110px + env(safe-area-inset-top));left:12px;right:12px;gap:3px}
+.resource-stat{padding:5px 6px;gap:4px;min-width:0;font-size:9px;flex:1;justify-content:center}.resource-stat strong{font-size:11px}
+.left-overlay{top:calc(174px + env(safe-area-inset-top))}.forage-control{font-size:10px;gap:5px}}
+@media(max-height:500px) and (orientation:landscape){.resource-strip{top:204px;left:11px;right:auto;max-width:390px}.resource-stat{font-size:9px;padding:4px}
+.left-overlay{top:97px}.forage-control{padding:2px 5px}.forage-control button{height:22px}}
