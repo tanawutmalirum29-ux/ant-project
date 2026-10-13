@@ -156,3 +156,15 @@ button,select,.room-picker-trigger,.room-picker-option{touch-action:manipulation
 @media (prefers-reduced-motion:reduce){
  .room-picker-arrow{transition:none;}
 }
+
+
+/* U5 landscape dock previously scroll-clipped any popover outside its width.
+   Show the V2.1 CSS room chooser in full while retaining normal map hits. */
+@media (max-height:500px) and (orientation:landscape) {
+ .dig-tools:has(.room-palette:not(.hidden)) {
+   overflow:visible;
+   max-height:none;
+ }
+ .room-palette.room-picker-ready{overflow:visible;}
+ .room-picker-options{z-index:40;}
+}
