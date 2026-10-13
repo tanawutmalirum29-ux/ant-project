@@ -1,6 +1,6 @@
 # Ant Kingdom — Current Game Systems
 
-**Source of truth:** working code in `main`, not historical phase plans. This file is an operational inventory of existing features and known limitations. It does **not** authorize further development, assign contributors or set a future roadmap.
+**Source of truth:** working code on `main`. This document records implemented features and known limitations as a reference for **the next development round, its phases and task allocation**. Scope and ownership for the next round will be defined when that work is assigned.
 
 ## Architecture and deterministic simulation
 
@@ -42,7 +42,7 @@ npm run build
 
 Tests under `tests/`, Chromium harnesses under `tools/browser-*.py`, and GitHub Actions in `.github/workflows/` remain preserved. A successful build/CI check is not equivalent to verified AWS Amplify production access. New code changes must rerun relevant regressions and preserve engine and UI behavior.
 
-## Current known limits (not a backlog)
+## Current known limits
 
 - No save/load across full page refresh.
 - One shared army; no multiple selectable independent squads, special equipment or projectile system.
@@ -52,6 +52,8 @@ Tests under `tests/`, Chromium harnesses under `tools/browser-*.py`, and GitHub 
 - No verified live-AWS or physical-phone sign-off is recorded by this document.
 - Gameplay balance and performance at high population require measurement, not assumptions.
 
-## Project status
+## Development handoff status
 
-All prior U1–U8/V1–V2 development plans and AI-A/AI-B task ownership rules have been **closed and removed from main**. Existing playable systems and regression checks remain. **No new feature work is scheduled** until a fresh assignment is provided.
+**Ant Kingdom is an active, continuing project.** The latest delivery round through the U6.1 military-command improvements is complete. The codebase, playable features, assets, checks and deployment setup remain available as the baseline for the next round.
+
+**Next step:** receive and review the upcoming development scope, split it into phases, and assign contributors and file ownership afresh. Re-check integration and regression tests before merging new work.
