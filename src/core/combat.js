@@ -49,11 +49,12 @@ export class Combat {
     a.retreating=false;a.combatGoal=null;a.state='combat-guard';a.path=[];a.next=null;a.motion=0;
     this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);
     this._formationDirty=true;
-    if(!this._allocating)this.ensureFormation();
+    if(!this._allocating){this.workforce?.disableAuto('soldier');this.ensureFormation();}
     return true;
   }
   demobilize(a){
     if(!this.soldiers.includes(a))return false;
+    this.workforce?.disableAuto('soldier');
     this.soldierSlots=Math.max(0,this.soldiers.length-1);
     this.releaseSoldier(a);this.ensureFormation();return true;
   }
@@ -63,8 +64,9 @@ export class Combat {
     if(result)this.lastEvent='ตรวจพบศัตรูที่ผิวดิน';
     return result;
   }
-  setSoldierSlots(amount){
+  setSoldierSlots(amount,fromPolicy=false){
     if(!Number.isInteger(amount)||amount<0||amount>this.colony.workers.length)throw new RangeError('Invalid soldier count');
+    if(!fromPolicy)this.workforce?.disableAuto('soldier');
     this.soldierSlots=amount;
     this.allocate();
     return this.soldiers.length;
