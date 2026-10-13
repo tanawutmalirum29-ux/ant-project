@@ -67,10 +67,17 @@ export class Colony {
     ant.ambientActive=false;ant.ambientSteps=0;ant.ambientWait=0;
     ant.next=null;ant.path=[];ant.motion=0;
   }
-  tickAmbient() {
+  tickAmbient(combat=null) {
     const layer=this.world.layers[UNDERGROUND],queen=this.queen;
     if(!queen.alive)return;
+    // Patrols must not dodge or distract invaders: nest alarm cancels leisure
+    // motion, leaving real defense/combat systems responsible for responses.
+    const intruderAlert=combat?.enemies.some(e=>e.layer===UNDERGROUND);
     for(const ant of this.workers) {
+      if(intruderAlert){
+        this.stopAmbient(ant);
+        continue;
+      }
       // This runs AFTER every real work scheduler in Game.systems.
       if(ant.state!=='idle'||ant.orderId!=null||ant.layer!==UNDERGROUND||
          ant.combatRole||ant.cargo?.amount||ant.broodCargo){
