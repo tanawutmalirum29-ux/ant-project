@@ -49,7 +49,7 @@ test('Original SVG asset kit has a valid viewBox and self-contained content',()=
   const source=read('assets/ui/'+key+'.svg');
   assert.match(source,/^<svg[^>]+viewBox="0 0 64 64"/);
   assert.match(source,/<\/svg>\s*$/);
-  assert.doesNotMatch(source,/<script|<foreignObject|(?:href|src)\\s*=\\s*[\"']https?:/i);
+  assert.doesNotMatch(source,/<script|<foreignObject|(?:href|src) *= *["']https?:/i);
  }
  const manifest=JSON.parse(read('assets/sprites/manifest.json'));
  assert.equal(manifest.version,2);
