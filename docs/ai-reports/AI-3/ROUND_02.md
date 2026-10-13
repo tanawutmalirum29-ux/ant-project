@@ -1,3 +1,49 @@
+# AI-3 — R2-UIFIX-01 Mobile UI Hit-Target Correction
+
+**Date (ICT):** 2026-10-13  
+**Status:** IMPLEMENTED (CSS source), **PR Chromium validation PENDING** — never equate a CSS edit to runtime PASS.  
+**Task:** https://github.com/tanawutmalirum29-ux/ant-project/issues/32  
+**Previous QA report:** https://github.com/tanawutmalirum29-ux/ant-project/issues/25  
+**Pinned main/base:** `c108aab1b602a089eca40eb495b8ad4b26d408bf`  
+**Work branch:** `work/r2-ai3-ui-hit-targets`  
+**Draft PR / PR-merge tested SHA:** to be filled after PR workflow triggers  
+**Changed paths (exact):** `src/ui/combat.css`, `src/ui/visual/v2-fixes.css`, `docs/ai-reports/AI-3/ROUND_02.md`.  
+**Out-of-scope paths modified:** NONE. In particular no JS, gameplay, tests, harness, index or workflow changes.
+
+## Root-cause evidence from the earlier live Chromium run
+
+GitHub Actions original [run 38357247806](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38357247806), [artifact 11793157007](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38357247806/artifacts/11793157007); source main then `f95caf9ec14f2db66381ba99d5429d0e1ae15639`, checkout merge ref `b8f0862720eacc26e07109e9f2ba1328d8b1a1d4`.
+
+- 320×568: `#u6-quick-rally` covered `#forage-plus`; `fail-5.png`.
+- 390×844: `#u6-quick-defend` covered `#forage-plus` and `#selection-card` obstructed `#tool-inspect` after room placement; `fail-5.png`, `fail-9.png`.
+- 844×390: `#u6-badge` / `#u6-quick-defend` covered `#surface-button` / `#underground-button`, independently reproduced in `browser-v2-live.py` (exit 1); `fail-12.png`.
+- These are documented existing failures, not fresh successes. Baseline full workflow failed; legacy `browser-v2-ui-fix.py` and `browser-u6.py` exit 0; `npm test` had 2 existing failures.
+
+## CSS-only implementation
+
+- **Portrait ≤680px and height ≥501px:** `#u6-dock` becomes a right-edge vertical 108px tactical column, its three buttons remain 44px minimum touch height, outside lower work-allocation / tool / layer rows. When Debug opens, move the dock to the left while allowing Debug to occupy a compact 180px right column; the preexisting selection card is suppressed only while Debug is open.
+- **Portrait selection:** move `.selection-card:not(.hidden)` from the lower tool row into the upper-left information column at top 207px, at most 190px wide and 130px high with internal scrolling, so room/inspect buttons remain physically clickable. Does not hide selection under ordinary conditions.
+- **Short landscape ≤500px:** move the full tactical dock row from `left:35%; bottom:8px` (over layer switch) to horizontal center at top 106px. Preserve every military command and the existing CSS room picker.
+- **Tablet / full desktop:** existing rules untouched except the specifically targeted short landscape breakpoint. Existing interface aesthetics, CSS focus indicators and pointer-events for genuine buttons preserved. `#room-type` and all game logic untouched.
+
+## CI matrix — await new PR workflow
+
+| Required viewport | Evidence | Status |
+|---|---|---|
+| 320×568 | per-viewport JSON/screenshot | PENDING |
+| 390×844 | per-viewport JSON/screenshot | PENDING |
+| 768×1024 | per-viewport JSON/screenshot | PENDING |
+| 844×390 | per-viewport JSON/screenshot | PENDING |
+| 1440×900 | per-viewport JSON/screenshot | PENDING |
+
+`py_compile`, five-viewport browser audit, `browser-v2-live.py`, `browser-u6.py`, `browser-v2-ui-fix.py`, `npm test`, `npm run build`: **NOT RUN yet for this PR**. Linux workspace outbound DNS does not permit Git clone, so GitHub Actions checkout is the definitive test environment. Current results will be documented only from the new run's real Actions logs/artifacts.
+
+**Quality gates:** Runtime collisions require evidence-based assessment per viewport; known dialogs left open or harness defects are separately triaged under [Issue #33](https://github.com/tanawutmalirum29-ux/ant-project/issues/33), not fixed in this CSS task. Changes are not merged by AI-3.
+
+---
+
+## Historical previous task — R2-UIQA-01
+
 # AI-3 — Round 02: Five-Viewport Browser QA Report
 
 **Task:** R2-UIQA-01 — Browser QA & UI Defect Triage  
