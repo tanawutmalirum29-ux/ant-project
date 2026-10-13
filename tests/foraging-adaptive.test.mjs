@@ -16,7 +16,8 @@ const pending=(g,type)=>g.colony.workers.reduce((sum,w)=>
   sum+(w.cargo?.type===type?w.cargo.amount:0)+
   (g.foraging.nodes.find(n=>n.id===w.resourceId)?.type===type?w.reservedAmount||0:0),0);
 const mass=(g,type)=>g.foraging.nodes.filter(n=>n.type===type).reduce((s,n)=>s+n.amount,0)+
-  pending(g,type)+(g.foraging.inventory[type]||0)+(g.lifecycle.consumed[type]||0)+
+  g.colony.workers.reduce((s,w)=>s+(w.cargo?.type===type?w.cargo.amount:0),0)+
+  (g.foraging.inventory[type]||0)+(g.lifecycle.consumed[type]||0)+
   (g.lifecycle.lost[type]||0)+(g.rooms.held[type]||0)+(g.rooms.spent[type]||0);
 
 test('NEXT-01 forage ranks relative shortage and uses available storage capacity',()=>{
