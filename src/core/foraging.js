@@ -172,6 +172,7 @@ export class Foraging {
     if (this.tickCount<(this.retryAt.get(ant)||0) && ant.state==='forage-wait-storage') {
       // Physical space opening at the CURRENT depot is cheap to check and must
       // permit an immediate partial deposit (legacy U5/ECO behavior).
+      this.rooms?.syncInventory(); // Also honor debug/test inventory debits before retrying.
       const localSpace=this.rooms?.storageSlots(type).some(slot=>slot.space>0 &&
         this.rooms.footprint(slot.room).some(tile=>at(tile,ant)));
       if (!localSpace)return;
