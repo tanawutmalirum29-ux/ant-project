@@ -45,7 +45,6 @@ test('GEO-02 permanent stone supports are common, clustered and exactly undiggab
     }
     assert.ok(clusters>250,seed+': bedrock must exist inside map');
     assert.ok(supports/clusters>.75,seed+': rock should form connected supports, not noise');
-    assert.ok(isDiggable(l,7,7)===false||isDiggable(l,7,7)===true);
   }
 });
 test('GEO-03 natural non-diggable map boundary remains intact for every seed',()=>{
