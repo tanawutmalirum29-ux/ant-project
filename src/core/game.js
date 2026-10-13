@@ -4,6 +4,7 @@ import { Colony } from './colony.js';
 import { Foraging } from './foraging.js';
 import { Lifecycle } from './lifecycle.js';
 import { Rooms } from './rooms.js';
+import { Combat } from './combat.js';
 import { createResourceNodes } from '../world/resources.js';
 export class Game {
   constructor(seed = 'ANT-001') {
@@ -18,7 +19,8 @@ export class Game {
     this.foraging.rooms = this.rooms;
     this.lifecycle.rooms = this.rooms;
     this.rooms.lifecycle = this.lifecycle;
-    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick()];
+    this.combat = new Combat(this.world,this.colony,this.foraging,this.lifecycle,this.rooms);
+    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.combat.tick()];
     this.stepper = new FixedStepper(() => {
       for (const system of this.systems) system(this);
       this.metrics.pendingTasks = this.colony.pendingCount;

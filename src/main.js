@@ -2,6 +2,7 @@ import { Game } from './core/game.js';
 import { Camera } from './render/camera.js';
 import { Renderer } from './render/renderer.js';
 import { UI } from './ui/app.js';
+import { CombatControls } from './ui/combat-controls.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
 
 const query = new URLSearchParams(location.search);
@@ -17,6 +18,7 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   ui.cameras = cameras;
   try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
 });
+const combatControls = new CombatControls(ui);
 function createCameras(gameState) {
   const e = gameState.world.entrances[0];
   return { [SURFACE]: new Camera(SURFACE, e.surface), [UNDERGROUND]: new Camera(UNDERGROUND, e.underground) };
@@ -48,7 +50,7 @@ function frame(now) {
     steps = 0;
     statsWindowStart = now;
   }
-  if (now - lastHud > 150) { ui.updateMetrics(); lastHud = now; }
+  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); lastHud = now; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => {

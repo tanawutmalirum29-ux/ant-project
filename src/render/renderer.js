@@ -79,6 +79,7 @@ export class Renderer {
     } else this.drawResources(ctx, game, bounds, elapsedMs);
     if(game.layer===UNDERGROUND && game.lifecycle) this.drawBrood(ctx, game);
     this.drawAnts(ctx, game, elapsedMs, camera);
+    this.drawCombat(ctx, game, elapsedMs);
     if (selection?.layer === game.layer && cellAt(layer, selection.x, selection.y) != null) {
       ctx.fillStyle = '#f3c67f24';
       ctx.strokeStyle = '#efc685';
@@ -220,6 +221,39 @@ export class Renderer {
       ctx.beginPath();ctx.arc(0,-16,3.5+ant.cargo.amount*.4,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
     if(queen){ctx.fillStyle='#f1d69c';ctx.beginPath();ctx.moveTo(-7,-16);ctx.lineTo(-4,-22);ctx.lineTo(0,-18);ctx.lineTo(4,-22);ctx.lineTo(7,-16);ctx.closePath();ctx.fill();}
+    ctx.restore();
+  }
+  drawCombat(ctx,game,elapsedMs) {
+    const combat=game.combat;
+    if(!combat)return;
+    ctx.save();
+    for(const ant of combat.soldiers) {
+      if(ant.layer!==game.layer)continue;
+      const x=(ant.x+.5+(ant.next?(ant.next.x-ant.x)*ant.motion:0))*TILE;
+      const y=(ant.y+.5+(ant.next?(ant.next.y-ant.y)*ant.motion:0))*TILE;
+      ctx.strokeStyle=ant.retreating?'#eaa58b':'#a9dce0';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#202322';ctx.fillRect(x-10,y-18,20,3);
+      ctx.fillStyle='#b1dbac';ctx.fillRect(x-10,y-18,20*Math.max(0,(ant.combatHP||0)/16),3);
+    }
+    for(const enemy of combat.enemies) {
+      if(enemy.layer!==game.layer)continue;
+      const x=(enemy.x+.5+(enemy.next?(enemy.next.x-enemy.x)*enemy.motion:0))*TILE;
+      const y=(enemy.y+.5+(enemy.next?(enemy.next.y-enemy.y)*enemy.motion:0))*TILE;
+      ctx.fillStyle=enemy.type==='beetle'?'#7c3450':'#7b2f2d';
+      ctx.strokeStyle='#f0b8a1';ctx.lineWidth=1.8;
+      ctx.beginPath();ctx.ellipse(x,y,enemy.type==='beetle'?12:9,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x-7,y-5);ctx.lineTo(x-13,y-10);ctx.moveTo(x+7,y-5);ctx.lineTo(x+13,y-10);ctx.stroke();
+      ctx.fillStyle='#fbdfbd';ctx.beginPath();ctx.arc(x-4,y-2,1.8,0,Math.PI*2);ctx.arc(x+4,y-2,1.8,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#2a1716';ctx.fillRect(x-10,y-18,20,3);
+      ctx.fillStyle='#e68d79';ctx.fillRect(x-10,y-18,20*enemy.hp/enemy.maxHP,3);
+    }
+    if(combat.rally?.layer===game.layer){
+      const x=(combat.rally.x+.5)*TILE,y=(combat.rally.y+.5)*TILE;
+      ctx.strokeStyle='#ffe29a';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(x,y,11+Math.sin(elapsedMs/350)*2,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x-4,y);ctx.lineTo(x+4,y);ctx.moveTo(x,y-4);ctx.lineTo(x,y+4);ctx.stroke();
+    }
     ctx.restore();
   }
   drawTile(ctx, game, layer, x, y) {
