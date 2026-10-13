@@ -72,9 +72,10 @@ test('IDLE-03 | real excavation and foraging preempt idle walking',()=>{
     }
   assert.ok(target);
   assert.equal(g.colony.queueRectangle(target,target).added,1);
-  tick(g);
+  // Normal mining assignment polls queued jobs every five simulation ticks.
+  for(let i=0;i<6&&!g.colony.getOrder(target.x,target.y)?.workerId;i++)tick(g);
   const job=g.colony.getOrder(target.x,target.y);
-  assert.ok(job?.workerId,'excavation owns a real worker immediately');
+  assert.ok(job?.workerId,'excavation takes precedence by its next assignment poll');
   const miner=g.colony.workers.find(a=>a.id===job.workerId);
   assert.notEqual(miner.state,'idle');
   assert.equal(miner.ambientActive,false);
