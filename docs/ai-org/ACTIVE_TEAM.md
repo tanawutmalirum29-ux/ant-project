@@ -1,6 +1,8 @@
 # Ant Kingdom — Team Map / Current command chain
 **Current state: STANDBY — Governance V2 not yet approved or activated.** This is a proposed layout, not six new AI chats. Round ROYAL-01 has been completed, PR #91 merged into `main` at `7d2458a13154716b09649903d1b26c86c8848845`. No new game tasks are assigned here.
 
+**Registry version:** `GOV-V2-PROPOSAL-001` (unactivated proposal)
+
 **Machine-readable live roster:** [TEAM-REGISTRY.json](TEAM-REGISTRY.json) · [Signed Release Board](RELEASE-SIGNATURES.md) · [Governance V2 draft](https://github.com/tanawutmalirum29-ux/appointment-CEO/pull/2)
 
 ## Proposed chain (NONE OF THESE NEW SLOTS IS AN ACTIVE APPOINTMENT YET)
