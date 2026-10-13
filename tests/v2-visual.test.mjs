@@ -15,7 +15,7 @@ test('V2 live skin preserves U1-U4 selectors and U5 game bindings',()=>{
  const b=[...demo.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]).sort();
  assert.equal(new Set(a).size,a.length,'Production element IDs are unique');
  assert.equal(new Set(b).size,b.length,'Preview element IDs are unique');
- for(const id of b)assert.ok(a.includes(id),'Live game lost V2 preview's U1-U4 selector: '+id);
+ for(const id of b)assert.ok(a.includes(id),'Live game lost a V2 preview U1-U4 selector: '+id);
  for(const id of ['tool-room','room-palette','room-type','room-cost','room-summary','selection-room','cancel-room'])assert.ok(a.includes(id),'Missing U5 integration control: '+id);
  const required=['game-canvas','game-time','stock-carbs','stock-protein','stock-water','population','colony-button',
  'colony-panel','tool-inspect','tool-dig','forage-plus','nurse-plus','surface-button','underground-button',
