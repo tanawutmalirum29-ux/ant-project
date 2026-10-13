@@ -247,11 +247,11 @@ export class UI {
     const source=s.layer===SURFACE?this.game.foraging.getNode(s.x,s.y):null;
     const room=s.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
     $('selection-terrain').textContent=source?'แหล่งทรัพยากร':room?ROOM_CATALOG[room.type].name:terrainName(terrain);
-    $('selection-coords').textContent=`ตำแหน่ง X:${s.x}  Y:${s.y}`;
+    $('selection-coords').textContent=`X:${s.x} · Y:${s.y}`;
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
-    if(job) $('selection-work').textContent=`คำสั่งขุด: ${job.status==='digging'?'กำลังขุด':job.status==='assigned'?'กำลังเดินไปขุด':'รอมดงาน'} · ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
+    if(job) $('selection-work').textContent=`ขุด · ${job.status==='digging'?'กำลังทำ':job.status==='assigned'?'กำลังมา':'รอ'} ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
     $('selection-room').classList.toggle('hidden',!room);
     $('cancel-room').classList.toggle('hidden',!room || !['planned','building'].includes(room.status));
     if(room) {
@@ -259,10 +259,10 @@ export class UI {
       const cargo=room.status==='building'||room.status==='planned'?(room.pickups||[]).filter(p=>!p.collected).length:0;
       const brood=room.type==='nursery'?this.game.lifecycle.brood.filter(b=>b.roomId===room.id).length:0;
       const guards=room.type==='guard'?this.game.colony.workers.filter(w=>w.state==='room-guard'&&w.guardRoomId===room.id).length:0;
-      $('selection-room').textContent=`${ROOM_CATALOG[room.type].name} · ${{planned:'รอมดงาน',building:'กำลังก่อสร้าง',ready:'เปิดใช้งาน',disabled:'ขาดการเชื่อมต่อ'}[room.status]} · ${room.width}×${room.height} · ${Math.floor(room.progress/Math.max(1,room.ticks??ROOM_CATALOG[room.type].ticks)*100)}%${cargo?` · รอรับวัสดุ ${cargo} ชุด`:''}${stored?' · คลัง: '+stored:''}${room.type==='nursery'?` · ตัวอ่อนในห้อง ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards} ตัว`:''}`;
+      $('selection-room').textContent=`${room.width}×${room.height} · ${{planned:'รอสร้าง',building:'กำลังสร้าง',ready:'พร้อมใช้',disabled:'ขาดทางเข้า'}[room.status]} ${room.status==='ready'?'':Math.floor(room.progress/Math.max(1,room.ticks??ROOM_CATALOG[room.type].ticks)*100)+'%'}${cargo?` · วัสดุ ${cargo}`:''}${stored?' · '+stored:''}${room.type==='nursery'?` · ตัวอ่อน ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards}`:''}`;
     }
     $('selection-resource').classList.toggle('hidden',!source);
-    if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
+    if(source) $('selection-resource').textContent=`เหลือ ${source.amount} · จอง ${source.reserved}`;
     const broodHere=s.layer===UNDERGROUND?this.game.lifecycle.brood.filter(b=>
       room?.type==='nursery'?b.roomId===room.id:
       !b.carrierId&&b.x===s.x&&b.y===s.y):[];
@@ -272,7 +272,7 @@ export class UI {
       const temporary=broodHere.filter(b=>b.site==='temporary').length;
       const counts=[['egg','ไข่'],['larva','ตัวอ่อน'],['pupa','ดักแด้']]
         .map(([stage,label])=>`${label} ${broodHere.filter(b=>b.stage===stage).length}`).join(' · ');
-      $('selection-brood').textContent=`${temporary?'พื้นที่พักตัวอ่อนชั่วคราว':'ตัวอ่อนบริเวณนี้'} ${broodHere.length} · ${counts}`;
+      $('selection-brood').textContent=`${temporary?'พักชั่วคราว · ':''}${counts}`;
     }
     $('selection-note').textContent=source?'มดหาอาหารจะมารับทรัพยากรโดยอัตโนมัติ':job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
   }
@@ -325,7 +325,9 @@ export class UI {
     const life=this.game.lifecycle;
     const temporaryBrood=life.brood.filter(b=>b.site==='temporary').length;
     $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae}${temporaryBrood?` · พักชั่วคราว ${temporaryBrood}`:''}`;
-    $('queen-status').textContent=this.game.colony.queen.alive?life.lastEvent:'นางพญาสิ้นชีวิต';
+    const queenAlert=!this.game.colony.queen.alive;
+    $('queen-status').textContent=queenAlert?'นางพญาสิ้นชีวิต':life.lastEvent;
+    $('queen-status').classList.toggle('is-alert',queenAlert);
     $('population').textContent=String(this.game.population);
     $('report-workers').textContent=String(this.game.colony.workers.length);
     $('report-nurses').textContent=String(life.nurseCount);

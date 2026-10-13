@@ -49,7 +49,7 @@ with sync_playwright() as pw:
         }''')
         assert not result['remote'] and result['cargo'] is None,(name,result)
         assert result['stock']==27 and result['warehouse']==3,(name,result)
-        assert 'คลัง' in result['selection'],(name,result)
+        assert '2×2' in result['selection'] and 'อาหาร' in result['selection'],(name,result)
         assert not errors,(name,errors)
         print(f'{name} {width}x{height}: PASS physical warehouse delivery in {result["steps"]} steps, JS errors=0')
         page.close()
