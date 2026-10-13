@@ -1,6 +1,6 @@
 # Ant Kingdom — Round 2 Work Board / File Ownership
 
-> **ACTIVE round starting 2026-10-13.** Fixed initial main `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`. Always re-verify branch and SHA; previous Wave-1 assignments are retired. The successor AI-HEAD may update this board as work proceeds, but contributors edit only their assigned report file and source/test allowlist.
+> **ACTIVE round starting 2026-10-13.** Historical pre-planning gameplay base: `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`. **Start every actual agent work branch from current `main` after docs PR #27 merge, which contains report templates.** Always re-verify branch and SHA; previous Wave-1 assignments are retired. The successor AI-HEAD may update this board as work proceeds, but contributors edit only their assigned report file and source/test allowlist.
 
 ## Parallel assignments
 
