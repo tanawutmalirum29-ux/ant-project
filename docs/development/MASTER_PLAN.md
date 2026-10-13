@@ -40,3 +40,6 @@ P3-GAME-02: only if player benefit proven, consider independent squads, durable 
 
 ## Stop conditions
 Any unexplained ledger mismatch, teleport, lost queue ownership, inability to pause, regression, failed build, failing required browser view, missing reproducible logs, or changed files outside allowlist blocks merge (Needs Rework). CI ≠ AWS approval ≠ real device approval.
+
+## Owner approval — 2026-10-13
+The owner approved Wave 1A TEST-ONLY implementation according to the exact file allowlists. P1-ECO-01, P1-AI-01, P1-UI-01 may start their test branches; this is NOT approval for any P1B gameplay fixes, changes to shared production files, or critical merges. Phase 0 PR #16 remains a Draft awaiting review/merge authorization.
