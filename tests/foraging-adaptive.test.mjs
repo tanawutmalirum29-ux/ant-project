@@ -150,7 +150,8 @@ test('NEXT-01 physical delivery and per-type mass remain conserved over long tri
     if(g.colony.workers.some(w=>w.layer===SURFACE))surfaceVisit=true;
     if(g.colony.workers.some(w=>w.cargo?.amount))cargoVisit=true;
     if(i%25===0) {
-      for(const t of RESOURCE_TYPES)assert.equal(mass(g,t),initial[t],t+' mass at tick '+i);
+      for(const t of RESOURCE_TYPES)assert.equal(mass(g,t),initial[t]+g.ecology.regenerated[t],
+        t+' mass at tick '+i+' (initial + recorded natural renewal)');
       for(const node of g.foraging.nodes) {
         assert.ok(node.reserved>=0&&node.reserved<=node.amount,node.id+' claim invariant');
       }
@@ -167,11 +168,14 @@ test('NEXT-01 physical delivery and per-type mass remain conserved over long tri
 
 test('NEXT-01 optional ecology metadata is read-only to foragers',()=>{
   const g=new Game('adaptive-contract'),node=g.foraging.nodes[0];
+  // Only call the Foraging scheduler: Game.update() intentionally also runs
+  // ResourceEcology, which legitimately changes regeneration progression.
   node.maxAmount=node.initialAmount;node.regrowthProgress=0.75;
   const before={maxAmount:node.maxAmount,regrowthProgress:node.regrowthProgress};
-  run(g,75);
+  for(let i=0;i<75;i++)g.foraging.tick();
   assert.equal(node.maxAmount,before.maxAmount);
   assert.equal(node.regrowthProgress,before.regrowthProgress);
+  assert.deepEqual(g.ecology.regenerated,{carbs:0,protein:0,water:0});
 });
 
 test('NEXT-01 identical seeds and workloads remain deterministic',()=>{
