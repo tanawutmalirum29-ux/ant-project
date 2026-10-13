@@ -24,3 +24,30 @@
 
 @media(min-width:681px){#u6-open{right:24px;bottom:75px;}}
 @media(max-height:500px) and (orientation:landscape){#u6-open{right:10px;bottom:50px;}}
+
+
+/* U6.1 military-owned persistent controls; isolated from V2/V2.1 styles. */
+#u6-dock{position:fixed;z-index:24;left:calc(12px + env(safe-area-inset-left));bottom:calc(64px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:5px;max-width:calc(100vw - 24px);pointer-events:auto;}
+#u6-dock button{min-height:44px;padding:7px 10px;border:1px solid #c4a16d9c;border-radius:12px;background:#19372ef5;color:#fff0ce;font:700 12px system-ui,sans-serif;box-shadow:0 6px 17px #0008;cursor:pointer;white-space:nowrap;pointer-events:auto;}
+#u6-dock #u6-open{position:static;max-width:none;min-height:44px;}
+#u6-dock button[aria-pressed="true"]{background:#b89251;color:#172a22;border-color:#f5d695;}
+#u6-target-tip{position:fixed;z-index:26;top:calc(126px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(460px,calc(100vw - 20px));padding:9px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #e6bd75;border-radius:12px;background:#182f26fa;color:#fae6bf;font:700 12px system-ui,sans-serif;box-shadow:0 8px 24px #000a;pointer-events:none;}
+#u6-target-tip[hidden]{display:none!important;}
+#u6-target-tip button{min-height:36px;min-width:64px;border:1px solid #eed7a3;border-radius:8px;color:#fae6bf;background:#3a4c3e;pointer-events:auto;cursor:pointer;}
+#u6-dialog{width:min(520px,calc(100vw - 20px));max-height:min(88dvh,790px);}
+#u6-dialog .u6-subnote{margin:0;font-size:11px;color:#b6d0b8;}
+#u6-dialog h3{font-size:13px;margin:2px 0 0;}
+#u6-dialog h3 small{font-size:11px;color:#a6bca7;font-weight:400;}
+#u6-dialog .u6-roster{max-height:min(250px,30dvh);overflow-y:auto;overscroll-behavior:contain;display:grid;gap:5px;}
+#u6-dialog .u6-unit{border:1px solid #435f50;border-radius:9px;padding:7px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;}
+#u6-dialog .u6-unit.is-soldier{border-color:#cba86f;background:#2a3927;}
+#u6-dialog .u6-unit-info{display:grid;gap:2px;min-width:0;}
+#u6-dialog .u6-unit-info strong{font-size:12px;}
+#u6-dialog .u6-unit-info small{font-size:10px;color:#b3c9ba;overflow-wrap:anywhere;}
+#u6-dialog .u6-unit-info progress{height:6px;width:100%;accent-color:#b8d991;}
+#u6-dialog .u6-unit-buttons{display:flex;gap:4px;flex:none;}
+#u6-dialog .u6-unit-buttons button{min-width:44px;min-height:40px;padding:4px 7px;}
+#u6-dock button:focus-visible,#u6-dialog button:focus-visible,#u6-target-tip button:focus-visible{outline:2px solid #f5cb83;outline-offset:2px;}
+@media(max-width:400px){#u6-dock{gap:4px;}#u6-dock button{font-size:11px;padding:7px;}#u6-dialog .u6-sheet{padding:11px;}}
+@media(max-height:500px) and (orientation:landscape){#u6-dock{left:35%;bottom:8px;}#u6-target-tip{top:calc(9px + env(safe-area-inset-top));}}
+@media(min-width:850px){#u6-dock{bottom:22px;left:24px;}}
