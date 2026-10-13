@@ -61,7 +61,7 @@ test('NEXT02-UI-03 original time pill is reused; live phase and countdown update
     ui.debug=false;
     ui.refreshSelection=()=>{};
     ui.updateMetrics();
-    assert.equal(fake.small.textContent,'ปกติ');
+    assert.equal(fake.small.textContent,'ปกติ · 4800t','integrated new Game has active Weather');
     assert.equal(fake.clock.textContent,formatGameTime(ui.game.clock));
     assert.equal(fake.small.style.display,'block');
     assert.equal(fake.small.style.whiteSpace,'nowrap');
@@ -87,8 +87,12 @@ test('NEXT02-UI-03 original time pill is reused; live phase and countdown update
 
     ui.game=new Game('NEW-SEED');
     ui.updateMetrics();
-    assert.equal(fake.small.textContent,'ปกติ','reset to legacy Game has no invented timer');
+    assert.equal(fake.small.textContent,'ปกติ · 4800t','reset starts a fresh clear Weather phase');
     assert.equal(fake.clock.textContent,formatGameTime(ui.game.clock));
+    // Preserve the standalone/legacy fallback as an independent contract.
+    ui.game.weather=undefined;
+    ui.updateMetrics();
+    assert.equal(fake.small.textContent,'ปกติ');
   } finally {
     globalThis.document=oldDocument;
   }
