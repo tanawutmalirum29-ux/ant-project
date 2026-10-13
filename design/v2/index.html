@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#101b17" />
+  <meta name="description" content="Ant Kingdom — เกมจำลองอาณาจักรมดใต้พิภพ" />
+  <title>Ant Kingdom V2 | Visual Mock Preview</title>
+  <link rel="stylesheet" href="../../src/styles.css" />
+  <link rel="stylesheet" href="../../src/ui/visual/v1.css" />
+  <link rel="stylesheet" href="../../src/ui/visual/v2.css" />
+  <link rel="stylesheet" href="./preview.css" />
+</head>
+<body>
+  <div id="app" class="v2-preview">
+    <div class="demo-label" role="note">V2 CONCEPT / ข้อมูลจำลอง ไม่ใช่เกมจริง</div>
+    <main class="world" aria-label="แผนที่เกม Ant Kingdom">
+      <canvas id="game-canvas" aria-label="แผนที่จำลองโลกมด (ตัวอย่าง)"></canvas>
+      <div class="preview-land" aria-hidden="true">
+        <div class="preview-sky"><span class="preview-sun"></span><span class="preview-grass"></span></div>
+        <div class="preview-cut">
+          <span class="preview-grain grain-a"></span><span class="preview-grain grain-b"></span>
+          <div class="preview-path path-a"></div><div class="preview-path path-b"></div><div class="preview-path path-c"></div>
+          <div class="preview-room room-a"><img src="../../assets/sprites/queen-ant.svg" alt="" /></div>
+          <div class="preview-room room-b"><img src="../../assets/sprites/brood.svg" alt="" /></div>
+          <div class="preview-room room-c"><img src="../../assets/sprites/store-room.svg" alt="" /></div>
+          <img class="preview-ant ant-a" src="../../assets/sprites/worker-ant.svg" alt="" />
+          <img class="preview-ant ant-b" src="../../assets/sprites/worker-ant.svg" alt="" />
+          <img class="preview-ant ant-c" src="../../assets/sprites/worker-ant.svg" alt="" />
+        </div>
+      </div>
+      <div class="ambient-label" aria-hidden="true"><span class="ambient-mark">✦</span> THE LIVING COLONY <span class="ambient-mark">✦</span></div>
+    </main>
+
+    <header class="topbar">
+      <div class="brand-box">
+        <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><ellipse cx="27" cy="27" rx="9" ry="12" fill="#DAB478"/><ellipse cx="17" cy="17" rx="6" ry="7" fill="#EBD09B"/><circle cx="12" cy="13" r="4" fill="#EBD09B"/><path d="M15 10 10 4M19 11 23 4M20 25 8 21M19 31 7 33M33 25 42 19M34 32 43 36" stroke="#EBD09B" stroke-width="2.8" stroke-linecap="round"/></svg></div>
+        <div><div class="brand-kicker">COLONY SIMULATOR</div><h1>ANT <span>KINGDOM</span></h1></div>
+      </div>
+      <div class="status-cluster">
+        <div class="status-pill time-pill"><span class="status-icon">◷</span><div><small>เวลาในอาณาจักร</small><strong id="game-time">วันที่ 4 · 08:20</strong></div></div>
+        <button type="button" class="status-pill population-pill" id="colony-button" aria-expanded="false" aria-controls="colony-panel" title="ดูข้อมูลประชากร"><span class="status-icon">♙</span><span><small>ประชากร</small><strong><span id="population">64</span> <em>ตัว</em></strong></span></button>
+        <button class="status-pill seed-pill" id="seed-button" title="เปลี่ยน Seed ของแผนที่"><span class="status-icon">⌘</span><div><small>WORLD SEED</small><strong id="seed-label">COLONY-V2</strong></div><span class="chevron">⌄</span></button>
+      </div>
+    </header>
+
+    <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p></aside>
+    <div class="resource-strip" role="status" aria-label="ทรัพยากรในคลัง">
+      <div class="resource-stat"><span class="resource-emoji">◉</span><span>อาหารพลังงาน</span><strong id="stock-carbs">128</strong></div>
+      <div class="resource-stat"><span class="resource-emoji">◆</span><span>โปรตีน</span><strong id="stock-protein">84</strong></div>
+      <div class="resource-stat"><span class="resource-emoji">◈</span><span>น้ำ</span><strong id="stock-water">230</strong></div>
+    </div>
+    <aside class="left-overlay" aria-label="ข้อมูลบริเวณแผนที่">
+      <div class="region-heading"><div class="region-overline">CURRENT REGION <span>•</span> 01 / 02</div><h2 id="region-name">ใต้ผืนดิน</h2><p id="region-subtitle">อุโมงค์แห่งอาณาจักรเริ่มต้น</p></div>
+      <div class="phase-note"><span class="phase-dot"></span><span>COLONY LIFECYCLE <b>U4</b></span></div><div class="brood-summary" aria-live="off"><span id="brood-summary">ไข่ 12 · ตัวอ่อน 8 · ดักแด้ 4</span><span id="queen-status" class="queen-status">นางพญาพร้อมวางไข่</span></div>
+    </aside>
+
+    <aside class="dig-tools" aria-label="เครื่องมือก่อสร้าง">
+      <div class="tool-switch">
+        <button type="button" class="tool-button active" id="tool-inspect" aria-pressed="true" title="ดูข้อมูลช่อง">⌕ <span>สำรวจ</span></button>
+        <button type="button" class="tool-button" id="tool-dig" aria-pressed="false" title="เลือกแล้วลากเพื่อสั่งขุด">⚒ <span>สั่งขุด</span></button>
+      </div>
+      <div class="forage-control" aria-label="กำหนดจำนวนมดหาอาหาร">
+        <span>มดหาอาหาร</span>
+        <button id="forage-minus" type="button" aria-label="ลดจำนวนมดหาอาหาร">−</button>
+        <strong id="forage-count">18/43</strong>
+        <button id="forage-plus" type="button" aria-label="เพิ่มจำนวนมดหาอาหาร">+</button>
+      </div>
+      <div class="forage-control nurse-control" aria-label="กำหนดจำนวนมดพี่เลี้ยง"><span>มดพี่เลี้ยง</span><button id="nurse-minus" type="button" aria-label="ลดมดพี่เลี้ยง">−</button><strong id="nurse-count">6/43</strong><button id="nurse-plus" type="button" aria-label="เพิ่มมดพี่เลี้ยง">+</button></div>
+      <div class="orders-status"><span id="worker-status">ทำงาน 24 · ขนส่ง 18</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 6</span></div>
+    </aside>
+
+    <div class="right-controls">
+      <div class="control-card speed-controls" aria-label="ความเร็วเกม">
+        <button id="pause-button" class="speed-btn" data-speed="0" aria-label="หยุดเวลา" title="หยุดเวลา (Space)">Ⅱ</button>
+        <button class="speed-btn active" data-speed="1" title="ความเร็ว x1">×1</button>
+        <button class="speed-btn" data-speed="2" title="ความเร็ว x2">×2</button>
+        <button class="speed-btn" data-speed="4" title="ความเร็ว x4">×4</button>
+      </div>
+      <div class="control-stack">
+        <button class="icon-button" id="zoom-in" aria-label="ขยายแผนที่" title="ซูมเข้า">+</button>
+        <button class="icon-button" id="zoom-out" aria-label="ย่อแผนที่" title="ซูมออก">−</button>
+        <button class="icon-button location-button" id="recenter" aria-label="กลับไปที่ปากรัง" title="กลับไปที่ปากรัง">⌖</button>
+      </div>
+      <button class="icon-button debug-toggle" id="debug-toggle" aria-label="เปิดปิดข้อมูลดีบัก" title="ข้อมูลดีบัก (D)">⚙</button>
+    </div>
+
+    <aside class="debug-panel hidden" id="debug-panel" aria-live="off">
+      <div class="panel-head">SIMULATION / DEBUG <span>U4</span></div>
+      <div class="metric"><span>FPS</span><strong id="metric-fps">—</strong></div>
+      <div class="metric"><span>TPS</span><strong id="metric-tps">—</strong></div>
+      <div class="metric"><span>Simulation</span><strong id="metric-sim">— ms</strong></div>
+      <div class="metric"><span>Render</span><strong id="metric-render">— ms</strong></div>
+      <div class="metric"><span>Ticks</span><strong id="metric-ticks">0</strong></div>
+      <div class="metric"><span>Pending tasks</span><strong id="metric-pending">0</strong></div>
+      <div class="metric"><span>Camera</span><strong id="metric-camera">—</strong></div>
+      <div class="metric"><span>Layer</span><strong id="metric-layer">—</strong></div>
+      <div class="metric"><span>Births / deaths</span><strong id="metric-life">0 / 0</strong></div>
+    </aside>
+
+    <aside class="selection-card hidden" id="selection-card" aria-live="polite">
+      <div class="selection-title"><span id="selection-terrain">พื้นดิน</span><button id="selection-close" aria-label="ปิดข้อมูลช่อง">×</button></div>
+      <p id="selection-coords">ตำแหน่ง —</p>
+      <button id="portal-button" class="portal-action hidden">เปลี่ยนไปอีกชั้น ↗</button>
+      <p id="selection-work" class="selection-work hidden"></p>
+      <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
+<p class="selection-resource hidden" id="selection-resource"></p>
+      <p class="selection-brood hidden" id="selection-brood"></p>
+      <span class="selection-note" id="selection-note">เลือกเครื่องมือขุดแล้วแตะหรือลากบนดินเพื่อสั่งมดงาน</span>
+    </aside>
+
+    <footer class="bottom-bar">
+      <div class="bottom-hint"><span class="hint-line"></span><span id="layer-hint">สำรวจโครงสร้างภายในรัง</span></div>
+      <nav class="layer-switch" aria-label="เลือกชั้นแผนที่">
+        <button class="layer-btn" data-layer="surface" id="surface-button"><span class="layer-icon">♧</span><span>พื้นผิว</span></button>
+        <button class="layer-btn selected" data-layer="underground" id="underground-button"><span class="layer-icon">▤</span><span>ใต้ดิน</span></button>
+      </nav>
+      <div class="bottom-help">ลากเลื่อนแผนที่ <span>·</span> ถ่างเพื่อซูม</div>
+    </footer>
+
+    <dialog id="seed-dialog" class="seed-dialog">
+      <form method="dialog" id="seed-form">
+        <div class="dialog-eyebrow">NEW WORLD GENERATION</div>
+        <h2>กำหนดเมล็ดพันธุ์โลก</h2>
+        <p>ใช้ Seed เดิมเพื่อสร้างแผนที่เดิมได้ทุกครั้ง การสร้างโลกใหม่จะเริ่มเวลาเกมใหม่ด้วย</p>
+        <label for="seed-input">WORLD SEED</label>
+        <input type="text" id="seed-input" maxlength="40" autocomplete="off" spellcheck="false" required />
+        <div class="dialog-actions"><button type="button" id="cancel-seed" class="secondary-btn">ยกเลิก</button><button id="create-seed" type="submit" class="primary-btn">สร้างโลกใหม่ →</button></div>
+      </form>
+    </dialog>
+    <div class="toast hidden" id="toast" role="status"></div>
+  </div>
+  <script src="./preview.js" defer></script>
+</body>
+</html>
