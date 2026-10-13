@@ -5,11 +5,13 @@ on:
     paths:
       - 'src/core/**'
       - 'src/main.js'
+      - 'src/ui/app.js'
       - 'src/render/renderer.js'
       - 'src/ui/combat*'
       - 'tests/**'
       - 'tools/browser-smoke.py'
       - 'tools/browser-u6.py'
+      - 'src/ui/combat.css'
       - '.github/workflows/u6-combat-verify.yml'
   workflow_dispatch:
 permissions:
@@ -36,5 +38,9 @@ jobs:
           python -m playwright install chromium
       - name: Verify gameplay and mobile interaction
         run: |
+          python tools/browser-u3.py
+          python tools/browser-u4.py
+          python tools/browser-u5.py
           python tools/browser-u5-logistics.py
           python tools/browser-u6.py
+          python tools/browser-v2-ui-fix.py
