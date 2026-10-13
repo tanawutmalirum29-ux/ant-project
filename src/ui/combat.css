@@ -1,0 +1,23 @@
+/* U6 functional command dialog. Isolated from V1/V2 visual ownership. */
+#u6-open{min-height:38px;max-width:100%;border:1px solid #d7b77e88;border-radius:10px;padding:6px 12px;background:#24342be8;color:#f8e6bf;font-weight:700;cursor:pointer;white-space:normal;}
+#u6-open:focus-visible,#u6-dialog button:focus-visible{outline:2px solid #f5cb83;outline-offset:2px;}
+#u6-dialog{width:min(440px,calc(100vw - 24px));max-height:min(88dvh,700px);overflow:auto;margin:auto;border:1px solid #c3a46e;border-radius:16px;background:#152720;color:#f0e5cf;box-shadow:0 18px 50px #000b;padding:0;}
+#u6-dialog::backdrop{background:#040806b5;}
+#u6-dialog .u6-sheet{display:grid;gap:12px;padding:16px;}
+#u6-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+#u6-title{margin:0;font-size:18px;line-height:1.4;}
+#u6-dialog button{min-height:44px;border:1px solid #8d9e83;border-radius:9px;background:#294136;color:#f5edda;padding:7px 12px;font-size:13px;cursor:pointer;}
+#u6-dialog button:disabled{opacity:.5;cursor:default;}
+#u6-dialog #u6-close{font-size:23px;width:44px;padding:0;}
+#u6-dialog .u6-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13px;}
+#u6-dialog .u6-stats span{display:flex;justify-content:space-between;gap:5px;padding:8px;border:1px solid #476152;border-radius:9px;}
+#u6-dialog .u6-actions{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:13px;}
+#u6-dialog .u6-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;}
+#u6-dialog .u6-modes button{padding:6px 4px;font-size:12px;}
+#u6-dialog button[aria-pressed="true"]{background:#b88f4b;color:#13251b;border-color:#e3ca8b;font-weight:800;}
+#u6-notice{min-height:20px;color:#c8dfba;font-size:12px;margin:0;}
+#u6-dialog small{font-size:11px;line-height:1.55;color:#b9c4b8;}
+@media(max-width:380px){#u6-dialog .u6-sheet{padding:12px;}#u6-open{padding:5px 7px;font-size:12px;}}
+@media(prefers-reduced-motion:reduce){#u6-dialog *{animation:none!important;transition:none!important;}}
+/* U5 makes transparent dock regions click-through; explicitly restore this control. */
+.dig-tools>#u6-open{pointer-events:auto;position:relative;z-index:1;}

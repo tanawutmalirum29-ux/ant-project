@@ -9,10 +9,14 @@ def bundle_html():
     html=(root/'index.html').read_text()
     css=(root/'src/styles.css').read_text()
     html=html.replace('<link rel="stylesheet" href="./src/styles.css" />','<style>'+css+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','ui/combat-controls.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()
+        if m=='ui/combat-controls.js':
+            import urllib.parse
+            css=(root/'src/ui/combat.css').read_text()
+            source=source.replace("new URL('./combat.css',import.meta.url).href",repr('data:text/css,'+urllib.parse.quote(css)))
         module_path='/src/'+m
         def resolve_import(match):
             names=match.group(1).strip()

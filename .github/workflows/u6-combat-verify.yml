@@ -1,0 +1,40 @@
+name: U6 Combat and Regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/**'
+      - 'src/main.js'
+      - 'src/render/renderer.js'
+      - 'src/ui/combat*'
+      - 'tests/**'
+      - 'tools/browser-smoke.py'
+      - 'tools/browser-u6.py'
+      - '.github/workflows/u6-combat-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: U1-U6 unit and regression tests
+        run: npm test
+      - name: Static build
+        run: |
+          npm run build
+          test -s dist/src/core/combat.js
+          test -s dist/src/ui/combat-controls.js
+          test -s dist/src/ui/combat.css
+      - name: Install Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium
+      - name: Verify gameplay and mobile interaction
+        run: |
+          python tools/browser-u5-logistics.py
+          python tools/browser-u6.py
