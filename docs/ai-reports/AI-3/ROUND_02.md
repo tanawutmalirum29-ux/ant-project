@@ -8,7 +8,8 @@
 **Remote main/base SHA (GitHub ref verified):** `1a3e8038e81e5c3cbca1efe67c999c63746169ee`  
 **Checkout/tested game SHA:** **NONE** — repository cannot be checked out in this execution environment  
 **Work branch:** `work/r2-ai3-browser-qa-blocker-20261013` based on remote main SHA above  
-**Report commit/Draft PR:** linked from Issue #25 after GitHub write; no source checkout or tests implied  
+**Report initial commit:** https://github.com/tanawutmalirum29-ux/ant-project/commit/9bfa8ef3463bb160468c723e04fb0256ab9f2b57  
+**Draft PR:** https://github.com/tanawutmalirum29-ux/ant-project/pull/28 — documentation-only, not a browser QA PASS  
 **Exactly changed file:** `docs/ai-reports/AI-3/ROUND_02.md` (documentation only)  
 **Production changes:** NONE  
 **Harness modifications:** NONE — no reproducible harness defect has been established
