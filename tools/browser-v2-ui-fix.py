@@ -84,8 +84,20 @@ with sync_playwright() as p:
             const el=document.querySelector('#seed-button');
             return !el.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,ctrlKey:true}));
         }'''),(name,'page wheel zoom was not canceled')
+        # Target an exposed canvas pixel, not the selection info panel.
+        map_point=page.evaluate('''() => {
+          const canvas=document.querySelector('#game-canvas');
+          for (const y of [.45,.55,.65,.35,.75]) {
+            for (const x of [.72,.62,.52,.42,.32,.82,.22]) {
+              const px=innerWidth*x,py=innerHeight*y;
+              if (document.elementFromPoint(px,py)===canvas)return {x:px,y:py};
+            }
+          }
+          return null;
+        }''')
+        assert map_point,(name,'no exposed map coordinate for wheel zoom')
         cam_before=page.evaluate('__ANT_DEBUG__.cameras[__ANT_DEBUG__.game.layer].zoom')
-        page.mouse.move(width/2,height/2)
+        page.mouse.move(map_point['x'],map_point['y'])
         page.mouse.wheel(0,-240)
         page.wait_for_timeout(70)
         cam_after=page.evaluate('__ANT_DEBUG__.cameras[__ANT_DEBUG__.game.layer].zoom')
