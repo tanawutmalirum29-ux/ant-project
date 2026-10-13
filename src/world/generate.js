@@ -97,10 +97,11 @@ function surface(seed, entrance) {
       writeCell(layer,x,y,TERRAINS.STONE);
   }
 
-  // Permanent starting meadow/forage exits. Resource spawning starts at this
+  // Permanent starting meadow/forage exits, including the +11 x combat
+  // spawn ring. The same meadow protects early resource and enemy pathfinding. Resource spawning starts at this
   // shared portal; do not enclose it with thicket, water or stone.
   const e=entrance.surface;
-  disc(layer,e.x,e.y,9,7,TERRAINS.DIRT);
+  disc(layer,e.x,e.y,14,11,TERRAINS.DIRT);
   writeCell(layer,e.x,e.y,TERRAINS.ENTRANCE);
   return layer;
 }
@@ -152,17 +153,10 @@ function underground(seed, entrance) {
     }
   }
 
-  // Small wild voids are not connected by magic; players can open a tunnel to
-  // reach them. Never turn solid ROCK into an accessible room accidentally.
-  for(let i=0;i<12;i++){
-    const cx=rng.int(8,w-9),cy=rng.int(8,h-9),rx=rng.int(2,4),ry=rng.int(1,3);
-    for(let y=cy-ry;y<=cy+ry;y++)for(let x=cx-rx;x<=cx+rx;x++){
-      if((x-cx)**2/rx**2+(y-cy)**2/ry**2>1)continue;
-      const current=cellAt(layer,x,y);
-      if(current===TERRAINS.SOIL||current===TERRAINS.HARD_SOIL)
-        writeCell(layer,x,y,TERRAINS.CHAMBER);
-    }
-  }
+  // Keep virgin regions solid until workers dig toward them. Disconnected
+  // pre-opened pockets masquerade as reachable work frontiers to old schedulers,
+  // causing first mining assignments to get stuck. Rock/soil pockets still
+  // provide exploration variety without an artificial teleportable cavern.
 
   // The original three start rooms, starter paths and every spawn coordinate
   // are the last word: no geological deposit can obstruct the initial colony.
