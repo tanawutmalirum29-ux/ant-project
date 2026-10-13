@@ -83,8 +83,10 @@ with sync_playwright() as pw:
           return {start,end,x:q.x-4,y:q.y-1,valid:g.rooms.validate('food_store',q.x-4,q.y-1,2,3)};
         }''')
         assert drag['valid']['ok'],(name,drag)
-        for pos in (drag['start'],drag['end']):
-            assert page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',pos)=='game-canvas',(name,drag,pos)
+        # Pointer capture deliberately keeps the drag on canvas even when the
+        # destination passes under a floating palette. The *start* must be
+        # a real hit on the map, with no synthetic game mutations.
+        assert page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',drag['start'])=='game-canvas',(name,drag,'start obstructed')
         if name=='desktop':
             page.mouse.move(drag['start']['x'],drag['start']['y'])
             page.mouse.down()
