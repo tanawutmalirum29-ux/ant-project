@@ -1,6 +1,6 @@
 # Ant Kingdom — AI Agent Reports
 
-This is the **active GitHub reporting area** starting Round 02 (2026-10-13). Reports are per-agent and per-round. Each agent updates their own Markdown file in their **own branch and Draft PR**, and also posts milestones immediately as comments in their dedicated GitHub Issue so the incoming AI-HEAD can follow progress before merging.
+This is the **active GitHub reporting area** starting Round 02 (2026-10-13). **All agents must start branches from current main containing these templates (merged by PR #27), not the pre-planning gameplay commit `615fac2`.** Reports are per-agent and per-round. Each agent updates their own Markdown file in their **own branch and Draft PR**, and also posts milestones immediately as comments in their dedicated GitHub Issue so the incoming AI-HEAD can follow progress before merging.
 
 | Owner | Per-round report | Live Issue inbox |
 |---|---|---|
