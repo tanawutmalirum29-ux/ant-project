@@ -102,6 +102,7 @@ jobs:
           run_case browser_v2_ui_fix python tools/browser-v2-ui-fix.py
           run_case browser_u6 python tools/browser-u6.py
           run_case browser_v2_live python tools/browser-v2-live.py
+          run_case browser_weather python tools/browser-next02-weather.py --artifacts "$root/weather-five-viewports"
           exit 0
 
       - name: Upload logs, viewport JSON and screenshots even on failure
@@ -125,7 +126,7 @@ jobs:
           for line in (root/'exit-codes.txt').read_text().splitlines() if (root/'exit-codes.txt').exists() else []:
               k, v=line.split('=',1)
               exits[k]=int(v)
-          required=['npm_test','npm_build','playwright_install','py_compile','ui_5_viewports','browser_v2_ui_fix','browser_u6','browser_v2_live']
+          required=['npm_test','npm_build','playwright_install','py_compile','ui_5_viewports','browser_v2_ui_fix','browser_u6','browser_v2_live','browser_weather']
           summary=root/'five-viewports'/'summary.json'
           observed=[]
           blocked=True

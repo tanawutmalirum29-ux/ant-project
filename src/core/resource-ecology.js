@@ -5,8 +5,10 @@ import { RESOURCE_TYPES } from '../world/resources.js';
  * Water replenishes fastest, carbohydrate plants next; insects/protein slowest.
  * 10 game ticks/s at x1 => 30s / 42s / 90s per source unit.
  *
- * Site-local integer accumulators prevent floating-point drift after many ticks;
- * regrowthProgress is only their public 0 <= fraction < 1 projection.
+ * Site-local integer accumulators prevent floating-point drift after many ticks.
+ * Without weather, keep the original one-integer-per-game-tick accounting.
+ * With weather, fractional multipliers are quantized ONCE per advancing tick
+ * to precise fixed-point units; fractional growth is not rounded per tick.
  */
 export const RESOURCE_REGROWTH_TICKS = Object.freeze({
   carbs: 420,
@@ -15,14 +17,19 @@ export const RESOURCE_REGROWTH_TICKS = Object.freeze({
 });
 
 const types = new Set(RESOURCE_TYPES);
+// 10^12 resolves the agreed rain/drought decimals exactly, without cumulative
+// binary floating-point drift at their unit-regeneration boundaries.
+// Even the slowest base period (900 ticks) fits safely in a JS integer.
+const WEATHER_SCALE = 1_000_000_000_000;
 
 /** Finite capacity, physical sources and an explicit journal of new natural inflow. */
 export class ResourceEcology {
-  constructor(world) {
+  constructor(world, weather = null) {
     if (!world || !Array.isArray(world.resources)) {
       throw new TypeError('ResourceEcology requires a world.resources array');
     }
     this.world = world;
+    this.weather = weather;
     this.regenerated = { carbs: 0, protein: 0, water: 0 };
     this._elapsed = new WeakMap();
     for (const node of world.resources) this._initialize(node);
@@ -46,15 +53,39 @@ export class ResourceEcology {
       throw new RangeError('Resource regrowthProgress must be in [0,1)');
     }
     const rate = RESOURCE_REGROWTH_TICKS[node.type];
+    const period = rate * (this.weather ? WEATHER_SCALE : 1);
     const elapsed = node.amount === cap
-      ? 0 : Math.min(rate - 1, Math.round(progress * rate));
+      ? 0 : Math.min(period - 1, Math.round(progress * period));
     node.maxAmount = cap;
-    node.regrowthProgress = elapsed / rate;
+    node.regrowthProgress = elapsed / period;
     this._elapsed.set(node, elapsed);
   }
 
-  /** Advance exactly ONE fixed game tick; the Game fixed stepper controls pause/speed. */
+  /**
+   * Read factors once per tick, before changing ANY node. The Weather engine is
+   * owned by Game: this class NEVER advances weather or wall-clock time.
+   * Values beyond fixed-point representability must fail closed rather than
+   * injecting impossible stock or silently freezing a positive growth rate.
+   */
+  _weatherDeltas() {
+    if (!this.weather) return null;
+    const factors = this.weather.factors;
+    const deltas = {};
+    for (const type of RESOURCE_TYPES) {
+      const factor = factors?.[type];
+      const scaled = Math.round(factor * WEATHER_SCALE);
+      if (!Number.isFinite(factor) || factor <= 0 ||
+          !Number.isSafeInteger(scaled) || scaled <= 0) {
+        throw new RangeError('Invalid weather regeneration factor: ' + type);
+      }
+      deltas[type] = scaled;
+    }
+    return deltas;
+  }
+
+  /** Advance exactly ONE fixed game tick; Game owns pause, speed and weather ordering. */
   tick() {
+    const deltas = this._weatherDeltas();
     // Iterate the authoritative world array, never a copied or respawned node list.
     for (const node of this.world.resources) {
       if (!this._elapsed.has(node)) this._initialize(node);
@@ -67,17 +98,22 @@ export class ResourceEcology {
         }
         continue;
       }
-      // Foraging owns reservations. This engine touches only amount/progress.
+      // Foraging owns reservations and transport; ecology only adds actual units.
       const rate = RESOURCE_REGROWTH_TICKS[node.type];
-      const elapsed = this._elapsed.get(node) + 1;
-      if (elapsed >= rate) {
-        node.amount += 1;                         // exactly one physical source unit
-        this.regenerated[node.type] += 1;          // explicit external inflow ledger
-        this._elapsed.set(node, 0);
-        node.regrowthProgress = 0;
+      const period = rate * (deltas ? WEATHER_SCALE : 1);
+      const elapsed = this._elapsed.get(node) + (deltas ? deltas[node.type] : 1);
+      if (elapsed >= period) {
+        // Large valid factors can renew multiple units in one tick; never exceed
+        // the available site capacity or lose an unspent fractional remainder.
+        const created = Math.min(cap - node.amount, Math.floor(elapsed / period));
+        node.amount += created;
+        this.regenerated[node.type] += created;   // explicit natural external inflow
+        const remainder = node.amount === cap ? 0 : elapsed - created * period;
+        this._elapsed.set(node, remainder);
+        node.regrowthProgress = remainder / period;
       } else {
         this._elapsed.set(node, elapsed);
-        node.regrowthProgress = elapsed / rate;
+        node.regrowthProgress = elapsed / period;
       }
     }
     return this.regenerated;

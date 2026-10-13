@@ -26,6 +26,27 @@ export function resourceSelectionText(node) {
   return { title: RESOURCE_NAMES[node.type] ?? 'แหล่งทรัพยากร', details, note };
 }
 
+/** Short labels fit the existing time pill even on narrow mobile HUDs. */
+const WEATHER_HUD_LABELS = Object.freeze({
+  clear: Object.freeze({ short: 'ปกติ', full: 'อากาศปกติ' }),
+  rain: Object.freeze({ short: 'ฝนตก', full: 'ฝนตก' }),
+  dry: Object.freeze({ short: 'แล้ง', full: 'ภัยแล้ง' })
+});
+
+/** Pure presentation adapter: ticks are simulation ticks, not wall-clock minutes. */
+export function weatherHudText(weather) {
+  const entry = WEATHER_HUD_LABELS[weather?.kind] ?? WEATHER_HUD_LABELS.clear;
+  const ticks = weather?.remainingTicks;
+  // Legacy Game objects have no Weather; do not invent a countdown.
+  if (!Number.isSafeInteger(ticks) || ticks < 0) {
+    return { short: entry.short, full: `สภาพอากาศ: ${entry.full}` };
+  }
+  return {
+    short: `${entry.short} · ${ticks}t`,
+    full: `สภาพอากาศ: ${entry.full} · เหลือ ${ticks} ติ๊กของเวลาเกม`
+  };
+}
+
 export class UI {
   constructor(game, cameras, renderer, onNewWorld) {
     this.game = game;
@@ -334,8 +355,26 @@ export class UI {
       btn.setAttribute('aria-pressed', String(active));
     }
   }
+  updateWeather() {
+    // Reuse the existing <small> inside the time pill; no markup or CSS edits.
+    const time = $('game-time');
+    const label = time?.previousElementSibling;
+    if (!label || label.tagName?.toLowerCase() !== 'small') return;
+    const status = weatherHudText(this.game.weather);
+    if (label.textContent !== status.short) label.textContent = status.short;
+    if (label.title !== status.full) label.title = status.full;
+    // The compact HUD stylesheet hides small labels globally; reveal only this
+    // existing slot without allocating a new card or covering other controls.
+    label.style.display = 'block';
+    label.style.fontSize = '8px';
+    label.style.lineHeight = '1';
+    label.style.letterSpacing = '0';
+    label.style.marginBottom = '1px';
+    label.style.whiteSpace = 'nowrap';
+  }
   updateMetrics() {
     $('game-time').textContent = formatGameTime(this.game.clock);
+    this.updateWeather();
     for(const type of ['carbs','protein','water']) $(`stock-${type}`).textContent=String(this.game.foraging.inventory[type]);
     const policy=this.game.workforce,shares=policy.shares,planned=policy.plan();
     const workers=this.game.colony.workers.length;
