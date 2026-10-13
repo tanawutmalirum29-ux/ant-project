@@ -74,6 +74,9 @@ test('GEO-04 birth chamber and all three starter tunnels stay connected with exc
     assert.ok(diggableFrontier>=12,seed+': should have multiple expansion exits: '+diggableFrontier);
     for(const a of [q,...g.colony.workers])
       assert.ok(reach.distance(a.x,a.y)>=0,seed+': no ant inside bedrock');
+    // Check room geometry with its ordinary material budget present; this
+    // test is about geology, not the empty initial construction inventory.
+    Object.assign(g.foraging.inventory,{carbs:24,protein:24,water:24});
     const room=g.rooms.validate('food_store',q.x-4,q.y-1,2,3);
     assert.equal(room.ok,true,seed+': starter room construction must stay possible: '+room.reason);
   }
