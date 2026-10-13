@@ -1,4 +1,7 @@
 # AI Contributor Orders — copy/paste prompts (proposed Wave 1)
+
+> **HISTORICAL ORDERS — RETIRED 2026-10-13.** These copy/paste instructions refer only to the completed Wave 1 testing assignments. AI-1/AI-2/AI-3 are awaiting **new assignments** under a new owner-approved organization. Do NOT send or resume these prior tasks. Previous tests were consolidated into main (PRs #17/#18/#19); known red PATH-01 and FORM-01 tests and unrun browser QA remain transparently tracked. No production implementation authorization is implied.
+
 These orders are READY TO SEND for review/read-only assessment. The owner APPROVED Wave 1 TEST-ONLY work on 2026-10-13. They are now authorized to write ONLY the precisely named test files; production/gameplay fixes and important merges remain prohibited. No gameplay feature or mechanic change is authorized in Phase 0. All use baseline d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237 and repository https://github.com/tanawutmalirum29-ux/ant-project. Consult SYSTEM_AUDIT, MASTER_PLAN, WORK_BOARD, FILE_OWNERSHIP, INTEGRATION_CONTRACTS and QA_PROTOCOL before editing.
 
 ## AI-1 — Simulation & Economy Engineer
