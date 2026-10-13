@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { TERRAINS } from '../src/world/generate.js';
-import { paintTerrainTile, terrainArtPalette, terrainArtIsSolid } from '../src/render/terrain-art.js';
+import { paintTerrainTile, terrainArtPalette, terrainArtIsSolid } from '../src/render/renderer.js';
 
 function layer(rows) {
   return { width: rows[0].length, height: rows.length, cells: Uint8Array.from(rows.flat()) };
