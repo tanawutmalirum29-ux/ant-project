@@ -171,7 +171,7 @@ body{background:var(--royal-night);color:var(--v2-ink)}
  background:var(--royal-wood);border:1px solid var(--v2-edge);border-radius:5px;
  color:var(--royal-cream);
 }
-.forage-control button:hover:not(:disabled){background:var(--royal-green)}
+.forage-control button:hover:not(:disabled){background:var(--royal-green);color:var(--royal-brown)}
 .nurse-control{background:var(--v2-board)}
 .orders-status{
  margin:1px 0 0;
