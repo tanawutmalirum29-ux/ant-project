@@ -181,7 +181,7 @@ body{background:#091610;color:var(--v2-ink)}
  box-shadow:var(--v2-glow);border-radius:11px;padding:4px;
 }
 .speed-controls{gap:2px}
-.speed-btn{min-width:40px;height:39px;border-radius:8px;font-size:13px}
+.speed-btn{min-width:44px;height:44px;border-radius:8px;font-size:13px}
 .speed-btn.active{background:var(--v2-gold);color:#251d11}
 .speed-btn:hover:not(.active){background:#40604477;color:#fff}
 .control-stack{flex-direction:column}
@@ -287,8 +287,8 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
  .left-overlay{top:calc(105px + env(safe-area-inset-top));left:10px}
  .region-overline,.region-heading p,.phase-note{display:none}
  .region-heading h2{font-size:16px;margin:0}
- .brood-summary{max-width:180px;font-size:9px;margin-top:5px;padding:5px 8px}
- .queen-status{font-size:9px;max-width:160px}
+ .brood-summary{max-width:116px;font-size:9px;margin-top:5px;padding:5px 8px}
+ .queen-status{font-size:9px;max-width:105px}
  .dig-tools{
   top:auto;left:7px;right:7px;
   bottom:calc(67px + env(safe-area-inset-bottom));
@@ -297,7 +297,7 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
   border-radius:13px;
   display:grid;
   grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
-  grid-template-rows:43px 43px;
+  grid-template-rows:46px 46px;
   gap:5px;
  }
  .dig-tools::before{display:none}
@@ -314,7 +314,7 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
  }
  .tool-button span{font-size:10px}
  .forage-control{
-  min-height:43px;height:43px;
+  min-height:46px;height:46px;
   gap:3px;padding:3px 4px;
   font-size:0;
  }
@@ -322,7 +322,7 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
  .forage-control>span::after{content:"หาอาหาร";display:block;font-size:10px}
  .nurse-control>span::after{content:"พี่เลี้ยง"}
  .forage-control strong{font-size:11px;min-width:24px}
- .forage-control button{width:25px;height:29px;min-width:25px;font-size:16px}
+ .forage-control button{width:44px;height:44px;min-width:44px;font-size:16px}
  .orders-status{
   position:absolute;bottom:calc(100% + 7px);left:4px;
   margin:0;padding:4px 6px;border:1px solid #c2a5764a;
@@ -332,18 +332,18 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
   top:calc(106px + env(safe-area-inset-top));
   bottom:auto;right:8px;gap:5px;
  }
- .speed-btn{height:33px;min-width:30px;font-size:11px}
+ .speed-btn{height:44px;min-width:44px;font-size:11px}
  .control-stack{display:none}
- .debug-toggle{width:33px;height:33px;align-self:flex-end}
+ .debug-toggle{width:44px;height:44px;align-self:flex-end}
  .bottom-bar{bottom:calc(7px + env(safe-area-inset-bottom));left:7px;right:7px}
  .layer-switch{padding:4px;gap:4px}
- .layer-btn{height:43px;min-width:104px;font-size:12px;gap:5px}
+ .layer-btn{height:44px;min-width:104px;font-size:12px;gap:5px}
  .layer-icon{font-size:17px}
  .selection-card{
   top:auto;left:8px;right:auto;
   bottom:calc(208px + env(safe-area-inset-bottom));
   width:min(220px,calc(100vw - 110px));
-  max-height:36vh;padding:10px;
+  max-height:min(36vh,140px);padding:10px;
  }
  .debug-panel{
   top:calc(195px + env(safe-area-inset-top));bottom:auto;right:8px;
@@ -367,7 +367,9 @@ button:focus-visible{outline:2px solid #ffe4ac;outline-offset:2px}
  .seed-pill strong{max-width:40px}
  .resource-stat{font-size:8px;padding:3px}
  .forage-control>span::after{font-size:9px}
- .forage-control button{min-width:24px;width:24px}
+ .forage-control>span::after{content:"หา";font-size:9px}
+ .nurse-control>span::after{content:"เลี้ยง"}
+ .forage-control button{min-width:44px;width:44px}
  .forage-control strong{min-width:23px;font-size:10px}
  .layer-btn{min-width:99px}
  .selection-card{width:185px}
