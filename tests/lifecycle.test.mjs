@@ -6,6 +6,7 @@ import { UNDERGROUND, SURFACE, TERRAINS, cellAt } from '../src/world/generate.js
 import { isWalkable } from '../src/world/navigation.js';
 const run = (g,ticks) => {for(let i=0;i<ticks;i++)g.update(100);};
 const totalSource = g => g.foraging.nodes.reduce((n,v)=>n+v.initialAmount,0);
+const regenerated = g => Object.values(g.ecology.regenerated).reduce((s,v)=>s+v,0);
 function mass(g) {
   const stock=Object.values(g.foraging.inventory).reduce((s,v)=>s+v,0);
   const inHand=g.colony.workers.reduce((s,a)=>s+(a.cargo?.amount||0),0);
@@ -97,7 +98,7 @@ test('U4.7 forager death releases reservation and accounts for cargo without dup
  source.amount-=2;another.cargo={type:source.type,amount:2};
  g.lifecycle.killWorker(another);
  assert.equal(g.lifecycle.lost[source.type],2);
- assert.equal(mass(g),totalSource(g));
+ assert.equal(mass(g),totalSource(g)+regenerated(g));
 });
 test('U4.8 no food multiplication during 5000 ticks including growth, work, death and consumption',()=>{
  const g=new Game('life-mass');const initial=totalSource(g);
@@ -105,7 +106,7 @@ test('U4.8 no food multiplication during 5000 ticks including growth, work, deat
    if(i%61===0)g.toggleLayer();
    g.update(100);
    if(i%97===0){
-     assert.equal(mass(g),initial);
+     assert.equal(mass(g),initial+regenerated(g));
      assert.ok(g.colony.workers.every(a=>isWalkable(g.world.layers[a.layer],a.x,a.y)));
      assert.ok(Object.values(g.foraging.inventory).every(n=>n>=0&&Number.isSafeInteger(n)));
      assert.ok(g.foraging.nodes.every(n=>n.reserved>=0&&n.reserved<=n.amount));

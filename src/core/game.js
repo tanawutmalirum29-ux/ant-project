@@ -6,6 +6,7 @@ import { Lifecycle } from './lifecycle.js';
 import { Rooms } from './rooms.js';
 import { Combat } from './combat.js';
 import { createResourceNodes } from '../world/resources.js';
+import { ResourceEcology } from './resource-ecology.js';
 /** Worker assignment policy: editable shares plus a protected general-work remainder.
  * Only real workers count (not queen or brood). All integer quotas sum to N via
  * deterministic largest-remainder apportionment, stable on birth/death. */
@@ -71,6 +72,8 @@ export class Game {
     this.layer = UNDERGROUND;
     this.clock = createClock();
     this.world.resources = createResourceNodes(this.world);
+    // The live source array is shared by foragers, renderer and ecology.
+    this.ecology = new ResourceEcology(this.world);
     this.colony = new Colony(this.world);
     this.foraging = new Foraging(this.world,this.colony);
     this.lifecycle = new Lifecycle(this.colony,this.foraging);
@@ -84,7 +87,7 @@ export class Game {
     this.lifecycle.workforce=this.workforce;
     this.combat.workforce=this.workforce;
     this.renderMotion = null;
-    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
+    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
       for (const system of this.systems) system(this);

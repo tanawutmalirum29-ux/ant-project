@@ -62,7 +62,8 @@ function mass(game) {
   for (const ledger of [game.lifecycle.consumed, game.lifecycle.lost, game.rooms.held, game.rooms.spent]) {
     values.push(...Object.values(ledger));
   }
-  return values.reduce((a, b) => a + b, 0);
+  return values.reduce((a, b) => a + b, 0) -
+    Object.values(game.ecology.regenerated).reduce((a, b) => a + b, 0);
 }
 function auditMovement(game, ticks) {
   let previous = new Map(game.colony.workers.map(a => [a.id, pos(a)]));

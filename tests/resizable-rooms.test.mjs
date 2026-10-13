@@ -15,7 +15,8 @@ const mass=g=>g.foraging.nodes.reduce((a,b)=>a+b.amount,0)+
  Object.values(g.foraging.inventory).reduce((a,b)=>a+b,0)+
  g.colony.workers.reduce((a,b)=>a+(b.cargo?.amount||0),0)+
  ['spent','held'].reduce((a,k)=>a+Object.values(g.rooms[k]).reduce((x,y)=>x+y,0),0)+
- ['consumed','lost'].reduce((a,k)=>a+Object.values(g.lifecycle[k]).reduce((x,y)=>x+y,0),0);
+ ['consumed','lost'].reduce((a,k)=>a+Object.values(g.lifecycle[k]).reduce((x,y)=>x+y,0),0)-
+ Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 
 test('RESIZE-01 area-scaled cost, ticks, storage and brood capacity preserve 2x2 legacy semantics',()=>{
  const def=ROOM_CATALOG.food_store,small=roomPlan('food_store');

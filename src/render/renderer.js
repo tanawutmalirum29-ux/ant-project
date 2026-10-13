@@ -222,6 +222,28 @@ const labelFor = {
 export function terrainName(value) { return labelFor[value] ?? 'นอกแผนที่'; }
 function clamp(a, min, max) { return Math.max(min, Math.min(max, a)); }
 
+/** Read-only display adapter for legacy and renewable source nodes. Never modifies the node. */
+export function resourceVisualState(node) {
+  const fallback = Number.isFinite(node?.initialAmount) && node.initialAmount > 0
+    ? node.initialAmount : node?.amount;
+  const rawCapacity = Number.isFinite(node?.maxAmount) && node.maxAmount > 0
+    ? node.maxAmount : fallback;
+  const capacity = Number.isFinite(rawCapacity) && rawCapacity > 0 ? rawCapacity : null;
+  const amount = Math.max(0, Number.isFinite(node?.amount) ? node.amount : 0);
+  const reserved = Math.max(0, Number.isFinite(node?.reserved) ? node.reserved : 0);
+  const available = Math.max(0, amount - reserved);
+  const ratio = capacity ? clamp(amount / capacity, 0, 1) : (amount > 0 ? 1 : 0);
+  const progress = Number.isFinite(node?.regrowthProgress)
+    ? clamp(node.regrowthProgress, 0, 1) : null;
+  const status = amount <= 0 ? (progress === null ? 'depleted' : 'recovering')
+    : ratio < .33 ? 'low' : 'abundant';
+  return { amount, capacity, reserved, available, ratio, progress, status };
+}
+const RESOURCE_COLORS = Object.freeze({
+  carbs: '#e8c06b', protein: '#e59777', water: '#87ccde'
+});
+const RESOURCE_MUTED = '#83958b';
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -284,7 +306,7 @@ export class Renderer {
       this.drawOrders(ctx, game, bounds, camera);
       if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
       if(roomPreview&&roomType)this.drawRoomPreview(ctx,game,roomPreview,roomType,camera);
-    } else this.drawResources(ctx, game, bounds, elapsedMs);
+    } else this.drawResources(ctx, game, bounds, elapsedMs, camera.zoom);
     if(game.layer===UNDERGROUND && game.lifecycle) this.drawBrood(ctx, game);
     this.drawAnts(ctx, game, elapsedMs, camera);
     this.drawCombat(ctx, game, elapsedMs);
@@ -467,18 +489,75 @@ export class Renderer {
       ctx.strokeRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
     }
   }
-  drawResources(ctx,game,bounds,elapsedMs) {
-    for(const node of game.foraging.nodes) {
-      if(node.amount<=0 || node.x<bounds.x0 || node.x>bounds.x1 || node.y<bounds.y0 || node.y>bounds.y1)continue;
+  drawResources(ctx,game,bounds,elapsedMs,zoom=1) {
+    // Culling before painting; only a handful of source markers are visible.
+    // All geometry uses world units (TILE=28), so map zoom remains authoritative.
+    for (const node of game.foraging.nodes) {
+      if(node.x<bounds.x0 || node.x>bounds.x1 || node.y<bounds.y0 || node.y>bounds.y1) continue;
+      const state=resourceVisualState(node);
+      const color=RESOURCE_COLORS[node.type] ?? RESOURCE_MUTED;
+      const empty=state.amount<=0;
+      const radius=empty?5.1:6.1+3.6*state.ratio;
+      const fine=zoom>=.7;
+      const variance=tileHash(game.world.seed ?? 0,node.x,node.y,674);
       const x=(node.x+.5)*TILE,y=(node.y+.5)*TILE;
-      const colors={carbs:'#e8c06b',protein:'#d98367',water:'#82c9d8'};
-      ctx.save();ctx.translate(x,y);
-      ctx.fillStyle='#111c17c9';ctx.beginPath();ctx.arc(0,1,10,0,Math.PI*2);ctx.fill();
-      ctx.lineWidth=1.8;ctx.strokeStyle=colors[node.type];ctx.stroke();
-      ctx.fillStyle=colors[node.type];
-      if(node.type==='water') {ctx.beginPath();ctx.moveTo(0,-8);ctx.quadraticCurveTo(12,4,0,8);ctx.quadraticCurveTo(-12,4,0,-8);ctx.fill();}
-      else if(node.type==='protein') {ctx.beginPath();ctx.ellipse(0,0,6,3,-.45,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d7bca2';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-7,-6);ctx.lineTo(6,6);ctx.moveTo(6,-6);ctx.lineTo(-7,6);ctx.stroke();}
-      else {ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff0be';ctx.fillRect(-2,-3,2,2);}
+      ctx.save();
+      ctx.translate(x,y);
+      // Preserve a tiny geographic trace of exhausted deposits rather than hiding them.
+      ctx.fillStyle=empty?'#16251ed5':'#13221bd9';
+      ctx.beginPath();ctx.arc(0,1,radius+1.5,0,TAU);ctx.fill();
+      ctx.strokeStyle=empty?'#81958a9c':color;
+      ctx.lineWidth=empty?1.2:state.status==='low'?1.6:2;
+      ctx.stroke();
+      // Fill-level arc is legible at normal zoom; none is drawn for empty sources.
+      if(!empty && fine) {
+        ctx.strokeStyle=color;
+        ctx.lineWidth=1.3;
+        ctx.beginPath();
+        ctx.arc(0,1,radius+3,-Math.PI/2,-Math.PI/2+TAU*state.ratio);
+        ctx.stroke();
+      }
+      if(empty) {
+        // Recovery cue: slim seed/sprout plus a progress arc, never a full-size glow.
+        ctx.strokeStyle=state.progress===null?RESOURCE_MUTED:color;
+        ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.moveTo(-2,3);ctx.lineTo(2,-1);
+        if(state.progress!==null) {
+          ctx.moveTo(0,1);ctx.quadraticCurveTo(-4,-3,-4,-1);
+          ctx.moveTo(1,0);ctx.quadraticCurveTo(5,-3,4,-4);
+        }
+        ctx.stroke();
+        if(state.progress!==null && state.progress>0) {
+          ctx.strokeStyle=color;ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.arc(0,1,radius+2.4,-Math.PI/2,-Math.PI/2+TAU*state.progress);ctx.stroke();
+        }
+      } else {
+        // Three different silhouettes work without relying on color perception.
+        // Seeded rotation is stable when paused or when the camera moves.
+        ctx.rotate((variance-.5)*.28);
+        const scale=.64+.36*state.ratio;
+        ctx.scale(scale,scale);
+        ctx.fillStyle=color;
+        if(node.type==='water') {
+          ctx.beginPath();ctx.moveTo(0,-8);
+          ctx.bezierCurveTo(5,-2,8,2,6,5);
+          ctx.quadraticCurveTo(0,11,-6,5);
+          ctx.bezierCurveTo(-8,2,-5,-2,0,-8);ctx.fill();
+          if(fine){ctx.strokeStyle='#e3f7f6';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(-1,3,3,.7,2.5);ctx.stroke();}
+        } else if(node.type==='protein') {
+          ctx.beginPath();ctx.ellipse(0,1,4.7,6,-.2,0,TAU);ctx.fill();
+          ctx.strokeStyle='#f8cbb0';ctx.lineWidth=1.2;ctx.beginPath();
+          for(const side of [-1,1]) {
+            for(let i=-1;i<=1;i++){ctx.moveTo(side*2,i*3+1);ctx.lineTo(side*7,i*4+1);}
+          }
+          ctx.stroke();
+          ctx.fillStyle='#f8cbb0';ctx.beginPath();ctx.arc(-.6,-4,2.4,0,TAU);ctx.fill();
+        } else {
+          ctx.beginPath();ctx.ellipse(-2,2,3.5,5,-.45,0,TAU);ctx.fill();
+          ctx.fillStyle='#f5dea0';ctx.beginPath();ctx.ellipse(3,-1,3.5,4.8,.4,0,TAU);ctx.fill();
+          if(fine){ctx.strokeStyle='#6e522c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(2,-5);ctx.lineTo(3,3);ctx.stroke();}
+        }
+      }
       ctx.restore();
     }
   }
