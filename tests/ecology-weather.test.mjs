@@ -47,7 +47,7 @@ test('NEXT-02 clear/rain/dry use exact type-specific rates and fractional progre
       const progress=first*factors[type]/rate-1;
       close(site.regrowthProgress,progress,kind+': '+type+' progress');
       run(eco,3000-first);
-      const expected=Math.floor(3000*factors[type]/rate);
+      const expected=Math.floor(3000*factors[type]/rate+1e-11);
       assert.equal(site.amount,expected,kind+': '+type+' 3000 ticks');
       assert.equal(eco.regenerated[type],expected);
       close(site.regrowthProgress,3000*factors[type]/rate-expected,kind+': '+type+' final progress');
