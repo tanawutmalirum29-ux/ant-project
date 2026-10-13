@@ -360,9 +360,19 @@ def audit_view(browser,html,spec,artifacts):
             assert page.locator('#selection-card').is_visible()
             s=inspect(page)['selection']
             assert s and f'X:{s["x"]}' in page.locator('#selection-coords').inner_text(),s
-            # Re-tap the identical map tile: hide and clear its selection, not game state.
+            # Information can legitimately cover the initially chosen pixel.
+            # Choose a different *physically tappable* canvas point, then retap
+            # exactly that tile. Do not hide the panel or bypass real pointers.
             top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
-            assert top=='game-canvas',('selected map tile obscured by overlay',top,p)
+            if top!='game-canvas':
+                p=exposed(page)
+                assert p,('no map point uncovered after opening info')
+                tap(page,p,mobile)
+                s=inspect(page)['selection']
+                assert s and page.locator('#selection-card').is_visible()
+            top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
+            assert top=='game-canvas',('selected map tile remains obscured',top,p)
+            # Re-tap the identical map tile: hide and clear its selection, not game state.
             tap(page,p,mobile)
             assert page.locator('#selection-card').is_hidden()
             assert inspect(page)['selection'] is None
