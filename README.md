@@ -89,10 +89,17 @@ docs/AMPLIFY_DEPLOY.md      คู่มือ AWS Amplify
 
 รายละเอียดเชิงระบบ: [docs/GAME_SYSTEMS.md](docs/GAME_SYSTEMS.md) · คู่มือ Deploy: [docs/AMPLIFY_DEPLOY.md](docs/AMPLIFY_DEPLOY.md)
 
-## การเริ่มรอบพัฒนาถัดไป
+## รอบพัฒนาใหม่ — Round 2 (13 ตุลาคม 2026)
 
-**โครงการ Ant Kingdom ยังดำเนินการพัฒนาต่อ** โดยงานรอบล่าสุดสิ้นสุดการส่งมอบแล้ว และพร้อมรับการวางแผนเฟสใหม่ รวมถึงแบ่งหน้าที่ให้ผู้พัฒนาแต่ละฝ่ายตามขอบเขตที่จะกำหนดในรอบถัดไป
+โปรเจกต์ Ant Kingdom **พัฒนาต่อ** โดยเริ่มรอบ Gameplay Stabilization บนฐาน `main` ที่รวมงานรอบเดิมแล้ว เน้นแก้การเดิน/ขุดที่ถูกบล็อก (PATH-01), การจัด Formation ทหารมากกว่า 13 ตัว (FORM-01) และการตรวจ Browser จริงทั้ง 5 ขนาด ก่อนเพิ่มระบบใหญ่
 
-เมื่อได้รับแผนใหม่ ให้เริ่มจากโค้ด `main` ปัจจุบัน ตรวจความเกี่ยวข้องของระบบและไฟล์ที่แก้ไข แบ่งงานให้ไม่ทับซ้อน และรันทดสอบระบบเดิมซ้ำก่อน Merge ทุกครั้ง
+**แผนและการบริหารงานล่าสุด**
 
-ประวัติ Commit/Pull Request ยังคงอยู่บน GitHub สำหรับอ้างอิงงานก่อนหน้า ส่วนเอกสารสรุประบบที่ใช้งานจริงอยู่ใน [docs/GAME_SYSTEMS.md](docs/GAME_SYSTEMS.md)
+- [Roadmap รอบที่ 2 และเฟสถัดไป](docs/development/ROUND_02_ROADMAP.md)
+- [Round 2 Work Board — งาน AI-1, AI-2, AI-3 และขอบเขตไฟล์](docs/development/ROUND_02_WORK_BOARD.md)
+- [รายงานของ AI แต่ละตัวบน GitHub](docs/ai-reports/README.md)
+- [เอกสารส่งมอบหัวหน้า AI-HEAD คนใหม่](docs/development/NEXT_HEAD_HANDOFF.md)
+
+สาม AI ทำงานแยก Branch และต้องบันทึกความคืบหน้าใน Issue ของตนเองพร้อมอัปเดตรายงาน Markdown ของตัวเองทุกครั้งที่ส่งงาน หัวหน้า AI-HEAD คนใหม่เป็นผู้ตรวจรวมงานตามลำดับ ห้ามถือว่า PR ที่ Merge แล้วหรือ Source ที่ผ่าน Review หมายถึง Gameplay/Browser/Deploy ผ่านโดยอัตโนมัติ
+
+**งานที่ยังมีหลักฐานค้าง:** [PATH-01 #20](https://github.com/tanawutmalirum29-ux/ant-project/issues/20), [FORM-01 #21](https://github.com/tanawutmalirum29-ux/ant-project/issues/21), [Browser QA #22](https://github.com/tanawutmalirum29-ux/ant-project/issues/22) 
