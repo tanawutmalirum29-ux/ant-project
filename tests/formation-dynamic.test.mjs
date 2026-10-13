@@ -116,9 +116,10 @@ test('R2-FORM portal | real paired entry required for cross-layer assignment and
 });
 
 test('R2-FORM no portal | a physically cut-off source cannot reserve target-layer tile',()=>{
-  const f=fixture(1,{origin:SURFACE});
+  const f=fixture(1);
   const portal=f.world.entrances[0].surface;
-  f.workers[0].x=1;f.workers[0].y=1;
+  // Conscript on underground terrain first, then model a soldier stranded on surface.
+  f.workers[0].layer=SURFACE;f.workers[0].x=1;f.workers[0].y=1;
   f.world.layers[SURFACE].cells.fill(TERRAINS.STONE);
   writeCell(f.world.layers[SURFACE],1,1,TERRAINS.GRASS);
   writeCell(f.world.layers[SURFACE],portal.x,portal.y,TERRAINS.ENTRANCE);
@@ -153,7 +154,7 @@ test('R2-FORM rally commands | same center clears motion but keeps slots; invali
   assert.equal(a.next,null);assert.deepEqual(a.path,[]);assert.equal(a.motion,0);
   assert.deepEqual(f.combat.soldiers.map(ant=>f.combat.getRallyGoal(ant)),goals);
   a.next={x:a.x+1,y:a.y};a.motion=.3;
-  assert.equal(f.combat.setRally(UNDERGROUND,0,0),false);
+  assert.equal(f.combat.setRally(UNDERGROUND,-1,0),false);
   assert.deepEqual(f.combat.rally,f.center);
   assert.ok(a.next);assert.equal(a.motion,.3);
   assert.equal(f.combat.setRally(UNDERGROUND,f.center.x+1,f.center.y),true);
