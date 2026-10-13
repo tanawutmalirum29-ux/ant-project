@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { Game } from '../src/core/game.js';
 import { Combat, COMBAT } from '../src/core/combat.js';
 import { SURFACE, UNDERGROUND, TERRAINS, createWorld, writeCell } from '../src/world/generate.js';
@@ -233,4 +234,15 @@ test('R2-FORM pause | no formation progress occurs while Game clock is stopped',
   for(let i=0;i<25;i++)assert.equal(g.update(100),0);
   assert.equal(JSON.stringify({soldiers:g.combat.soldiers,tick:g.combat.tickCount,
     goals:g.combat.soldiers.map(a=>g.combat.getRallyGoal(a)),rallied:g.combat.ralliedCount}),before);
+});
+
+test('R2-FORM build gate | static site builds even if independent PATH-01 test is red',()=>{
+  // The existing CI workflow skips its later build step after unrelated PATH-01.
+  // Run the exact build command independently and expose its actual process exit.
+  const result=spawnSync('npm',['run','build'],{cwd:process.cwd(),encoding:'utf8',timeout:60000});
+  console.log('R2_BUILD_PROOF command="npm run build" exit='+String(result.status)+
+    ' signal='+String(result.signal));
+  assert.equal(result.status,0,
+    'npm run build failed\n'+(result.stdout||'')+'\n'+(result.stderr||''));
+  assert.match(result.stdout,/Built static website in dist/);
 });
