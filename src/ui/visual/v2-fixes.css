@@ -190,3 +190,14 @@ button,select,.room-picker-trigger,.room-picker-option{touch-action:manipulation
     max-height:min(27dvh,128px);
   }
 }
+
+
+/* R2-UIFIX-01 follow-up: on 320px handsets the room palette expands the
+   economic/tool stack upward. Keep the selection card's close button visible,
+   but limit its scrollable body to the free band above the moving tool row. */
+@media (max-width:350px) and (min-height:501px) {
+  #app:has(.room-palette:not(.hidden)) .selection-card:not(.hidden) {
+    top:calc(180px + env(safe-area-inset-top));
+    max-height:86px;
+  }
+}
