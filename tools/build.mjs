@@ -10,6 +10,7 @@ try {
   await mkdir(output, { recursive: true });
   await cp(join(root, 'index.html'), join(output, 'index.html'));
   await cp(join(root, 'src'), join(output, 'src'), { recursive: true });
+  await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });
 
   const html = await readFile(join(output, 'index.html'), 'utf8');
   const assetUrls = [...html.matchAll(/\b(?:src|href)=["'](\.\/[^"'?#]+)(?:[?#][^"']*)?["']/g)]
@@ -23,7 +24,7 @@ try {
   }
 
   const entries = (await readdir(output)).sort();
-  if (entries.join(',') !== 'index.html,src') {
+  if (entries.join(',') !== 'assets,index.html,src') {
     throw new Error('Unexpected deploy entries: ' + entries.join(', '));
   }
 
