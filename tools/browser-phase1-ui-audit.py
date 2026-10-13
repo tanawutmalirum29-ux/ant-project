@@ -295,16 +295,27 @@ def audit_view(browser,html,spec,artifacts):
 
         def staff():
             before=inspect(page)
-            page.locator('#forage-plus').click()
-            assert inspect(page)['foragers']==min(before['workers'],before['foragers']+1)
-            page.locator('#forage-minus').click()
+            page.locator('#workforce-open').click()
+            assert page.locator('#colony-panel').is_visible()
+            def slide(kind,value):
+                page.locator('#alloc-'+kind).evaluate("""(el,val)=>{
+                  el.value=String(val);el.dispatchEvent(new Event('input',{bubbles:true}));
+                }""",value)
+            state=page.evaluate('''() => ({...__ANT_DEBUG__.game.workforce.shares})''')
+            assert state=={'forage':40,'nurse':20,'soldier':20},state
+            slide('forage',50)
+            assert page.evaluate('() => __ANT_DEBUG__.game.workforce.shares.forage')==50
+            assert inspect(page)['foragers']==page.evaluate('() => __ANT_DEBUG__.game.workforce.plan().forage')
+            slide('forage',40)
+            slide('nurse',30)
+            assert inspect(page)['nurses']==page.evaluate('() => __ANT_DEBUG__.game.workforce.plan().nurse')
+            slide('nurse',20)
             assert inspect(page)['foragers']==before['foragers']
-            page.locator('#nurse-plus').click()
-            assert inspect(page)['nurses']==min(before['workers'],before['nurses']+1)
-            page.locator('#nurse-minus').click()
             assert inspect(page)['nurses']==before['nurses']
-            return {'foragers':before['foragers'],'nurses':before['nurses']}
-        test('forager/nurse allocation buttons',staff)
+            assert page.locator('#alloc-general-label').inner_text().startswith('20%')
+            page.locator('#close-colony').click()
+            return {'foragers':before['foragers'],'nurses':before['nurses'],'percentages':state}
+        test('automatic workforce percentage allocation, quota sum and HUD',staff)
 
         def room_picker():
             page.locator('#tool-dig').click()
@@ -435,73 +446,40 @@ def audit_view(browser,html,spec,artifacts):
             dialog=page.locator('#u6-dialog')
             page.locator('#u6-open').click()
             try:
-                assert dialog.is_visible() and dialog.evaluate('(el)=>el.open'),(
-                    'military dialog failed to open modally')
+                assert dialog.is_visible() and dialog.evaluate('(el)=>el.open')
                 count=page.locator('#u6-roster .u6-unit').count()
                 assert count==inspect(page)['workers'],count
                 initial=inspect(page)['soldiers']
                 assert page.locator('#u6-roster .u6-unit.is-soldier').count()==initial
-                recruit=page.locator('#u6-roster button[data-action="recruit"]:not([disabled])')
-                fixture='available civilian'
-                # A previously assigned/digging/foraging worker must NOT be
-                # recruited while busy. If none is eligible, free a real
-                # soldier through the visible roster instead of synthesizing
-                # worker objects or mutating game internals.
-                if recruit.count()==0:
-                    eligibility=page.evaluate("""() => {
-                      const g=__ANT_DEBUG__.game;
-                      return {eligible:g.combat.availableRecruits.map(a=>a.id),
-                        unavailable:g.colony.workers.filter(a=>!a.combatRole).map(a=>({
-                          id:a.id,state:a.state,layer:a.layer,orderId:a.orderId,
-                          forager:g.colony.isForager(a)}))};
-                    }""")
-                    assert not eligibility['eligible'],(
-                        'recruit button disabled despite eligible workers',eligibility)
-                    assert initial>0,(
-                        'no recruitable workers and no existing soldiers to cycle',eligibility)
-                    demob=page.locator('#u6-roster button[data-action="demobilize"]').last
-                    released_id=demob.get_attribute('data-id')
-                    assert released_id,'soldier demobilize button lacks worker id'
-                    demob.click()
-                    assert inspect(page)['soldiers']==initial-1,(
-                        'demobilization did not reduce active soldier count')
-                    recruit=page.locator(
-                        '#u6-roster button[data-action="recruit"]:not([disabled])')
-                    assert recruit.count()>0,(
-                        'demobilized worker did not become recruitable',released_id,
-                        eligibility)
-                    # Confirm we are recruiting the actual released worker.
-                    recruit=page.locator('#u6-roster button[data-action="recruit"][data-id="'+released_id+'"]:not([disabled])')
-                    assert recruit.count()==1,('released soldier not eligible',released_id)
-                    recruit.click()
-                    assert inspect(page)['soldiers']==initial,(
-                        're-enlistment did not restore soldier count')
-                    fixture='demobilized soldier re-enlisted'
-                else:
-                    # Normal available-worker flow tests both real transitions.
-                    recruit.first.click()
-                    assert inspect(page)['soldiers']==initial+1
-                    page.locator('#u6-roster button[data-action="demobilize"]').last.click()
-                    assert inspect(page)['soldiers']==initial
-                slots=inspect(page)['slots']
-                page.locator('#u6-plus').click()
-                assert inspect(page)['slots']==slots+1
-                page.locator('#u6-minus').click()
-                assert inspect(page)['slots']==slots
+                assert page.locator('#u6-roster button[data-action="recruit"]').count()==0
+                assert page.locator('#u6-roster button[data-action="demobilize"]').count()==0
+                # No per-unit micromanagement: percentage specifies a target while
+                # existing diggers, nurses and carriers finish assigned work.
+                before=page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')
+                target=min(100-page.evaluate('''() => {
+                  const s=__ANT_DEBUG__.game.workforce.shares;
+                  return s.forage+s.nurse;
+                }'''),before+10)
+                slider=page.locator('#u6-percent')
+                slider.evaluate("""(el,value)=>{
+                    el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
+                }""",target)
+                assert page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')==target
+                assert inspect(page)['slots']==page.evaluate('''() => __ANT_DEBUG__.game.workforce.plan().soldier''')
+                slider.evaluate("""(el,value)=>{
+                    el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
+                }""",before)
+                assert page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')==before
                 box=dialog.bounding_box()
                 assert box and box['x']>=-1 and box['y']>=-1 and box['x']+box['width']<=w+1 and box['y']+box['height']<=h+1,box
                 screenshot('military')
                 return {'units':count,'soldiers':initial,'dialog':box,
-                        'enlist_flow':fixture}
+                        'percent_before':before,'percent_probe':target}
             finally:
-                # A failed roster assertion must not leave a real modal open
-                # and incorrectly make subsequent rally/control tests fail.
-                # Close using the genuine visible button (no force click).
                 if dialog.evaluate('(el)=>el.open'):
                     page.locator('#u6-close').click()
-                assert dialog.is_hidden() and not dialog.evaluate('(el)=>el.open'),(
-                    'military modal failed to close after roster test')
-        test('combat roster, enlist, discharge and modal bounds',army)
+                assert dialog.is_hidden() and not dialog.evaluate('(el)=>el.open')
+        test('combat roster auto allocation and military modal bounds',army)
 
         def rally():
             # Only the tablet/desktop expose Recenter; on phones/landscape
@@ -563,8 +541,8 @@ def audit_view(browser,html,spec,artifacts):
         test('rally target via visible controls, map touch and cancel',rally)
 
         def responsive_errors():
-            controls=['#tool-inspect','#tool-dig','#tool-room','#forage-plus','#forage-minus',
-                      '#nurse-plus','#nurse-minus','#zoom-in','#zoom-out','#recenter',
+            controls=['#tool-inspect','#tool-dig','#tool-room','#workforce-open',
+                      '#zoom-in','#zoom-out','#recenter',
                       '#pause-button','[data-speed="2"]','#debug-toggle','#seed-button',
                       '#surface-button','#underground-button','#u6-open',
                       '#u6-quick-rally','#u6-quick-defend']
