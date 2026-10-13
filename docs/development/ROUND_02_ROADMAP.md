@@ -2,7 +2,7 @@
 
 > **Current authoritative plan** as of 2026-10-13. Previous `MASTER_PLAN.md`, `WORK_BOARD.md`, `AI_BRIEFS.md`, `FILE_OWNERSHIP.md` are HISTORY, not current assignment authority. Game development remains ACTIVE. New AI-HEAD owns subsequent revisions.
 >
-> **Audited starting main:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`. Re-check main SHA before beginning or merging each task. This document describes development priorities; it does NOT prove tests passed.
+> **Audited gameplay baseline before Round 2 planning:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`. **Every Round-2 agent MUST branch from current `main` AFTER planning PR #27 was merged**, because that commit provides the permanent report templates. Use `git fetch origin main` and record the real current SHA before branch creation and merges; do not branch from historical gameplay baseline missing report files. This document describes development priorities; it does NOT prove tests passed.
 
 ## Game vision / playable loop
 
@@ -54,7 +54,7 @@ Run all tests and real-browser smoke before release, independently verify AWS Am
 - **Owner:** final game priorities, major gameplay/UI/API decisions and release approval.
 - **Successor AI-HEAD:** sole integrator and reviewer; prepares freeze/allowlists, reads Issues #23/#24/#25 and report files, manages dependent merges, and maintains Issue #26 decision log. HEAD may revise roadmap after recording why.
 - **AI-1, AI-2, AI-3:** one task/branch each, exact allowed paths, frequent issue updates + per-agent report file, Draft PR, never merge or modify main.
-- Agent code branches start from this baseline `615fac2...`; before merge successor HEAD checks current main and rebuilds/rebases if necessary, runs critical gates, records actual outcomes and after each merge takes a new main SHA. One PR at a time. Distinguish green targeted tests from full green.
+- Agent code branches start from CURRENT `main` containing the Round 2 report templates (not from historical `615fac2...`); before merge successor HEAD checks current main and rebuilds/rebases if necessary, runs critical gates, records actual outcomes and after each merge takes a new main SHA. One PR at a time. Distinguish green targeted tests from full green.
 - **Blocked runtime:** one evidence-rich report then ask new HEAD to route to checkout-capable environment; no repeated DNS logs as fake progress.
 - **Cross-scope edits:** STOP and post a request in the agent Issue; no guessing or silent changes.
 - Historical docs are reference only; this plan plus its R2 work board and latest HEAD decisions supersede the old task plan.
