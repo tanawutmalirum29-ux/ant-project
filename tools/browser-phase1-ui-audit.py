@@ -320,6 +320,22 @@ def audit_view(browser,html,spec,artifacts):
         def room_picker():
             page.locator('#tool-dig').click()
             assert page.locator('#tool-dig').get_attribute('aria-pressed')=='true'
+            # Clicking the active tool again restores inspect; no dig order is sent.
+            original_orders=inspect(page)
+            page.locator('#tool-dig').click()
+            assert page.locator('#tool-inspect').get_attribute('aria-pressed')=='true'
+            assert page.evaluate('()=>__ANT_DEBUG__.ui.tool')=='inspect'
+            assert page.locator('#room-palette').is_hidden()
+            page.locator('#tool-dig').click()
+            assert page.locator('#tool-dig').get_attribute('aria-pressed')=='true'
+            page.locator('#tool-room').click()
+            assert page.locator('#room-palette').is_visible()
+            # Room tool also behaves as a toggle without changing construction queue.
+            rooms_before=inspect(page)['rooms']
+            page.locator('#tool-room').click()
+            assert page.locator('#tool-inspect').get_attribute('aria-pressed')=='true'
+            assert page.locator('#room-palette').is_hidden()
+            assert inspect(page)['rooms']==rooms_before
             page.locator('#tool-room').click()
             assert page.locator('#room-palette').is_visible()
             toggle=page.locator('#room-picker-toggle')
@@ -344,6 +360,16 @@ def audit_view(browser,html,spec,artifacts):
             assert page.locator('#selection-card').is_visible()
             s=inspect(page)['selection']
             assert s and f'X:{s["x"]}' in page.locator('#selection-coords').inner_text(),s
+            # Re-tap the identical map tile: hide and clear its selection, not game state.
+            top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
+            assert top=='game-canvas',('selected map tile obscured by overlay',top,p)
+            tap(page,p,mobile)
+            assert page.locator('#selection-card').is_hidden()
+            assert inspect(page)['selection'] is None
+            tap(page,p,mobile)
+            assert page.locator('#selection-card').is_visible()
+            again=inspect(page)['selection']
+            assert again==s,('tapping again did not reselect same tile',again,s)
             assert not collisions(page),collisions(page)
             screenshot('selection')
             page.locator('#debug-toggle').click()
