@@ -1,3 +1,5 @@
+> **ARCHIVAL / SUPERSEDED ON V2 ACTIVATION:** คำสั่งสาย 17 AI เดิมในไฟล์นี้เป็นประวัติ ไม่ใช่ผังใช้งานในรอบใหม่. ให้ดู [ผัง V2 ปัจจุบัน](ACTIVE_TEAM.md), [ทะเบียนตำแหน่ง](TEAM-REGISTRY.json), [คู่มือเปลี่ยนผ่าน](GOVERNANCE-V2-HANDOFF.md) และ [Governance V2 proposal](https://github.com/tanawutmalirum29-ux/appointment-CEO/pull/2). เมื่อ V2 ได้รับอนุมัติ คำสั่ง CEO→Engineer หรือ QA→CEO ตรงที่ข้ามสายจะใช้เป็นคำสั่งปฏิบัติไม่ได้. ไฟล์เดิมด้านล่างเก็บเป็นหลักฐานประวัติเท่านั้น.
+
 # Ant Kingdom — Operating Protocol of the 17 AI Organization (v1)
 
 This document is the shared contract for **17 dedicated ChatGPT chats**. One chat per role. Every role must read its own `docs/ai-org/roles/ROLE-ID.md`, this protocol and the live GitHub Issue/PR evidence. The user is a **courier** who only copies the exact final routing block from one chat to the destination chat. These ChatGPT chats do **not** communicate automatically; do not claim a task has reached another chat unless its user-forwarded message or GitHub report confirms that.
