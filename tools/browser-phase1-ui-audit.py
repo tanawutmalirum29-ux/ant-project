@@ -307,19 +307,84 @@ def audit_view(browser,html,spec,artifacts):
             return {'selected':s}
         test('tile card, overlays, debug and close',selection)
 
-        def room_gameplay():
+        # Fixture uses the production Game/Rooms interface and known ANT-001
+        # chamber. The same deterministic stock injection is used by U5 tests.
+        # It never replaces the gameplay queue or event listener with a stub.
+        room_fixture = {}
+        def room_valid():
             page.locator('#tool-room').click()
-            cell=map_cell(page,'room');assert cell,'no uncovered room site'
-            before=inspect(page)['rooms']
-            tap(page,cell['px'],mobile)
+            toggle=page.locator('#room-picker-toggle')
+            toggle.click()
+            page.locator('[data-room-value="food_store"]').click()
+            assert page.locator('#room-type').input_value()=='food_store'
+
+            info=page.evaluate("""() => {
+              const {game:g,cameras,renderer}=__ANT_DEBUG__;
+              g.colony.setForageSlots(0);
+              g.lifecycle.setNurseSlots(0);
+              g.foraging.inventory.carbs=15;
+              g.foraging.inventory.protein=15;
+              g.rooms.syncInventory();
+              const q=g.colony.queen,c=cameras[g.layer],x=q.x+2,y=q.y;
+              c.x=(q.x+.5)*28;
+              c.y=(q.y+(renderer.height<650?2.5:.5))*28;
+              c.clamp(g.currentLayer,renderer.width,renderer.height);
+              const pos=c.worldToScreen((x+.5)*28,(y+.5)*28,renderer.width,renderer.height);
+              const valid=g.rooms.validate('food_store',x,y);
+              const hit=document.elementFromPoint(pos.x,pos.y);
+              return {seed:g.world.seedLabel,x,y,pos,valid,
+                hit:hit?.id||hit?.className||hit?.tagName,
+                before:g.rooms.queuedCount};
+            }""")
+            assert info['seed']=='ANT-001',info
+            assert info['valid']['ok'],('fixture invalid',info)
+            assert info['hit']=='game-canvas',('room target intercepted',info)
+            assert 0<info['pos']['x']<w and 0<info['pos']['y']<h,info
+            tap(page,info['pos'],mobile)
             after=inspect(page)['rooms']
-            message=page.locator('#toast').inner_text()
-            assert inspect(page)['selection'] is not None
-            assert after==before+1 or (after==before and bool(message)),(before,after,message)
+            assert after==info['before']+1,('room not queued',info,after,
+                page.locator('#toast').inner_text())
+            selected=inspect(page)['selection']
+            assert selected and (selected['x'],selected['y'])==(info['x'],info['y']),selected
+            assert page.locator('#selection-room').is_visible()
+            assert page.locator('#cancel-room').is_visible()
+            room=page.evaluate("""([x,y]) => {
+              const r=__ANT_DEBUG__.game.rooms.getRoom(x,y);
+              return r?{id:r.id,type:r.type,status:r.status}:null;
+            }""",[info['x'],info['y']])
+            assert room and room['type']=='food_store' and room['status'] in ('planned','building'),room
+            room_fixture.update({**info,'room':room})
+            screenshot('room-success')
+            return {'fixture':{'seed':info['seed'],'x':info['x'],'y':info['y']},
+                    'queued_before':info['before'],'queued_after':after,'room':room}
+
+        test('room SUCCESS: funded valid 2x2 queues exactly one room',room_valid)
+
+        def room_invalid():
+            assert room_fixture, 'successful-placement fixture must exist'
+            info=room_fixture
+            before=inspect(page)['rooms']
+            invalid=page.evaluate("""([x,y]) =>
+              __ANT_DEBUG__.game.rooms.validate('food_store',x,y)
+            """,[info['x'],info['y']])
+            assert invalid['ok'] is False and invalid['reason']=='overlap',invalid
+            assert page.locator('#room-type').input_value()=='food_store'
+            tap(page,info['pos'],mobile)
+            after=inspect(page)['rooms']
+            assert after==before,('invalid placement unexpectedly queued',before,after)
+            room=page.evaluate("""([x,y]) => {
+              const r=__ANT_DEBUG__.game.rooms.getRoom(x,y);
+              return r?{id:r.id,type:r.type}:null;
+            }""",[info['x'],info['y']])
+            assert room and room['id']==info['room']['id'],('original room changed',room)
+            assert 'ห้อง' in page.locator('#toast').inner_text(),(
+                'missing invalid-placement feedback',page.locator('#toast').inner_text())
+            screenshot('room-invalid')
             page.locator('#tool-inspect').click()
-            return {'x':cell['x'],'y':cell['y'],'queued_before':before,'queued_after':after,
-                    'feedback':message,'outcome':'queued' if after>before else 'rejected by game'}
-        test('room placement calls real game validation/queue',room_gameplay)
+            return {'seed':info['seed'],'x':info['x'],'y':info['y'],
+                    'reason':invalid['reason'],'queued_before':before,'queued_after':after}
+
+        test('room REJECT: overlapping placement adds no room',room_invalid)
 
         def army():
             page.locator('#u6-open').click()
