@@ -4,7 +4,8 @@
 **Task:** R2-UIQA-01
 **Live GitHub report Issue:** https://github.com/tanawutmalirum29-ux/ant-project/issues/25
 **Historical blocker Issue:** https://github.com/tanawutmalirum29-ux/ant-project/issues/22
-**Starting main:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Historical gameplay baseline:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Actual branch base:** current `main` after planning PR #27, containing this report template; agent must record exact SHA
 **Optional feature branch:** `work/r2-ai3-browser-qa`
 
 **Writable files:** this report file; `tools/browser-phase1-ui-audit.py` ONLY if an actual harness defect has been reproduced. Production UI/JS/CSS and old browser scripts are READ-ONLY. No main push/merge.
