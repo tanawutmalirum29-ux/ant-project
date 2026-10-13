@@ -67,6 +67,49 @@ with sync_playwright() as pw:
         assert page.evaluate('() => __ANT_DEBUG__.game.rooms.rooms.length')==1
         assert page.evaluate('() => __ANT_DEBUG__.game.rooms.capacityFor("carbs")')==24
         assert page.evaluate('() => __ANT_DEBUG__.game.rooms.queuedCount')==0
+
+        # True pointer drag, tested on all five sizes (touch CDP on mobiles).
+        # The left queen chamber supports a 2x3 site; default tap still 2x2.
+        page.locator('#tool-room').click()
+        drag=page.evaluate('''() => {
+          const {game:g,cameras,renderer}=__ANT_DEBUG__;
+          g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+          Object.assign(g.foraging.inventory,{carbs:24,protein:24,water:24});
+          const q=g.colony.queen,c=cameras[g.layer];
+          c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;
+          c.clamp(g.currentLayer,renderer.width,renderer.height);
+          const start=c.worldToScreen((q.x-4+.5)*28,(q.y-1+.5)*28,renderer.width,renderer.height);
+          const end=c.worldToScreen((q.x-3+.5)*28,(q.y+1+.5)*28,renderer.width,renderer.height);
+          return {start,end,x:q.x-4,y:q.y-1,valid:g.rooms.validate('food_store',q.x-4,q.y-1,2,3)};
+        }''')
+        assert drag['valid']['ok'],(name,drag)
+        for pos in (drag['start'],drag['end']):
+            assert page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',pos)=='game-canvas',(name,drag,pos)
+        if name=='desktop':
+            page.mouse.move(drag['start']['x'],drag['start']['y'])
+            page.mouse.down()
+            page.mouse.move(drag['end']['x'],drag['end']['y'],steps=9)
+            assert '2×3' in page.locator('#room-cost').inner_text(),name
+            page.mouse.up()
+        else:
+            cdp=page.context.new_cdp_session(page)
+            def touch(action,point):
+                cdp.send('Input.dispatchTouchEvent',{'type':action,'touchPoints':
+                    [] if action=='touchEnd' else [{'x':point['x'],'y':point['y'],'id':1}]})
+            touch('touchStart',drag['start'])
+            for i in range(1,10):
+                touch('touchMove',{'x':drag['start']['x']+(drag['end']['x']-drag['start']['x'])*i/9,
+                                   'y':drag['start']['y']+(drag['end']['y']-drag['start']['y'])*i/9})
+            assert '2×3' in page.locator('#room-cost').inner_text(),name
+            touch('touchEnd',drag['end'])
+        assert page.evaluate('() => __ANT_DEBUG__.game.rooms.queuedCount')==1,name
+        rect=page.evaluate('''() => {
+          const room=__ANT_DEBUG__.game.rooms.rooms.find(r=>r.type==='food_store');
+          return room?{width:room.width,height:room.height,cost:room.cost,ticks:room.ticks}:null;
+        }''')
+        assert rect=={'width':2,'height':3,'cost':{'carbs':6,'protein':3},'ticks':135},(name,rect)
+        page.evaluate('''() => {const g=__ANT_DEBUG__.game;for(let i=0;i<300;i++)g.update(100);__ANT_DEBUG__.ui.updateMetrics()}''')
+        assert page.evaluate('() => __ANT_DEBUG__.game.rooms.capacityFor("carbs")')==84,name
         page.wait_for_timeout(100)
         assert not errors,(name,errors)
         print(f'{name} {width}x{height}: PASS room queued/cancelled/constructed/reset, JS errors=0')
