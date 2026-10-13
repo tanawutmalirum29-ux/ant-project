@@ -552,9 +552,13 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
 
 /* ROYAL-01 E2: keyboard-only layer switch focus is visible on the first frame.
    Cancel only this focused button's inherited all-property transition, so a
-   0px -> 3px outline never needs a settling frame. The dark inset separates
+   0px -> 3px outline never needs a settling frame. Restrict normal transitions
+   to background/text so the ring also disappears instantly on blur. The inset separates
    the ring from a selected gold button; the cream outline contrasts against
    the forest switch background. No box model or pointer changes. */
+.layer-switch .layer-btn{
+  transition-property:background-color,color;
+}
 .layer-switch .layer-btn:focus-visible{
   transition:none;
   outline:3px solid var(--royal-cream);
