@@ -59,6 +59,15 @@ export class Colony {
     return true;
   }
   release(ant) { ant.orderId=null;ant.state='idle';ant.path=[];ant.next=null;ant.motion=0; }
+  // Only the current reservation holder may return a dig job to the queue.
+  // Never erase another worker's valid assignment when clearing a stale ant.
+  abandonOrder(ant, job) {
+    if(job && job.workerId===ant.id) {
+      job.workerId=null;
+      job.status='queued';
+    }
+    this.release(ant);
+  }
   chooseOrder(ant) {
     if (ant.state!=='idle' || this.isForager(ant)) return;
     const layer=this.world.layers[UNDERGROUND], reach=reachablePaths(layer,ant);
@@ -91,16 +100,25 @@ export class Colony {
         if(ant.orderId==null) continue;
       }
       const job=this.ordersById.get(ant.orderId);
-      if(!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.release(ant);continue;}
+      if(!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.abandonOrder(ant,job);continue;}
       if(ant.path.length || ant.next) {
         ant.state='walking';
         if(!ant.next) {
           const next=ant.path[0];
           if(!next || !isWalkable(layer,next.x,next.y) || Math.abs(next.x-ant.x)+Math.abs(next.y-ant.y)!==1) {
-            job.workerId=null;job.status='queued';this.release(ant);continue;
+            this.abandonOrder(ant,job);continue;
           }
           ant.next=next;ant.motion=0;
           ant.facing=next.x>ant.x?1:next.x<ant.x?3:next.y>ant.y?2:0;
+        }
+        // A previously selected step can become blocked while motion accumulates.
+        // Revalidate before advancing motion AND before the synchronous position commit.
+        // The first path cell must still be this cardinal, walkable pending step.
+        const step=ant.next, pathStep=ant.path[0];
+        if(!step || !pathStep || step.x!==pathStep.x || step.y!==pathStep.y ||
+           Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1 ||
+           !isWalkable(layer,ant.x,ant.y) || !isWalkable(layer,step.x,step.y)) {
+          this.abandonOrder(ant,job);continue;
         }
         ant.motion+=WORKER_SPEED;
         if(ant.motion>=1) {
@@ -110,7 +128,7 @@ export class Colony {
       }
       const distance=Math.abs(ant.x-job.x)+Math.abs(ant.y-job.y);
       if(distance!==1 || !isWalkable(layer,ant.x,ant.y)) {
-        job.workerId=null;job.status='queued';this.release(ant);continue;
+        this.abandonOrder(ant,job);continue;
       }
       ant.state='digging';job.status='digging';job.progress++;
       if(job.progress>=digTicks(job.terrain)) {
