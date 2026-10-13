@@ -140,11 +140,11 @@ test('ECO-03 physical pickup and portal travel precede inventory deposit', () =>
     const before = { x: ant.x, y: ant.y, layer: ant.layer };
     tick(game);
     if (before.layer !== ant.layer) {
-      assert.deepEqual(before, {
-        ...before,
-        x: before.layer === UNDERGROUND ? entry.underground.x : entry.surface.x,
-        y: before.layer === UNDERGROUND ? entry.underground.y : entry.surface.y
-      }, 'portal crossing must start at an entrance');
+      // A single fixed tick may finish the final cardinal step onto the portal
+      // AND cross layers; pre-tick position may be exactly one tile away.
+      const origin = before.layer === UNDERGROUND ? entry.underground : entry.surface;
+      assert.ok(Math.abs(before.x - origin.x) + Math.abs(before.y - origin.y) <= 1,
+        'portal crossing must begin on/adjacent to its entrance, never remotely');
       assert.equal(ant.x, ant.layer === UNDERGROUND ? entry.underground.x : entry.surface.x);
       assert.equal(ant.y, ant.layer === UNDERGROUND ? entry.underground.y : entry.surface.y);
     } else {
