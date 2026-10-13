@@ -1,4 +1,5 @@
 import { createClock, FixedStepper } from './time.js';
+import { snapshotPositions } from './render-motion.js';
 import { createWorld, SURFACE, UNDERGROUND } from '../world/generate.js';
 import { Colony } from './colony.js';
 import { Foraging } from './foraging.js';
@@ -20,9 +21,12 @@ export class Game {
     this.lifecycle.rooms = this.rooms;
     this.rooms.lifecycle = this.lifecycle;
     this.combat = new Combat(this.world,this.colony,this.foraging,this.lifecycle,this.rooms);
+    this.renderMotion = null;
     this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.combat.tick()];
     this.stepper = new FixedStepper(() => {
+      const before = snapshotPositions(this);
       for (const system of this.systems) system(this);
+      this.renderMotion = { from: before, to: snapshotPositions(this) };
       this.metrics.pendingTasks = this.colony.pendingCount;
     }, this.clock);
     this.metrics = { fps: 0, tps: 0, simMs: 0, renderMs: 0, pendingTasks: 0 };
