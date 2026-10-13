@@ -95,5 +95,5 @@ test('U1.5 switching layers preserves clock, world and system state', () => {
   assert.equal(game.clock.ticks, initial + 20);
   assert.equal(simulated, 50);
   assert.strictEqual(game.world.layers[SURFACE], surface);
-  assert.equal(game.population, 0);
+  assert.equal(game.population, 6);
 });

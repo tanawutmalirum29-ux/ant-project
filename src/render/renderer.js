@@ -39,7 +39,7 @@ export class Renderer {
     this.height = height;
     this.dpr = dpr;
   }
-  render(game, camera, selection, elapsedMs) {
+  render(game, camera, selection, elapsedMs, digPreview = null) {
     const { ctx, width, height, dpr } = this;
     const layer = game.currentLayer;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -69,6 +69,11 @@ export class Renderer {
       const p = entrance[game.layer];
       if (p.x >= bounds.x0 && p.x <= bounds.x1 && p.y >= bounds.y0 && p.y <= bounds.y1) this.drawEntrance(ctx, p, game.layer, elapsedMs);
     }
+    if (game.layer === UNDERGROUND) {
+      this.drawOrders(ctx, game, bounds, camera);
+      if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
+      this.drawAnts(ctx, game, elapsedMs, camera);
+    }
     if (selection?.layer === game.layer && cellAt(layer, selection.x, selection.y) != null) {
       ctx.fillStyle = '#f3c67f24';
       ctx.strokeStyle = '#efc685';
@@ -83,6 +88,66 @@ export class Renderer {
     g.addColorStop(1, '#050c0b70');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
+  }
+  drawOrders(ctx,game,bounds,camera) {
+    for(const job of game.colony.orders.values()) {
+      if(job.x<bounds.x0||job.x>bounds.x1||job.y<bounds.y0||job.y>bounds.y1) continue;
+      const x=job.x*TILE,y=job.y*TILE;
+      ctx.fillStyle=job.status==='digging'?'#e7a75a88':job.status==='assigned'?'#e0b17a5a':'#d2bd7740';
+      ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
+      ctx.lineWidth=1/Math.max(camera.zoom,.5);
+      ctx.strokeStyle='#e4b973aa';ctx.strokeRect(x+2,y+2,TILE-4,TILE-4);
+      if(job.progress){
+        const total=job.terrain===TERRAINS.HARD_SOIL?30:12;
+        ctx.fillStyle='#30291e';ctx.fillRect(x+3,y+TILE-7,TILE-6,4);
+        ctx.fillStyle='#ffdf92';ctx.fillRect(x+3,y+TILE-7,(TILE-6)*Math.min(1,job.progress/total),4);
+      }
+    }
+  }
+  drawDigPreview(ctx,game,preview,bounds,camera) {
+    const l=game.currentLayer;
+    const x0=Math.max(bounds.x0,Math.min(preview.from.x,preview.to.x));
+    const x1=Math.min(bounds.x1,Math.max(preview.from.x,preview.to.x));
+    const y0=Math.max(bounds.y0,Math.min(preview.from.y,preview.to.y));
+    const y1=Math.min(bounds.y1,Math.max(preview.from.y,preview.to.y));
+    ctx.lineWidth=1/Math.max(camera.zoom,.5);
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) {
+      const t=cellAt(l,x,y),valid=t===TERRAINS.SOIL||t===TERRAINS.HARD_SOIL;
+      ctx.fillStyle=valid?'#a9df8277':'#ee777433';
+      ctx.fillRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
+      ctx.strokeStyle=valid?'#bfe998':'#eb989866';
+      ctx.strokeRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
+    }
+  }
+  drawAnts(ctx,game,elapsedMs,camera) {
+    const c=game.colony;
+    this.drawAnt(ctx,c.queen,true,elapsedMs);
+    for(const ant of c.workers) this.drawAnt(ctx,ant,false,elapsedMs);
+  }
+  drawAnt(ctx,ant,queen,elapsedMs) {
+    const lerp=ant.next ? ant.motion : 0;
+    const x=((ant.x+(ant.next?(ant.next.x-ant.x)*lerp:0))+.5)*TILE;
+    const y=((ant.y+(ant.next?(ant.next.y-ant.y)*lerp:0))+.5)*TILE;
+    const dir=ant.facing||0;
+    const angle=[-Math.PI/2,0,Math.PI/2,Math.PI][dir];
+    const scale=queen?1.42:.82;
+    const wobble=ant.state==='walking'?Math.sin(elapsedMs/85)*.5:0;
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.scale(scale,scale);
+    ctx.fillStyle='#0c0b09aa';ctx.beginPath();ctx.ellipse(1,3,7,11,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=queen?'#402311':'#2b1b12';ctx.lineWidth=2;ctx.lineCap='round';
+    for(const side of [-1,1]) for(let i=0;i<3;i++) {
+      const py=-5+i*5;
+      ctx.beginPath();ctx.moveTo(side*2,py);
+      ctx.lineTo(side*(7+(i===1?3:0)),py+wobble*(i%2?1:-1));
+      ctx.lineTo(side*10,py+4+wobble);ctx.stroke();
+    }
+    ctx.fillStyle=queen?'#854d2f':'#8b512b';ctx.beginPath();ctx.ellipse(0,6,5.2,7,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=queen?'#bf8450':'#b0753f';ctx.beginPath();ctx.ellipse(0,-2,3.7,4.5,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=queen?'#d5a16b':'#cf9657';ctx.beginPath();ctx.ellipse(0,-9,4.5,4,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#dfb57d';ctx.lineWidth=.8;
+    for(const side of [-1,1]) {ctx.beginPath();ctx.moveTo(side*2,-11);ctx.quadraticCurveTo(side*5,-17,side*8,-15);ctx.stroke();}
+    if(queen){ctx.fillStyle='#f1d69c';ctx.beginPath();ctx.moveTo(-7,-16);ctx.lineTo(-4,-22);ctx.lineTo(0,-18);ctx.lineTo(4,-22);ctx.lineTo(7,-16);ctx.closePath();ctx.fill();}
+    ctx.restore();
   }
   drawTile(ctx, game, layer, x, y) {
     const t = cellAt(layer, x, y);

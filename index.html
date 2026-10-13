@@ -29,7 +29,15 @@
 
     <aside class="left-overlay" aria-label="ข้อมูลบริเวณแผนที่">
       <div class="region-heading"><div class="region-overline">CURRENT REGION <span>•</span> 01 / 02</div><h2 id="region-name">ใต้ผืนดิน</h2><p id="region-subtitle">อุโมงค์แห่งอาณาจักรเริ่มต้น</p></div>
-      <div class="phase-note"><span class="phase-dot"></span><span>FOUNDATION <b>U1</b></span></div>
+      <div class="phase-note"><span class="phase-dot"></span><span>DIG & NAVIGATION <b>U2</b></span></div>
+    </aside>
+
+    <aside class="dig-tools" aria-label="เครื่องมือก่อสร้าง">
+      <div class="tool-switch">
+        <button type="button" class="tool-button active" id="tool-inspect" aria-pressed="true" title="ดูข้อมูลช่อง">⌕ <span>สำรวจ</span></button>
+        <button type="button" class="tool-button" id="tool-dig" aria-pressed="false" title="เลือกแล้วลากเพื่อสั่งขุด">⚒ <span>สั่งขุด</span></button>
+      </div>
+      <div class="orders-status"><span id="worker-status">มดงาน 0/5</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 0</span></div>
     </aside>
 
     <div class="right-controls">
@@ -48,7 +56,7 @@
     </div>
 
     <aside class="debug-panel hidden" id="debug-panel" aria-live="off">
-      <div class="panel-head">SIMULATION / DEBUG <span>U1</span></div>
+      <div class="panel-head">SIMULATION / DEBUG <span>U2</span></div>
       <div class="metric"><span>FPS</span><strong id="metric-fps">—</strong></div>
       <div class="metric"><span>TPS</span><strong id="metric-tps">—</strong></div>
       <div class="metric"><span>Simulation</span><strong id="metric-sim">— ms</strong></div>
@@ -63,7 +71,9 @@
       <div class="selection-title"><span id="selection-terrain">พื้นดิน</span><button id="selection-close" aria-label="ปิดข้อมูลช่อง">×</button></div>
       <p id="selection-coords">ตำแหน่ง —</p>
       <button id="portal-button" class="portal-action hidden">เปลี่ยนไปอีกชั้น ↗</button>
-      <span class="selection-note">ระบบขุดและ AI มดจะเพิ่มใน U2</span>
+      <p id="selection-work" class="selection-work hidden"></p>
+      <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
+      <span class="selection-note" id="selection-note">เลือกเครื่องมือขุดแล้วแตะหรือลากบนดินเพื่อสั่งมดงาน</span>
     </aside>
 
     <footer class="bottom-bar">
