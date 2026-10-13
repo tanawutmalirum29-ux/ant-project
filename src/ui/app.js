@@ -105,7 +105,7 @@ export class UI {
       if(pointers.size===1) {
         start=p;dragDistance=0;usedMultiTouch=false;pinch=null;
         if(this.tool==='dig' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.digPreview={from:cell,to:cell};}
-        if(this.tool==='room' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.roomPreview={from:cell,to:cell};this.updateRoomCost();}
+        if(this.tool==='room' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.roomPreview={from:cell,to:cell,dragging:false};this.updateRoomCost();}
       }
       if(pointers.size>=2){usedMultiTouch=true;this.digPreview=null;this.roomPreview=null;this.updateRoomCost();start=null;pinch=pinchInfo();}
     });
@@ -128,6 +128,7 @@ export class UI {
         }else if(this.tool==='room' && this.game.layer===UNDERGROUND && this.roomPreview && !usedMultiTouch){
           // Drag defines a rectangle rather than panning the camera.
           this.roomPreview.to=cellAtPointer(p);
+          this.roomPreview.dragging=dragDistance>=7;
           this.updateRoomCost();
         }else camera.pan(dx,dy,layer,...this.dimensions());
       }
@@ -198,12 +199,12 @@ export class UI {
     const preview=this.roomPreview;
     const x=preview?Math.min(preview.from.x,preview.to.x):null;
     const y=preview?Math.min(preview.from.y,preview.to.y):null;
-    const width=preview?Math.abs(preview.to.x-preview.from.x)+1:def.width;
-    const height=preview?Math.abs(preview.to.y-preview.from.y)+1:def.height;
+    const width=preview?.dragging?Math.abs(preview.to.x-preview.from.x)+1:def.width;
+    const height=preview?.dragging?Math.abs(preview.to.y-preview.from.y)+1:def.height;
     const plan=roomPlan($('room-type').value,width,height);
     const cost=plan?.cost||def.cost;
     const amount=Object.entries(cost).map(([k,n])=>({carbs:'พลังงาน',protein:'โปรตีน',water:'น้ำ'})[k]+n).join(' · ');
-    const verdict=preview?this.game.rooms.validate(def===ROOM_CATALOG[$('room-type').value]?$('room-type').value:'',x,y,width,height):null;
+    const verdict=preview?this.game.rooms.validate($('room-type').value,x,y,width,height):null;
     $('room-cost').textContent=`แตะ: 2×2 · ลาก: ${width}×${height} (${width*height} ช่อง) · ใช้ ${amount}${verdict&&!verdict.ok?' · '+this.roomError(verdict.reason):''}`;
   }
   showColonyPanel(show) {
