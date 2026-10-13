@@ -1,7 +1,7 @@
 import { TERRAINS, SURFACE, UNDERGROUND, TILE, cellAt } from '../world/generate.js';
 import { tileHash } from '../core/random.js';
 import { ROOM_CATALOG } from '../core/rooms.js';
-import { displayedPosition } from '../core/render-motion.js';
+import { displayedPosition } from '../core/game.js';
 
 const RALLY_PING_MS = 1500;
 const ROOM_TICKS = type=>({queen:1,nursery:65,food_store:90,water_store:80,rest:60,guard:85})[type]||1;
