@@ -297,6 +297,18 @@ def audit_view(browser,html,spec,artifacts):
             before=inspect(page)
             page.locator('#workforce-open').click()
             assert page.locator('#colony-panel').is_visible()
+            assert page.locator('#workforce-open').get_attribute('aria-expanded')=='true'
+            # Repeating the same HUD action must close the sheet and return to
+            # inspect; it must never enqueue a dig, room or change game state.
+            before_orders=inspect(page)['rooms']
+            page.locator('#workforce-open').click()
+            assert page.locator('#colony-panel').is_hidden()
+            assert page.locator('#workforce-open').get_attribute('aria-expanded')=='false'
+            assert page.locator('#tool-inspect').get_attribute('aria-pressed')=='true'
+            assert inspect(page)['rooms']==before_orders
+            page.locator('#workforce-open').click()
+            assert page.locator('#colony-panel').is_visible()
+            # Separate close controls must also clear the HUD toggle state.
             def slide(kind,value):
                 page.locator('#alloc-'+kind).evaluate("""(el,val)=>{
                   el.value=String(val);el.dispatchEvent(new Event('input',{bubbles:true}));
@@ -314,6 +326,7 @@ def audit_view(browser,html,spec,artifacts):
             assert inspect(page)['nurses']==before['nurses']
             assert page.locator('#alloc-general-label').inner_text().startswith('20%')
             page.locator('#close-colony').click()
+            assert page.locator('#workforce-open').get_attribute('aria-expanded')=='false'
             return {'foragers':before['foragers'],'nurses':before['nurses'],'percentages':state}
         test('automatic workforce percentage allocation, quota sum and HUD',staff)
 
