@@ -63,8 +63,8 @@
     bottom:auto;
     left:auto;
     transform:none;
-    width:108px;
-    max-width:108px;
+    width:80px;
+    max-width:80px;
     display:flex;
     flex-direction:column;
     align-items:stretch;
@@ -85,12 +85,13 @@
     right:auto;
   }
 }
-/* Short landscape: the bottom-center layer controls must remain unobstructed.
-   Put the full tactical row in the free space above the selection card. */
+/* Short landscape: layer controls own the bottom center and the CSS room
+   chooser opens into the upper center. Keep the tactical row in the narrow
+   band BETWEEN their interactive surfaces, never over the room option list. */
 @media (max-height:500px) and (orientation:landscape) {
   #u6-dock {
-    top:calc(106px + env(safe-area-inset-top));
-    bottom:auto;
+    top:auto;
+    bottom:calc(60px + env(safe-area-inset-bottom));
     left:50%;
     right:auto;
     transform:translateX(-50%);
