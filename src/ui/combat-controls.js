@@ -126,7 +126,7 @@ export class CombatControls {
       const name=document.createElement('strong');name.textContent=ant.id.replace('worker-','มด #')+(soldier?' · ทหาร':' · มดงาน');
       const status=document.createElement('small');
       const states={'combat-guard':'ประจำจุดป้องกัน','combat-rally':'กำลังรวมพล','combat-intercept':'สกัดศัตรู',
-        'combat-retreat':'พักฟื้น','combat-attack':'ต่อสู้','idle':'ว่าง','room-rest':'พัก','room-guard':'ลาดตระเวน'};
+        'combat-retreat':'พักฟื้น','combat-attack':'ต่อสู้','combat-queen-defense':'ปกป้องราชินี','idle':'ว่าง','room-rest':'พัก','room-guard':'ลาดตระเวน'};
       status.textContent=(states[ant.state]||(ant.state?.startsWith('forage-')?'หาอาหาร':ant.state||'ว่าง'))+
         ` · ${ant.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${ant.x},${ant.y})`;
       info.append(name,status);
