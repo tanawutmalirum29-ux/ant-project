@@ -8,7 +8,7 @@ namespace={'__file__':str(root/'tools/browser-smoke.py')}
 exec((root/'tools/browser-smoke.py').read_text().split('html=bundle_html()')[0],namespace)
 html=namespace['bundle_html']()
 with sync_playwright() as pw:
-    browser=pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    browser=pw.chromium.launch(**({'executable_path':'/usr/bin/chromium'} if Path('/usr/bin/chromium').exists() else {}),headless=True,args=['--no-sandbox'])
     for width,height,name in [(320,568,'small'),(390,844,'portrait'),(768,1024,'tablet'),(844,390,'landscape'),(1440,900,'desktop')]:
         page=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1,is_mobile=name!='desktop',has_touch=name!='desktop')
         errors=[]
