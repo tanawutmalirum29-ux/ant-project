@@ -1,0 +1,36 @@
+name: V2 Live UI Integration
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'src/ui/visual/v2.css'
+      - 'tests/v2-live.test.mjs'
+      - 'tools/browser-v2-live.py'
+      - '.github/workflows/v2-live.yml'
+  workflow_dispatch:
+jobs:
+  gameplay-and-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: U1–U5 and integrated UI tests
+        run: npm test
+      - name: Amplify static build
+        run: npm run build
+      - name: Verify CSS deployment
+        run: |
+          test -s dist/index.html
+          test -s dist/src/ui/visual/v2.css
+          grep -q 'src/ui/visual/v2.css' dist/index.html
+      - name: Chromium setup
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install chromium
+      - name: Verify V2 standalone preview
+        run: python tools/browser-v2.py
+      - name: U5 gameplay with V2 live interface
+        run: python tools/browser-v2-live.py
