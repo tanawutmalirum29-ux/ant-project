@@ -81,10 +81,17 @@ function auditMovement(game, ticks) {
         if (old.layer === now.layer) {
           assert.ok(distance(old, now) <= 1, 'non-cardinal teleport at tick ' + i + ': ' + worker.id);
         } else {
-          assert.deepEqual(old, { layer: old.layer, ...portal[old.layer] },
-            'layer exit without portal at tick ' + i + ': ' + worker.id);
+          // Foraging.walk can finish its last cardinal step INTO the entrance
+          // and immediately cross layers in the very same Game.update(100).
+          // Combat crosses only when already at the entrance on tick entry.
+          const exitDistance = distance(old, portal[old.layer]);
+          const forageStepIntoPortal = exitDistance === 1 && worker.state.startsWith('forage-') &&
+            worker.combatRole !== 'soldier';
+          assert.ok(exitDistance === 0 || forageStepIntoPortal,
+            'layer exit without a real entrance/adjacent step at tick ' + i + ': ' + worker.id);
           assert.deepEqual(now, { layer: now.layer, ...portal[now.layer] },
             'layer arrival without portal at tick ' + i + ': ' + worker.id);
+          assert.equal(worker.next, null, 'portal transfer must clear pending motion');
           crossings.push({ tick: i, id: worker.id, from: old.layer, to: now.layer });
         }
       }
