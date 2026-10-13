@@ -1,6 +1,7 @@
 import { TERRAINS, SURFACE, UNDERGROUND, TILE, cellAt } from '../world/generate.js';
 import { tileHash } from '../core/random.js';
 
+const ROOM_TICKS = type=>({queen:1,nursery:65,food_store:90,water_store:80,rest:60,guard:85})[type]||1;
 const colors = {
   [TERRAINS.GRASS]: '#344d38', [TERRAINS.DIRT]: '#685039', [TERRAINS.THICKET]: '#1c382c',
   [TERRAINS.WATER]: '#284e58', [TERRAINS.STONE]: '#53574b',
@@ -70,6 +71,7 @@ export class Renderer {
       if (p.x >= bounds.x0 && p.x <= bounds.x1 && p.y >= bounds.y0 && p.y <= bounds.y1) this.drawEntrance(ctx, p, game.layer, elapsedMs);
     }
     if (game.layer === UNDERGROUND) {
+      this.drawRooms(ctx,game,bounds,camera);
       this.drawOrders(ctx, game, bounds, camera);
       if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
     } else this.drawResources(ctx, game, bounds, elapsedMs);
@@ -89,6 +91,27 @@ export class Renderer {
     g.addColorStop(1, '#050c0b70');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
+  }
+  drawRooms(ctx,game,bounds,camera) {
+    if(!game.rooms)return;
+    const shades={queen:'#e6cc96',nursery:'#f0a9c2',food_store:'#d8b35f',water_store:'#85d2db',rest:'#b4cba0',guard:'#dc9782'};
+    for(const room of game.rooms.rooms) {
+      if(room.x+room.width<bounds.x0||room.x>bounds.x1||room.y+room.height<bounds.y0||room.y>bounds.y1)continue;
+      const x=room.x*TILE,y=room.y*TILE,w=room.width*TILE,h=room.height*TILE;
+      const color=shades[room.type];
+      ctx.save();ctx.globalAlpha=room.status==='disabled'?.22:room.status==='ready'?.64:.42;
+      ctx.fillStyle=color;ctx.fillRect(x+2,y+2,w-4,h-4);
+      ctx.strokeStyle=color;ctx.lineWidth=room.status==='ready'?2.5:1.5;
+      ctx.setLineDash(room.status==='ready'?[]:[4,3]);ctx.strokeRect(x+2,y+2,w-4,h-4);ctx.setLineDash([]);
+      ctx.globalAlpha=1;
+      ctx.fillStyle='#181e19';ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(({queen:'Q',nursery:'N',food_store:'F',water_store:'W',rest:'R',guard:'G'})[room.type],x+w/2,y+h/2);
+      if(room.status==='building') {
+        ctx.fillStyle='#1a241e';ctx.fillRect(x+4,y+h-8,w-8,5);
+        ctx.fillStyle=color;ctx.fillRect(x+4,y+h-8,(w-8)*room.progress/ROOM_TICKS(room.type),5);
+      }
+      ctx.restore();
+    }
   }
   drawOrders(ctx,game,bounds,camera) {
     for(const job of game.colony.orders.values()) {

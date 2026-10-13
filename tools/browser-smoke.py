@@ -9,7 +9,7 @@ def bundle_html():
     html=(root/'index.html').read_text()
     css=(root/'src/styles.css').read_text()
     html=html.replace('<link rel="stylesheet" href="./src/styles.css" />','<style>'+css+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()

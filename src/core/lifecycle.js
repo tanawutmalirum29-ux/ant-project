@@ -19,6 +19,7 @@ export class Lifecycle {
   constructor(colony, foraging) {
     this.colony=colony;
     this.foraging=foraging;
+    this.rooms=null;
     this.brood=[];
     this.nextBroodId=1;
     this.nurseSlots=1;
@@ -126,7 +127,7 @@ export class Lifecycle {
     for(const ant of adults){
       let health=ant.caste==='queen'?this.queenHealth:this.adultHealth.get(ant.id);
       if(!health) {health={age:0,hunger:0,thirst:0};this.adultHealth.set(ant.id,health);}
-      health.age++;health.hunger++;health.thirst++;
+      health.age++;health.hunger+=this.rooms?.isResting(ant)?0.5:1;health.thirst++;
       if(health.hunger>=LIFE.feedInterval && this.consume('carbs')) health.hunger=0;
       if(health.thirst>=LIFE.drinkInterval && this.consume('water')) health.thirst=0;
       const limit=ant.caste==='queen'?LIFE.queenStarve:LIFE.workerStarve;
@@ -139,7 +140,7 @@ export class Lifecycle {
   }
   layEgg() {
     if(!this.colony.queen.alive || this.tickCount%LIFE.layInterval!==0 ||
-      this.brood.length>=LIFE.broodLimit || this.totalPopulation>=LIFE.maxPopulation) return;
+      this.brood.length>=(this.rooms?.broodCapacity ?? LIFE.broodLimit) || this.totalPopulation>=LIFE.maxPopulation) return;
     // Queens lay only after foragers have actually deposited protein.
     if(!this.consume('protein')) {this.lastEvent='รอโปรตีนสำหรับนางพญาวางไข่';return;}
     this.brood.push({id:`brood-${this.nextBroodId++}`,stage:'egg',age:0,care:0,waiting:0});

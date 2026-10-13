@@ -36,14 +36,16 @@
     </div>
     <aside class="left-overlay" aria-label="ข้อมูลบริเวณแผนที่">
       <div class="region-heading"><div class="region-overline">CURRENT REGION <span>•</span> 01 / 02</div><h2 id="region-name">ใต้ผืนดิน</h2><p id="region-subtitle">อุโมงค์แห่งอาณาจักรเริ่มต้น</p></div>
-      <div class="phase-note"><span class="phase-dot"></span><span>COLONY LIFECYCLE <b>U4</b></span></div><div class="brood-summary" aria-live="off"><span id="brood-summary">ไข่ 0 · ตัวอ่อน 0 · ดักแด้ 0</span><span id="queen-status" class="queen-status">นางพญาพร้อมวางไข่</span></div>
+      <div class="phase-note"><span class="phase-dot"></span><span>ROOMS &amp; ECONOMY <b>U5</b></span></div><div class="brood-summary" aria-live="off"><span id="brood-summary">ไข่ 0 · ตัวอ่อน 0 · ดักแด้ 0</span><span id="queen-status" class="queen-status">นางพญาพร้อมวางไข่</span></div>
     </aside>
 
     <aside class="dig-tools" aria-label="เครื่องมือก่อสร้าง">
       <div class="tool-switch">
         <button type="button" class="tool-button active" id="tool-inspect" aria-pressed="true" title="ดูข้อมูลช่อง">⌕ <span>สำรวจ</span></button>
         <button type="button" class="tool-button" id="tool-dig" aria-pressed="false" title="เลือกแล้วลากเพื่อสั่งขุด">⚒ <span>สั่งขุด</span></button>
+        <button type="button" class="tool-button" id="tool-room" aria-pressed="false" title="วางผังห้องบนอุโมงค์ที่ขุดแล้ว">▣ <span>สร้างห้อง</span></button>
       </div>
+      <div class="room-palette hidden" id="room-palette"><label for="room-type">ประเภทห้อง</label><select id="room-type" aria-label="เลือกประเภทห้อง"><option value="food_store">คลังอาหาร</option><option value="water_store">คลังน้ำ</option><option value="nursery">ห้องเลี้ยงตัวอ่อน</option><option value="rest">ห้องพักมดงาน</option><option value="guard">ห้องเตรียมป้องกัน</option></select><span class="room-cost" id="room-cost">คลิกบนพื้นที่อุโมงค์ 2×2</span></div>
       <div class="forage-control" aria-label="กำหนดจำนวนมดหาอาหาร">
         <span>มดหาอาหาร</span>
         <button id="forage-minus" type="button" aria-label="ลดจำนวนมดหาอาหาร">−</button>
@@ -51,6 +53,7 @@
         <button id="forage-plus" type="button" aria-label="เพิ่มจำนวนมดหาอาหาร">+</button>
       </div>
       <div class="forage-control nurse-control" aria-label="กำหนดจำนวนมดพี่เลี้ยง"><span>มดพี่เลี้ยง</span><button id="nurse-minus" type="button" aria-label="ลดมดพี่เลี้ยง">−</button><strong id="nurse-count">1/5</strong><button id="nurse-plus" type="button" aria-label="เพิ่มมดพี่เลี้ยง">+</button></div>
+      <div class="orders-status" id="room-summary" aria-live="off">ห้องพร้อมใช้ 1 · กำลังสร้าง 0 · คลัง 24/24/24</div>
       <div class="orders-status"><span id="worker-status">มดงาน 0/5</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 0</span></div>
     </aside>
 
@@ -70,7 +73,7 @@
     </div>
 
     <aside class="debug-panel hidden" id="debug-panel" aria-live="off">
-      <div class="panel-head">SIMULATION / DEBUG <span>U4</span></div>
+      <div class="panel-head">SIMULATION / DEBUG <span>U5</span></div>
       <div class="metric"><span>FPS</span><strong id="metric-fps">—</strong></div>
       <div class="metric"><span>TPS</span><strong id="metric-tps">—</strong></div>
       <div class="metric"><span>Simulation</span><strong id="metric-sim">— ms</strong></div>
@@ -89,6 +92,8 @@
       <p id="selection-work" class="selection-work hidden"></p>
       <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
 <p class="selection-resource hidden" id="selection-resource"></p>
+      <p class="selection-room hidden" id="selection-room"></p>
+      <button type="button" class="cancel-dig hidden" id="cancel-room">ยกเลิกผังห้อง (คืนทรัพยากร)</button>
       <p class="selection-brood hidden" id="selection-brood"></p>
       <span class="selection-note" id="selection-note">เลือกเครื่องมือขุดแล้วแตะหรือลากบนดินเพื่อสั่งมดงาน</span>
     </aside>
