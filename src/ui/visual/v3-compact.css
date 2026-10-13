@@ -185,7 +185,7 @@
 .selection-note{display:none}
 .cancel-dig,.portal-action{min-height:36px;padding:6px;font-size:11px}
 #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
- top:calc(285px + env(safe-area-inset-top));right:266px;left:auto;
+ top:calc(285px + env(safe-area-inset-top));right:285px;left:auto;
 }
 .debug-panel:not(.hidden){
  top:calc(285px + env(safe-area-inset-top));right:12px;bottom:auto;
@@ -252,7 +252,7 @@ body #u6-dock #u6-open{color:#f6d5a5}
  .selection-card:not(.hidden){top:calc(285px + env(safe-area-inset-top));width:204px}
  .debug-panel:not(.hidden){top:calc(285px + env(safe-area-inset-top))}
  #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
-  top:calc(285px + env(safe-area-inset-top));right:260px;left:auto;
+  top:calc(285px + env(safe-area-inset-top));right:285px;left:auto;
  }
 }
 
