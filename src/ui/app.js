@@ -3,8 +3,28 @@ import { isDiggable } from '../world/navigation.js';
 import { formatGameTime } from '../core/time.js';
 import { LIFE } from '../core/lifecycle.js';
 import { ROOM_CATALOG, roomPlan, ROOM_LIMITS } from '../core/rooms.js';
-import { terrainName } from '../render/renderer.js';
+import { terrainName, resourceVisualState } from '../render/renderer.js';
 const $ = (id) => document.getElementById(id);
+const RESOURCE_NAMES = Object.freeze({
+  carbs: 'อาหาร · เมล็ดและน้ำหวาน',
+  protein: 'โปรตีน · แมลง',
+  water: 'น้ำ'
+});
+
+/** One concise existing selection card; progress means fraction of the next unit. */
+export function resourceSelectionText(node) {
+  const state=resourceVisualState(node);
+  const capacity=state.capacity===null?'—':state.capacity;
+  const details=`คงเหลือ ${state.amount}/${capacity} · พร้อมเก็บ ${state.available} · จอง ${state.reserved}`;
+  const recovering=state.progress!==null && state.ratio<1
+    ? `ฟื้นหน่วยถัดไป ${Math.floor(state.progress*100)}%` : '';
+  const note=state.status==='recovering' ? (recovering || 'รอฟื้นตัว')
+    : state.status==='depleted' ? 'หมดแล้ว'
+    : state.status==='low' ? `เหลือน้อย${recovering?' · '+recovering:''}`
+    : state.ratio>=1 ? 'เต็มความจุ'
+    : `มีทรัพยากร${recovering?' · '+recovering:''}`;
+  return { title: RESOURCE_NAMES[node.type] ?? 'แหล่งทรัพยากร', details, note };
+}
 
 export class UI {
   constructor(game, cameras, renderer, onNewWorld) {
@@ -253,7 +273,8 @@ export class UI {
     const terrain=cellAt(this.game.currentLayer,s.x,s.y), job=this.game.colony.getOrder(s.x,s.y);
     const source=s.layer===SURFACE?this.game.foraging.getNode(s.x,s.y):null;
     const room=s.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
-    $('selection-terrain').textContent=source?'แหล่งทรัพยากร':room?ROOM_CATALOG[room.type].name:terrainName(terrain);
+    const sourceText=source?resourceSelectionText(source):null;
+    $('selection-terrain').textContent=sourceText?.title??(room?ROOM_CATALOG[room.type].name:terrainName(terrain));
     $('selection-coords').textContent=`X:${s.x} · Y:${s.y}`;
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
@@ -269,7 +290,7 @@ export class UI {
       $('selection-room').textContent=`${room.width}×${room.height} · ${{planned:'รอสร้าง',building:'กำลังสร้าง',ready:'พร้อมใช้',disabled:'ขาดทางเข้า'}[room.status]} ${room.status==='ready'?'':Math.floor(room.progress/Math.max(1,room.ticks??ROOM_CATALOG[room.type].ticks)*100)+'%'}${cargo?` · วัสดุ ${cargo}`:''}${stored?' · '+stored:''}${room.type==='nursery'?` · ตัวอ่อน ${brood}`:''}${room.type==='guard'?` · ลาดตระเวน ${guards}`:''}`;
     }
     $('selection-resource').classList.toggle('hidden',!source);
-    if(source) $('selection-resource').textContent=`เหลือ ${source.amount} · จอง ${source.reserved}`;
+    if(sourceText) $('selection-resource').textContent=sourceText.details;
     const broodHere=s.layer===UNDERGROUND?this.game.lifecycle.brood.filter(b=>
       room?.type==='nursery'?b.roomId===room.id:
       !b.carrierId&&b.x===s.x&&b.y===s.y):[];
@@ -281,7 +302,7 @@ export class UI {
         .map(([stage,label])=>`${label} ${broodHere.filter(b=>b.stage===stage).length}`).join(' · ');
       $('selection-brood').textContent=`${temporary?'พักชั่วคราว · ':''}${counts}`;
     }
-    $('selection-note').textContent=source?'มดหาอาหารจะมารับทรัพยากรโดยอัตโนมัติ':job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
+    $('selection-note').textContent=sourceText?.note??(job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)');
   }
   notice(message) {
     const toast = $('toast');

@@ -6,7 +6,8 @@ export const RESOURCE_TYPES = Object.freeze(['carbs', 'protein', 'water']);
 export const RESOURCE_LABELS = Object.freeze({ carbs: 'น้ำหวานและเมล็ด', protein: 'แมลงและโปรตีน', water: 'น้ำ' });
 const kindFor = Object.freeze({ carbs: 'nectar', protein: 'insect', water: 'droplet' });
 
-/** Placed on actual walkable tiles reachable from the single U1 portal. No respawn in U3. */
+/** Fixed, seed-deterministic and reachable sources. An opt-in ecology engine
+ * may renew these same sites after harvesting; site positions never respawn. */
 export function createResourceNodes(world) {
   const layer = world.layers[SURFACE];
   const start = world.entrances[0].surface;
@@ -34,5 +35,10 @@ export function createResourceNodes(world) {
     const type = types[i % types.length];
     return { id: `resource-${i+1}`, x:p.x, y:p.y, type, kind:kindFor[type],
       amount: 16 + rng.int(0,8) * 2, initialAmount: 0, reserved:0, distance:p.distance };
-  }).map(node => ({...node, initialAmount:node.amount}));
+  }).map(node => ({
+    ...node,
+    initialAmount: node.amount,
+    maxAmount: node.amount,
+    regrowthProgress: 0
+  }));
 }
