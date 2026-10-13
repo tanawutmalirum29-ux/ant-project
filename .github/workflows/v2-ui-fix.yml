@@ -1,0 +1,38 @@
+name: V2.1 UI interaction regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'src/ui/visual/v2-fixes.css'
+      - 'src/ui/visual/room-picker.js'
+      - 'src/ui/visual/page-zoom-guard.js'
+      - 'tests/v2-ui-fix.test.mjs'
+      - 'tools/browser-v2-ui-fix.py'
+      - '.github/workflows/v2-ui-fix.yml'
+  workflow_dispatch:
+jobs:
+  ui-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: All U1-U5 gameplay and UI unit tests
+        run: npm test
+      - name: Build Amplify static site
+        run: npm run build
+      - name: Confirm new UI and zoom files are deployed
+        run: |
+          test -s dist/src/ui/visual/v2-fixes.css
+          test -s dist/src/ui/visual/room-picker.js
+          test -s dist/src/ui/visual/page-zoom-guard.js
+      - name: Prepare Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install chromium
+      - name: Real game UI controls and map zoom across five viewport sizes
+        run: python tools/browser-v2-ui-fix.py
+      - name: U5 room construction smoke
+        run: python tools/browser-v2-live.py
