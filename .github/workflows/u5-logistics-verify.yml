@@ -1,0 +1,41 @@
+name: U5 Gameplay and Spatial Logistics
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/**'
+      - 'src/render/renderer.js'
+      - 'src/ui/app.js'
+      - 'src/main.js'
+      - 'tests/**'
+      - 'tools/browser-u5-logistics.py'
+      - '.github/workflows/u5-logistics-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR source
+        uses: actions/checkout@v4
+      - name: Install Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regression suite U1–U5 and V2
+        run: npm test
+      - name: Verify static site build
+        run: npm run build
+      - name: Verify essential deployment files
+        run: |
+          test -s dist/index.html
+          test -s dist/src/main.js
+          test -s dist/src/ui/visual/v1.css
+          test -s dist/src/core/rooms.js
+      - name: Install Chromium for Playwright
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install chromium
+      - name: U5 physical logistics in five viewports
+        run: python tools/browser-u5-logistics.py
