@@ -126,31 +126,23 @@ test('PATH-GUARD-05 | invalid dig target releases its exact owner, preserving or
   ownership(colony);
 });
 
-test('PATH-GUARD-06 | mismatched reservation must not clear a different owner', () => {
+test('PATH-GUARD-06 | stale worker mismatch cannot steal or release the real owner', () => {
   const fixture = setup();
   const { colony } = fixture, { ant, job } = assign(fixture);
-  const other = colony.workers.find(worker => worker !== ant);
-  // Simulate an external handoff with the original ant retaining stale orderId.
-  job.workerId = other.id;
-  other.orderId = job.id;
-  other.path = [];
-  other.next = null;
-  other.state = 'digging';
-  // Run only until the original owner is processed; other worker (later in array)
-  // may independently determine its own position is invalid and requeue.
-  const oldIndex = colony.workers.indexOf(ant);
-  const otherIndex = colony.workers.indexOf(other);
-  if (otherIndex < oldIndex) {
-    // Existing later ant is guaranteed by selecting a stale earlier owner instead.
-    // Exercise mismatch directly with an absent foreign owner.
-    job.workerId = 'external-foreign-owner';
-    other.orderId = null;
-    other.state = 'idle';
-  }
+  const stale = colony.workers.find(worker => worker !== ant);
+  assert.ok(stale);
+  // Synthetic stale reference: only ant is the actual job owner.
+  stale.orderId = job.id;
+  stale.path = [];
+  stale.next = null;
+  stale.state = 'digging';
   colony.tick();
-  assert.equal(ant.orderId, null);
-  if (job.workerId != null) assert.notEqual(job.workerId, ant.id);
-  assert.equal(colony.ordersById.get(job.id), job);
+  assert.equal(stale.orderId, null, 'stale worker must release its own reference');
+  assert.equal(stale.state, 'idle');
+  assert.equal(job.workerId, ant.id, 'real owner must not be cleared by mismatch');
+  assert.equal(ant.orderId, job.id);
+  assert.equal(job.status, 'assigned');
+  ownership(colony);
 });
 
 test('PATH-GUARD-07 | reopening synthetic obstruction permits eventual requeue/completion', () => {
@@ -179,6 +171,8 @@ test('PATH-GUARD-08 | two miners cannot double-own jobs after a blocked route', 
   assert.equal(colony.queueRectangle(b, b).added, 1);
   colony.tick();
   ownership(colony);
+  assert.equal([...colony.orders.values()].filter(job => job.workerId != null).length, 2,
+    'both miners must initially hold distinct orders');
   const moving = colony.workers.find(worker => worker.orderId != null && worker.next);
   assert.ok(moving);
   const step = { ...moving.next };
