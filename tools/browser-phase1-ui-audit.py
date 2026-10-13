@@ -369,6 +369,11 @@ def audit_view(browser,html,spec,artifacts):
             """,[info['x'],info['y']])
             assert invalid['ok'] is False and invalid['reason']=='overlap',invalid
             assert page.locator('#room-type').input_value()=='food_store'
+            # Dismiss the previous success card so the second tap must reach
+            # the real canvas rather than a floating overlay.
+            page.locator('#selection-close').click()
+            top=page.evaluate("""p => document.elementFromPoint(p.x,p.y)?.id""",info['pos'])
+            assert top=='game-canvas',('invalid tile tap intercepted',top,info['pos'])
             tap(page,info['pos'],mobile)
             after=inspect(page)['rooms']
             assert after==before,('invalid placement unexpectedly queued',before,after)
@@ -377,8 +382,9 @@ def audit_view(browser,html,spec,artifacts):
               return r?{id:r.id,type:r.type}:null;
             }""",[info['x'],info['y']])
             assert room and room['id']==info['room']['id'],('original room changed',room)
-            assert 'ห้อง' in page.locator('#toast').inner_text(),(
-                'missing invalid-placement feedback',page.locator('#toast').inner_text())
+            actual_toast=page.locator('#toast').inner_text()
+            assert actual_toast=='พื้นที่มีห้องอยู่แล้ว',(
+                'wrong overlap rejection feedback',actual_toast)
             screenshot('room-invalid')
             page.locator('#tool-inspect').click()
             return {'seed':info['seed'],'x':info['x'],'y':info['y'],
