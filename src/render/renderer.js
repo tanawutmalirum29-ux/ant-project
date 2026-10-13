@@ -206,7 +206,7 @@ export class Renderer {
     const dir=ant.facing||0;
     const angle=[-Math.PI/2,0,Math.PI/2,Math.PI][dir];
     const scale=queen?1.42:.82;
-    const wobble=(ant.state==='walking'||ant.state==='nursing'||ant.state?.startsWith('forage-'))?Math.sin(elapsedMs/85)*.5:0;
+    const wobble=(ant.next||(ant.state==='walking'||ant.state==='nursing'||ant.state?.startsWith('forage-')))?Math.sin(elapsedMs/85)*.5:0;
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.scale(scale,scale);
     ctx.fillStyle='#0c0b09aa';ctx.beginPath();ctx.ellipse(1,3,7,11,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=queen?'#402311':'#2b1b12';ctx.lineWidth=2;ctx.lineCap='round';

@@ -59,6 +59,72 @@ export class Colony {
     return true;
   }
   release(ant) { ant.orderId=null;ant.state='idle';ant.path=[];ant.next=null;ant.motion=0; }
+
+  // Ambient walks are optional presentation activity, not jobs. Any real task
+  // may cancel an in-progress stroll without changing the unit's grid tile.
+  stopAmbient(ant) {
+    if(!ant.ambientActive)return;
+    ant.ambientActive=false;ant.ambientSteps=0;ant.ambientWait=0;
+    ant.next=null;ant.path=[];ant.motion=0;
+  }
+  tickAmbient(combat=null) {
+    const layer=this.world.layers[UNDERGROUND],queen=this.queen;
+    if(!queen.alive)return;
+    // Patrols must not dodge or distract invaders: nest alarm cancels leisure
+    // motion, leaving real defense/combat systems responsible for responses.
+    const intruderAlert=combat?.enemies.some(e=>e.layer===UNDERGROUND);
+    for(const ant of this.workers) {
+      if(intruderAlert){
+        if(ant.state==='idle')this.stopAmbient(ant);
+        else {ant.ambientActive=false;ant.ambientSteps=0;}
+        continue;
+      }
+      // This runs AFTER every real work scheduler in Game.systems.
+      if(ant.state!=='idle'||ant.orderId!=null||ant.layer!==UNDERGROUND||
+         ant.combatRole||ant.cargo?.amount||ant.broodCargo){
+        ant.ambientActive=false;ant.ambientSteps=0;continue;
+      }
+      if(ant.next && !ant.ambientActive)continue; // An unrelated system owns the step.
+      const id=Number(String(ant.id).split('-').at(-1))||0;
+      if(ant.ambientActive && ant.next){
+        const step=ant.next;
+        if(Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1||
+           !isWalkable(layer,ant.x,ant.y)||!isWalkable(layer,step.x,step.y)){
+          this.stopAmbient(ant);ant.ambientWait=12;continue;
+        }
+        ant.motion+=WORKER_SPEED*.85;
+        if(ant.motion>=1){
+          ant.x=step.x;ant.y=step.y;ant.next=null;ant.motion=0;
+          ant.ambientSteps--;
+          if(ant.ambientSteps<=0){
+            ant.ambientActive=false;
+            ant.ambientWait=12+(this.tickCount+id*7)%21;
+          }
+        }
+        continue;
+      }
+      if(ant.ambientWait==null)ant.ambientWait=3+(id*7)%15;
+      if(ant.ambientWait>0){ant.ambientWait--;continue;}
+      if(!ant.ambientActive){ant.ambientActive=true;ant.ambientSteps=2+(this.tickCount+id)%3;}
+      // No pathfinding for cosmetic local movement: one cardinal walkable step,
+      // bounded near the queen and replayable without consuming gameplay RNG.
+      const start=(this.tickCount+id*11+ant.x*3+ant.y*5)%DIRECTIONS.length;
+      const nearQueen=Math.abs(ant.x-queen.x)+Math.abs(ant.y-queen.y);
+      let chosen=null;
+      for(let i=0;i<DIRECTIONS.length;i++){
+        const [dx,dy]=DIRECTIONS[(start+i)%DIRECTIONS.length],x=ant.x+dx,y=ant.y+dy;
+        const nextDistance=Math.abs(x-queen.x)+Math.abs(y-queen.y);
+        if(isWalkable(layer,x,y) && (nearQueen>10?nextDistance<nearQueen:nextDistance<=10)){
+          chosen={x,y};break;
+        }
+      }
+      if(!chosen){
+        ant.ambientActive=false;ant.ambientSteps=0;ant.ambientWait=20;continue;
+      }
+      ant.next=chosen;ant.motion=0;
+      ant.facing=chosen.x>ant.x?1:chosen.x<ant.x?3:chosen.y>ant.y?2:0;
+    }
+  }
   // Only the current reservation holder may return a dig job to the queue.
   // Never erase another worker's valid assignment when clearing a stale ant.
   abandonOrder(ant, job) {
@@ -86,6 +152,7 @@ export class Colony {
     }
     if(!best) return;
     best.job.workerId=ant.id;best.job.status='assigned';
+    this.stopAmbient(ant);
     ant.orderId=best.job.id;ant.path=reach.path(best.x,best.y);
     ant.state=ant.path.length?'walking':'digging';
   }
