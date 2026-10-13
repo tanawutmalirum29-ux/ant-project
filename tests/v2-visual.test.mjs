@@ -8,12 +8,15 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>readFileSync(resolve(root,p),'utf8');
 const prod=read('index.html'), demo=read('design/v2/index.html'), css=read('src/ui/visual/v2.css'), preview=read('design/v2/preview.js');
 
-test('V2 is isolated from production gameplay and keeps existing U1-U4 selectors',()=>{
+test('V2 live skin preserves U1-U4 selectors and U5 game bindings',()=>{
  assert.ok(prod.includes('./src/ui/visual/v1.css'));
- assert.ok(!prod.includes('./src/ui/visual/v2.css'), 'visual-only PR must not add production wiring');
+ assert.ok(prod.includes('./src/ui/visual/v2.css'), 'integrated V2 must be loaded in production');
  const a=[...prod.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]).sort();
  const b=[...demo.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]).sort();
- assert.deepEqual(b,a,'Preview must preserve live IDs and support audit of actual production CSS selectors');
+ assert.equal(new Set(a).size,a.length,'Production element IDs are unique');
+ assert.equal(new Set(b).size,b.length,'Preview element IDs are unique');
+ for(const id of b)assert.ok(a.includes(id),'Live game lost V2 preview's U1-U4 selector: '+id);
+ for(const id of ['tool-room','room-palette','room-type','room-cost','room-summary','selection-room','cancel-room'])assert.ok(a.includes(id),'Missing U5 integration control: '+id);
  const required=['game-canvas','game-time','stock-carbs','stock-protein','stock-water','population','colony-button',
  'colony-panel','tool-inspect','tool-dig','forage-plus','nurse-plus','surface-button','underground-button',
  'debug-panel','selection-card','seed-dialog','seed-button','pause-button'];
