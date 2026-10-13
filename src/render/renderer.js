@@ -72,8 +72,8 @@ export class Renderer {
     if (game.layer === UNDERGROUND) {
       this.drawOrders(ctx, game, bounds, camera);
       if (digPreview) this.drawDigPreview(ctx, game, digPreview, bounds, camera);
-      this.drawAnts(ctx, game, elapsedMs, camera);
-    }
+    } else this.drawResources(ctx, game, bounds, elapsedMs);
+    this.drawAnts(ctx, game, elapsedMs, camera);
     if (selection?.layer === game.layer && cellAt(layer, selection.x, selection.y) != null) {
       ctx.fillStyle = '#f3c67f24';
       ctx.strokeStyle = '#efc685';
@@ -119,10 +119,25 @@ export class Renderer {
       ctx.strokeRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
     }
   }
+  drawResources(ctx,game,bounds,elapsedMs) {
+    for(const node of game.foraging.nodes) {
+      if(node.amount<=0 || node.x<bounds.x0 || node.x>bounds.x1 || node.y<bounds.y0 || node.y>bounds.y1)continue;
+      const x=(node.x+.5)*TILE,y=(node.y+.5)*TILE;
+      const colors={carbs:'#e8c06b',protein:'#d98367',water:'#82c9d8'};
+      ctx.save();ctx.translate(x,y);
+      ctx.fillStyle='#111c17c9';ctx.beginPath();ctx.arc(0,1,10,0,Math.PI*2);ctx.fill();
+      ctx.lineWidth=1.8;ctx.strokeStyle=colors[node.type];ctx.stroke();
+      ctx.fillStyle=colors[node.type];
+      if(node.type==='water') {ctx.beginPath();ctx.moveTo(0,-8);ctx.quadraticCurveTo(12,4,0,8);ctx.quadraticCurveTo(-12,4,0,-8);ctx.fill();}
+      else if(node.type==='protein') {ctx.beginPath();ctx.ellipse(0,0,6,3,-.45,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d7bca2';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-7,-6);ctx.lineTo(6,6);ctx.moveTo(6,-6);ctx.lineTo(-7,6);ctx.stroke();}
+      else {ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff0be';ctx.fillRect(-2,-3,2,2);}
+      ctx.restore();
+    }
+  }
   drawAnts(ctx,game,elapsedMs,camera) {
     const c=game.colony;
-    this.drawAnt(ctx,c.queen,true,elapsedMs);
-    for(const ant of c.workers) this.drawAnt(ctx,ant,false,elapsedMs);
+    if (c.queen.layer===game.layer) this.drawAnt(ctx,c.queen,true,elapsedMs);
+    for(const ant of c.workers) if(ant.layer===game.layer) this.drawAnt(ctx,ant,false,elapsedMs);
   }
   drawAnt(ctx,ant,queen,elapsedMs) {
     const lerp=ant.next ? ant.motion : 0;
@@ -131,7 +146,7 @@ export class Renderer {
     const dir=ant.facing||0;
     const angle=[-Math.PI/2,0,Math.PI/2,Math.PI][dir];
     const scale=queen?1.42:.82;
-    const wobble=ant.state==='walking'?Math.sin(elapsedMs/85)*.5:0;
+    const wobble=(ant.state==='walking'||ant.state?.startsWith('forage-'))?Math.sin(elapsedMs/85)*.5:0;
     ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.scale(scale,scale);
     ctx.fillStyle='#0c0b09aa';ctx.beginPath();ctx.ellipse(1,3,7,11,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=queen?'#402311':'#2b1b12';ctx.lineWidth=2;ctx.lineCap='round';
@@ -146,6 +161,11 @@ export class Renderer {
     ctx.fillStyle=queen?'#d5a16b':'#cf9657';ctx.beginPath();ctx.ellipse(0,-9,4.5,4,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#dfb57d';ctx.lineWidth=.8;
     for(const side of [-1,1]) {ctx.beginPath();ctx.moveTo(side*2,-11);ctx.quadraticCurveTo(side*5,-17,side*8,-15);ctx.stroke();}
+    if(ant.cargo?.amount){
+      ctx.fillStyle={carbs:'#f0d486',protein:'#e98e70',water:'#86daeb'}[ant.cargo.type];
+      ctx.strokeStyle='#302920';ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.arc(0,-16,3.5+ant.cargo.amount*.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
     if(queen){ctx.fillStyle='#f1d69c';ctx.beginPath();ctx.moveTo(-7,-16);ctx.lineTo(-4,-22);ctx.lineTo(0,-18);ctx.lineTo(4,-22);ctx.lineTo(7,-16);ctx.closePath();ctx.fill();}
     ctx.restore();
   }

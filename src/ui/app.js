@@ -29,6 +29,8 @@ export class UI {
     for (const btn of document.querySelectorAll('[data-speed]')) {
       btn.addEventListener('click', () => this.changeSpeed(Number(btn.dataset.speed)));
     }
+    $('forage-minus').addEventListener('click', () => this.changeForagers(-1));
+    $('forage-plus').addEventListener('click', () => this.changeForagers(1));
     $('zoom-in').addEventListener('click', () => this.zoom(1.25));
     $('zoom-out').addEventListener('click', () => this.zoom(1 / 1.25));
     $('recenter').addEventListener('click', () => this.recenter());
@@ -148,6 +150,11 @@ export class UI {
     this.select(null);
     this.updateWorld();
   }
+  changeForagers(delta) {
+    const count=Math.max(0,Math.min(this.game.colony.workers.length,this.game.colony.forageSlots+delta));
+    this.game.colony.setForageSlots(count);
+    this.updateMetrics();
+  }
   changeSpeed(speed) {
     if (speed > 0) this.lastSpeed = speed;
     this.game.setSpeed(speed);
@@ -173,13 +180,16 @@ export class UI {
     $('selection-card').classList.toggle('hidden',!valid);
     if(!valid) return;
     const terrain=cellAt(this.game.currentLayer,s.x,s.y), job=this.game.colony.getOrder(s.x,s.y);
-    $('selection-terrain').textContent=terrainName(terrain);
+    const source=s.layer===SURFACE?this.game.foraging.getNode(s.x,s.y):null;
+    $('selection-terrain').textContent=source?'แหล่งทรัพยากร':terrainName(terrain);
     $('selection-coords').textContent=`ตำแหน่ง X:${s.x}  Y:${s.y}`;
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
     if(job) $('selection-work').textContent=`คำสั่งขุด: ${job.status==='digging'?'กำลังขุด':job.status==='assigned'?'กำลังเดินไปขุด':'รอมดงาน'} · ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
-    $('selection-note').textContent=job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
+    $('selection-resource').classList.toggle('hidden',!source);
+    if(source) $('selection-resource').textContent=`${{carbs:'น้ำหวาน / เมล็ด',protein:'โปรตีนจากแมลง',water:'น้ำ'}[source.type]} · เหลือ ${source.amount} หน่วย · จอง ${source.reserved}`;
+    $('selection-note').textContent=source?'มดหาอาหารจะมารับทรัพยากรโดยอัตโนมัติ':job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)';
   }
   notice(message) {
     const toast = $('toast');
@@ -211,8 +221,12 @@ export class UI {
   }
   updateMetrics() {
     $('game-time').textContent = formatGameTime(this.game.clock);
+    for(const type of ['carbs','protein','water']) $(`stock-${type}`).textContent=String(this.game.foraging.inventory[type]);
+    $('forage-count').textContent=`${this.game.colony.forageSlots}/${this.game.colony.workers.length}`;
+    $('forage-minus').disabled=this.game.colony.forageSlots===0;
+    $('forage-plus').disabled=this.game.colony.forageSlots===this.game.colony.workers.length;
     $('population').textContent=String(this.game.population);
-    $('worker-status').textContent=`มดงาน ${this.game.colony.busyCount}/${this.game.colony.workers.length} กำลังทำงาน`;
+    $('worker-status').textContent=`ขุด ${this.game.colony.busyCount} · ขนส่ง ${this.game.foraging.activeCount}`;
     $('queue-status').textContent=`คิวขุด ${this.game.colony.pendingCount}`;
     this.refreshSelection();
     if (!this.debug) return;

@@ -1,3 +1,22 @@
+# Ant Kingdom — U3 Foraging & Transport
+
+Play through the `index.html` entry point using a static HTTP server (`npm start`).
+
+## U3 systems
+
+- **Two-layer autonomous foraging:** two of five workers are assigned to forage by default; allocation adjustable between 0–5 using the compact worker controls. Remaining workers can dig.
+- **Seeded surface sources:** 24 (minimum 9) reachable resource nodes per world, with carbohydrates, protein and water. Each node has finite stock and is placed away from the nest entry.
+- **Physical transportation:** workers walk from underground chamber to the tunnel entrance, transition at its paired surface coordinate, pathfind to a source, gather at a finite work rate, physically carry up to 3 units back through the entry, and deposit in the starting chamber. HUD inventory changes on deposit, never on pickup.
+- **Reservation/conservation accounting:** workers reserve source quantities so multiple ants cannot duplicate limited stock. Units live at source, in worker cargo, or in storage.
+- **Canvas resources / carrying indicators:** sources are color-coded and selectable on the surface; ants are shown only on the correct world layer, with visible cargo.
+- **U1–U2 preserved:** the same shared clock, seed generation, portal, camera and dig queue remain. No food consumption, production cycles, source respawn or constructed storage rooms yet (U4–U7).
+
+## Verification
+
+- Run `npm test` for U1–U3 tests, including multi-seed generation, conservation, depletion, pause/speed, world switching, and simultaneous digging/foraging.
+- Run `python tools/browser-u3.py` for Chromium desktop/portrait/landscape interaction smoke tests. The local sandbox blocks loopback for Chromium, so this test uses source-module bundling; actual static hosting must be checked separately when deployed.
+- See `docs/U3_ACCEPTANCE.md` for full test criteria and known limits.
+
 # ANT KINGDOM — อาณาจักรมดใต้พิภพ
 
 **U2 · Digging & Navigation · v0.2.0** — Playable excavation prototype สำหรับเว็บมือถือและคอมพิวเตอร์ (single-player, ไม่มี dependencies ฝั่ง client)
