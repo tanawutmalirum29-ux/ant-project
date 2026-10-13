@@ -1,10 +1,10 @@
 import { TERRAINS, SURFACE, UNDERGROUND, TILE, cellAt } from '../world/generate.js';
 import { tileHash } from '../core/random.js';
-import { ROOM_CATALOG } from '../core/rooms.js';
+import { ROOM_CATALOG, ROOM_LIMITS } from '../core/rooms.js';
+import { isWalkable } from '../world/navigation.js';
 import { displayedPosition } from '../core/game.js';
 
 const RALLY_PING_MS = 1500;
-const ROOM_TICKS = type=>({queen:1,nursery:65,food_store:90,water_store:80,rest:60,guard:85})[type]||1;
 const colors = {
   [TERRAINS.GRASS]: '#344d38', [TERRAINS.DIRT]: '#685039', [TERRAINS.THICKET]: '#1c382c',
   [TERRAINS.WATER]: '#284e58', [TERRAINS.STONE]: '#53574b',
@@ -101,41 +101,139 @@ export class Renderer {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
   }
+  /** Individually rendered, deterministic room furniture rather than a flat
+   * color block. All paths live on the canvas; no image downloads or animation
+   * randomness, so equal worlds and zoom levels produce identical artwork. */
+  drawRoomMotif(ctx,type,x,y,variation,seed) {
+    const cx=x+TILE/2,cy=y+TILE/2;
+    ctx.save();
+    if(type==='nursery') {
+      // Woven cradle holding pale brood with a warmer shell.
+      ctx.fillStyle='#5b4031';ctx.beginPath();ctx.ellipse(cx,cy+3,11,8,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#d2a16c';ctx.lineWidth=2;
+      for(const dy of [-2,2,5]){ctx.beginPath();ctx.ellipse(cx,cy+dy,10,4,0,0,Math.PI);ctx.stroke();}
+      ctx.fillStyle='#f6e7c8';ctx.strokeStyle='#e6b2b1';ctx.lineWidth=.8;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(cx-6+i*6,cy+variation*3-1,2.8,4.4,.3,0,Math.PI*2);ctx.fill();ctx.stroke();}
+    }else if(type==='food_store') {
+      // Granary crates of grain, seeds and protein sacks.
+      ctx.fillStyle='#69462b';ctx.fillRect(x+4,y+8,20,15);
+      ctx.strokeStyle='#d8a76c';ctx.lineWidth=1.8;ctx.strokeRect(x+4,y+8,20,15);
+      ctx.beginPath();ctx.moveTo(x+4,y+15);ctx.lineTo(x+24,y+15);ctx.moveTo(x+14,y+8);ctx.lineTo(x+14,y+23);ctx.stroke();
+      for(let i=0;i<4;i++){ctx.fillStyle=i%2?'#eed09a':'#c89b4e';ctx.beginPath();ctx.ellipse(x+7+i*4.5,y+7+(i%2)*2,2.3,3,variation,0,Math.PI*2);ctx.fill();}
+    }else if(type==='water_store') {
+      // Deep blue stone-lined cistern, central water and reflected wave arcs.
+      ctx.fillStyle='#496879';ctx.beginPath();ctx.ellipse(cx,cy+2,11.5,10.5,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#c5c4a2';ctx.lineWidth=2.5;ctx.stroke();
+      ctx.fillStyle='#4b9aa9';ctx.beginPath();ctx.ellipse(cx,cy+3,9,8,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#b9eaf0';ctx.lineWidth=1.2;
+      for(const t of [-1,5]){ctx.beginPath();ctx.moveTo(cx-6,cy+t);ctx.quadraticCurveTo(cx-2,cy+t-3,cx+1,cy+t);ctx.quadraticCurveTo(cx+4,cy+t+2,cx+7,cy+t-1);ctx.stroke();}
+    }else if(type==='rest') {
+      // Leaf mattress and tiny grass-woven headrest.
+      ctx.fillStyle='#72543e';ctx.beginPath();ctx.ellipse(cx,cy+3,11,8,-.25,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#7eaa75';ctx.beginPath();ctx.ellipse(cx-1,cy+1,10,6,-.35,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#c2d69a';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-10,cy+5);ctx.lineTo(cx+8,cy-2);ctx.stroke();
+      ctx.fillStyle='#d5d5a6';ctx.beginPath();ctx.ellipse(cx-6,cy-1,4,3,-.3,0,Math.PI*2);ctx.fill();
+    }else if(type==='guard') {
+      // Defensive barricade, spear rack and buckler.
+      ctx.fillStyle='#6c4a35';ctx.fillRect(x+4,y+17,20,6);
+      ctx.strokeStyle='#d7ae7d';ctx.lineWidth=1.7;
+      for(const sx of [8,13,18,23]){ctx.beginPath();ctx.moveTo(x+sx,y+22);ctx.lineTo(x+sx-2,y+6);ctx.stroke();}
+      ctx.fillStyle='#d9a98a';ctx.beginPath();ctx.moveTo(cx-5,y+6);ctx.lineTo(cx-2,y+1);ctx.lineTo(cx+1,y+6);ctx.fill();
+      ctx.fillStyle='#9f7058';ctx.beginPath();ctx.moveTo(cx+4,cy-2);ctx.lineTo(cx+11,cy);ctx.lineTo(cx+9,cy+7);ctx.lineTo(cx+4,cy+9);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#e3c8a0';ctx.lineWidth=1;ctx.stroke();
+    }else if(type==='queen'){
+      // Decorative central throne, patterned royal chamber floor.
+      ctx.fillStyle='#7c503f';ctx.beginPath();ctx.arc(cx,cy,11,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#f4d79b';ctx.lineWidth=1.7;ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#e5b66a';ctx.beginPath();ctx.moveTo(cx-7,cy+3);ctx.lineTo(cx-6,cy-5);ctx.lineTo(cx-2,cy-2);ctx.lineTo(cx,cy-8);ctx.lineTo(cx+3,cy-2);ctx.lineTo(cx+7,cy-5);ctx.lineTo(cx+6,cy+3);ctx.closePath();ctx.fill();
+    }
+    ctx.restore();
+  }
   drawRooms(ctx,game,bounds,camera) {
     if(!game.rooms)return;
-    const shades={queen:'#e6cc96',nursery:'#f0a9c2',food_store:'#d8b35f',water_store:'#85d2db',rest:'#b4cba0',guard:'#dc9782'};
+    const palette={
+      queen:{floor:'#71563d',light:'#f4d49e',edge:'#e8c37b'},
+      nursery:{floor:'#765b60',light:'#deb9c5',edge:'#efc5d1'},
+      food_store:{floor:'#776141',light:'#efcf83',edge:'#dcb96d'},
+      water_store:{floor:'#416775',light:'#a6e4e8',edge:'#85cbd6'},
+      rest:{floor:'#4f6a4f',light:'#bdd39e',edge:'#a4c28b'},
+      guard:{floor:'#6e4e46',light:'#d9a08d',edge:'#e3ac8c'}
+    };
     for(const room of game.rooms.rooms) {
-      if(room.x+room.width<bounds.x0||room.x>bounds.x1||room.y+room.height<bounds.y0||room.y>bounds.y1)continue;
-      const x=room.x*TILE,y=room.y*TILE,w=room.width*TILE,h=room.height*TILE;
-      const color=shades[room.type];
-      ctx.save();ctx.globalAlpha=room.status==='disabled'?.22:room.status==='ready'?.64:.42;
-      ctx.fillStyle=color;ctx.fillRect(x+2,y+2,w-4,h-4);
-      ctx.strokeStyle=color;ctx.lineWidth=room.status==='ready'?2.5:1.5;
-      ctx.setLineDash(room.status==='ready'?[]:[4,3]);ctx.strokeRect(x+2,y+2,w-4,h-4);ctx.setLineDash([]);
-      ctx.globalAlpha=1;
-      ctx.fillStyle='#181e19';ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(({queen:'Q',nursery:'N',food_store:'F',water_store:'W',rest:'R',guard:'G'})[room.type],x+w/2,y+h/2);
-      const stored=room.stock?Object.values(room.stock).reduce((a,b)=>a+b,0):0;
-      if(stored>0 && room.status==='ready'){
-        ctx.fillStyle='#f4edda';ctx.font='bold 10px system-ui';
-        ctx.fillText(`${stored}`,x+w/2,y+h-10);
+      if(room.x+room.width<=bounds.x0||room.x>bounds.x1||room.y+room.height<=bounds.y0||room.y>bounds.y1)continue;
+      const style=palette[room.type],left=room.x*TILE,top=room.y*TILE;
+      const w=room.width*TILE,h=room.height*TILE;
+      const ready=room.status==='ready',active=room.status!=='disabled';
+      ctx.save();
+      ctx.globalAlpha=active?1:.34;
+      for(let yy=room.y;yy<room.y+room.height;yy++)for(let xx=room.x;xx<room.x+room.width;xx++){
+        if(xx<bounds.x0||xx>bounds.x1||yy<bounds.y0||yy>bounds.y1)continue;
+        const px=xx*TILE,py=yy*TILE,v=tileHash(game.world.seed,xx,yy,17);
+        ctx.fillStyle=style.floor;ctx.fillRect(px,py,TILE+.5,TILE+.5);
+        ctx.fillStyle=v>.55?'#f6e1b010':'#070d0d12';ctx.fillRect(px+1,py+1,TILE-2,TILE-2);
+        ctx.strokeStyle='#ffefd215';ctx.lineWidth=.65;ctx.strokeRect(px+1,py+1,TILE-2,TILE-2);
+        if(ready){
+          this.drawRoomMotif(ctx,room.type,px,py,v,game.world.seed);
+        }else{
+          ctx.strokeStyle=style.light;ctx.globalAlpha=active?.55:.2;ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(px+6,py+6);ctx.lineTo(px+22,py+22);ctx.moveTo(px+22,py+6);ctx.lineTo(px+6,py+22);ctx.stroke();
+          ctx.globalAlpha=active?1:.34;
+        }
       }
-      if(room.status==='building') {
-        ctx.fillStyle='#1a241e';ctx.fillRect(x+4,y+h-8,w-8,5);
-        ctx.fillStyle=color;ctx.fillRect(x+4,y+h-8,(w-8)*room.progress/ROOM_TICKS(room.type),5);
+      // The thick, unified perimeter marks a *single* room, no 2×2 seams.
+      ctx.strokeStyle='#221f19';ctx.lineWidth=5;
+      ctx.strokeRect(left+2,top+2,w-4,h-4);
+      ctx.strokeStyle=style.edge;ctx.lineWidth=2.2;
+      ctx.setLineDash(ready?[]:[5,4]);
+      ctx.strokeRect(left+2,top+2,w-4,h-4);ctx.setLineDash([]);
+      // Corners, subtle structural reinforcement.
+      ctx.strokeStyle=style.light;ctx.lineWidth=2.3;
+      for(const [xx,yy,sx,sy] of [[left+3,top+3,1,1],[left+w-3,top+3,-1,1],[left+3,top+h-3,1,-1],[left+w-3,top+h-3,-1,-1]]){
+        ctx.beginPath();ctx.moveTo(xx+sx*7,yy);ctx.lineTo(xx,yy);ctx.lineTo(xx,yy+sy*7);ctx.stroke();
+      }
+      if(!ready){
+        ctx.fillStyle='#0e1717b9';ctx.fillRect(left+5,top+h-11,w-10,7);
+        const percent=room.progress/Math.max(1,room.ticks??ROOM_CATALOG[room.type].ticks);
+        ctx.fillStyle=style.light;ctx.fillRect(left+5,top+h-11,(w-10)*Math.min(1,percent),7);
+      }else if(room.stock&&room.width*TILE>=50){
+        const stored=Object.values(room.stock).reduce((a,b)=>a+b,0);
+        if(stored>0){ctx.fillStyle='#121d1bbd';ctx.fillRect(left+w/2-17,top+h-16,34,13);
+          ctx.fillStyle='#f6e8bd';ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText(String(stored),left+w/2,top+h-10);}
       }
       ctx.restore();
     }
   }
-  drawRoomPreview(ctx,game,cell,type,camera) {
-    const def=ROOM_CATALOG[type];if(!def)return;
-    const status=game.rooms.validate(type,cell.x,cell.y);
-    const x=cell.x*TILE,y=cell.y*TILE,w=def.width*TILE,h=def.height*TILE;
-    ctx.save();ctx.fillStyle=status.ok?'#7be7a94f':'#ef766651';ctx.strokeStyle=status.ok?'#98ffd0':'#ff998b';
-    ctx.lineWidth=2/Math.max(camera.zoom,.65);ctx.setLineDash([5,3]);
-    ctx.fillRect(x+1,y+1,w-2,h-2);ctx.strokeRect(x+1,y+1,w-2,h-2);ctx.setLineDash([]);
-    ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f5efdd';
-    ctx.fillText(status.ok?'✓':'×',x+w/2,y+h/2);ctx.restore();
+  drawRoomPreview(ctx,game,preview,type,camera) {
+    const def=ROOM_CATALOG[type];if(!def||!preview?.from)return;
+    const from=preview.from,to=preview.dragging?preview.to:preview.from;
+    const x=Math.min(from.x,to.x),y=Math.min(from.y,to.y);
+    const width=preview.dragging?Math.abs(from.x-to.x)+1:def.width;
+    const height=preview.dragging?Math.abs(from.y-to.y)+1:def.height;
+    const status=game.rooms.validate(type,x,y,width,height);
+    const bx=x*TILE,by=y*TILE,w=width*TILE,h=height*TILE;
+    const border=status.ok?'#a7ffca':'#ff9c8f';
+    ctx.save();ctx.lineWidth=1/Math.max(camera.zoom,.6);
+    const layer=game.world.layers[UNDERGROUND];
+    for(let yy=y;yy<y+Math.min(height,ROOM_LIMITS.maxHeight+1);yy++)
+      for(let xx=x;xx<x+Math.min(width,ROOM_LIMITS.maxWidth+1);xx++){
+        const local=isWalkable(layer,xx,yy)&&!game.rooms.getRoom(xx,yy)&&
+          !game.world.entrances.some(e=>e.underground.x===xx&&e.underground.y===yy);
+        ctx.fillStyle=local?(status.ok?'#64dca366':'#d6b76841'):'#ee605c88';
+        ctx.fillRect(xx*TILE+1,yy*TILE+1,TILE-2,TILE-2);
+        ctx.strokeStyle=local?'#bce4b788':'#ffaba2';
+        ctx.strokeRect(xx*TILE+2,yy*TILE+2,TILE-4,TILE-4);
+      }
+    ctx.lineWidth=3/Math.max(camera.zoom,.65);
+    ctx.strokeStyle=border;ctx.setLineDash([7,4]);ctx.strokeRect(bx+1,by+1,w-2,h-2);ctx.setLineDash([]);
+    ctx.fillStyle='#152622eb';ctx.strokeStyle=border;ctx.lineWidth=1;
+    const label=`${width}×${height} · ${width*height} ช่อง`,labelW=Math.max(77,label.length*7+15);
+    const labelY=by-12;
+    ctx.fillRect(bx+w/2-labelW/2,labelY-11,labelW,22);
+    ctx.strokeRect(bx+w/2-labelW/2,labelY-11,labelW,22);
+    ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fcf1d5';
+    ctx.fillText(label,bx+w/2,labelY);
+    ctx.restore();
   }
   drawOrders(ctx,game,bounds,camera) {
     for(const job of game.colony.orders.values()) {
