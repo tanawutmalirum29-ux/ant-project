@@ -222,13 +222,27 @@ def audit_view(browser,html,spec,artifacts):
             centered=None
             if visible_controls:
                 page.locator('#recenter').click()
+                # Recenter is entrance-targeted, then Camera.clamp() constrains
+                # both axes using the active map extent and current zoom.
+                # Recompute the *independent* expected coordinates; do not
+                # assign to camera or call its clamp() method in the test.
                 e=page.evaluate("""() => {
-                  const g=__ANT_DEBUG__.game,t=g.world.entrances[0][g.layer];
-                  return {x:(t.x+.5)*28,y:(t.y+.5)*28};
+                  const {game:g,cameras,renderer}=__ANT_DEBUG__;
+                  const t=g.world.entrances[0][g.layer], l=g.currentLayer;
+                  const zoom=cameras[g.layer].zoom, TILE=28;
+                  const halfW=renderer.width/(2*zoom),halfH=renderer.height/(2*zoom);
+                  const maxX=l.width*TILE,maxY=l.height*TILE;
+                  const clamp=(p,half,max) =>
+                    2*half>=max ? max/2 : Math.max(half,Math.min(max-half,p));
+                  const target={x:(t.x+.5)*TILE,y:(t.y+.5)*TILE};
+                  return {target,expected:{
+                    x:clamp(target.x,halfW,maxX),y:clamp(target.y,halfH,maxY)
+                  },zoom,canvas:[renderer.width,renderer.height],
+                  map:[l.width,l.height]};
                 }""")
                 centered=inspect(page)['camera']
-                assert abs(centered['x']-e['x'])<1 and abs(centered['y']-e['y'])<1,(
-                    'recenter did not reach entrance',centered,e)
+                assert abs(centered['x']-e['expected']['x'])<1 and abs(centered['y']-e['expected']['y'])<1,(
+                    'recenter did not reach clamped entrance',centered,e)
             return {'method':'touch' if mobile else 'mouse','button_controls_visible':visible_controls,
                     'buttons':button_zoom,'before':before,'dragged':new,'recenter':centered}
         test('camera pan, responsive zoom/recenter controls',navigation)
@@ -418,29 +432,75 @@ def audit_view(browser,html,spec,artifacts):
         test('room REJECT: overlapping placement adds no room',room_invalid)
 
         def army():
+            dialog=page.locator('#u6-dialog')
             page.locator('#u6-open').click()
-            assert page.locator('#u6-dialog').is_visible()
-            count=page.locator('#u6-roster .u6-unit').count()
-            assert count==inspect(page)['workers'],count
-            initial=inspect(page)['soldiers']
-            assert page.locator('#u6-roster .u6-unit.is-soldier').count()==initial
-            recruit=page.locator('#u6-roster button[data-action="recruit"]:not([disabled])')
-            assert recruit.count()>0
-            recruit.first.click()
-            assert inspect(page)['soldiers']==initial+1
-            page.locator('#u6-roster button[data-action="demobilize"]').last.click()
-            assert inspect(page)['soldiers']==initial
-            slots=inspect(page)['slots']
-            page.locator('#u6-plus').click()
-            assert inspect(page)['slots']==slots+1
-            page.locator('#u6-minus').click()
-            assert inspect(page)['slots']==slots
-            box=page.locator('#u6-dialog').bounding_box()
-            assert box and box['x']>=-1 and box['y']>=-1 and box['x']+box['width']<=w+1 and box['y']+box['height']<=h+1,box
-            screenshot('military')
-            page.locator('#u6-close').click()
-            assert page.locator('#u6-dialog').is_hidden()
-            return {'units':count,'soldiers':initial,'dialog':box}
+            try:
+                assert dialog.is_visible() and dialog.evaluate('(el)=>el.open'),(
+                    'military dialog failed to open modally')
+                count=page.locator('#u6-roster .u6-unit').count()
+                assert count==inspect(page)['workers'],count
+                initial=inspect(page)['soldiers']
+                assert page.locator('#u6-roster .u6-unit.is-soldier').count()==initial
+                recruit=page.locator('#u6-roster button[data-action="recruit"]:not([disabled])')
+                fixture='available civilian'
+                # A previously assigned/digging/foraging worker must NOT be
+                # recruited while busy. If none is eligible, free a real
+                # soldier through the visible roster instead of synthesizing
+                # worker objects or mutating game internals.
+                if recruit.count()==0:
+                    eligibility=page.evaluate("""() => {
+                      const g=__ANT_DEBUG__.game;
+                      return {eligible:g.combat.availableRecruits.map(a=>a.id),
+                        unavailable:g.colony.workers.filter(a=>!a.combatRole).map(a=>({
+                          id:a.id,state:a.state,layer:a.layer,orderId:a.orderId,
+                          forager:g.colony.isForager(a)}))};
+                    }""")
+                    assert not eligibility['eligible'],(
+                        'recruit button disabled despite eligible workers',eligibility)
+                    assert initial>0,(
+                        'no recruitable workers and no existing soldiers to cycle',eligibility)
+                    demob=page.locator('#u6-roster button[data-action="demobilize"]').last
+                    released_id=demob.get_attribute('data-id')
+                    assert released_id,'soldier demobilize button lacks worker id'
+                    demob.click()
+                    assert inspect(page)['soldiers']==initial-1,(
+                        'demobilization did not reduce active soldier count')
+                    recruit=page.locator(
+                        '#u6-roster button[data-action="recruit"]:not([disabled])')
+                    assert recruit.count()>0,(
+                        'demobilized worker did not become recruitable',released_id,
+                        eligibility)
+                    # Confirm we are recruiting the actual released worker.
+                    recruit=page.locator('#u6-roster button[data-action="recruit"][data-id="'+released_id+'"]:not([disabled])')
+                    assert recruit.count()==1,('released soldier not eligible',released_id)
+                    recruit.click()
+                    assert inspect(page)['soldiers']==initial,(
+                        're-enlistment did not restore soldier count')
+                    fixture='demobilized soldier re-enlisted'
+                else:
+                    # Normal available-worker flow tests both real transitions.
+                    recruit.first.click()
+                    assert inspect(page)['soldiers']==initial+1
+                    page.locator('#u6-roster button[data-action="demobilize"]').last.click()
+                    assert inspect(page)['soldiers']==initial
+                slots=inspect(page)['slots']
+                page.locator('#u6-plus').click()
+                assert inspect(page)['slots']==slots+1
+                page.locator('#u6-minus').click()
+                assert inspect(page)['slots']==slots
+                box=dialog.bounding_box()
+                assert box and box['x']>=-1 and box['y']>=-1 and box['x']+box['width']<=w+1 and box['y']+box['height']<=h+1,box
+                screenshot('military')
+                return {'units':count,'soldiers':initial,'dialog':box,
+                        'enlist_flow':fixture}
+            finally:
+                # A failed roster assertion must not leave a real modal open
+                # and incorrectly make subsequent rally/control tests fail.
+                # Close using the genuine visible button (no force click).
+                if dialog.evaluate('(el)=>el.open'):
+                    page.locator('#u6-close').click()
+                assert dialog.is_hidden() and not dialog.evaluate('(el)=>el.open'),(
+                    'military modal failed to close after roster test')
         test('combat roster, enlist, discharge and modal bounds',army)
 
         def rally():
@@ -536,7 +596,17 @@ def main():
     args=parser.parse_args()
     artifacts=(args.artifacts or Path(tempfile.mkdtemp(prefix='ant-p1-ui-'))).resolve()
     artifacts.mkdir(parents=True,exist_ok=True)
-    report={'task':'P1-UI-01','main_sha':'d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237',
+    # The checkout may be a synthetic GitHub PR merge ref, not main.
+    # Record only SHA information measured from this filesystem.
+    import subprocess
+    head=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,
+                        text=True,check=False)
+    tested_sha=head.stdout.strip() if head.returncode==0 else None
+    source_ref=os.getenv('GITHUB_REF') or None
+    report={'task':'R2-UIQA-HARNESS-01','tested_sha':tested_sha,
+            'git_ref':source_ref,
+            'checkout_kind':'pr_merge' if source_ref and source_ref.startswith('refs/pull/')
+                            else 'checkout' if tested_sha else 'unavailable',
             'artifacts':str(artifacts),'viewports':[]}
     try:
         html=production_html()
