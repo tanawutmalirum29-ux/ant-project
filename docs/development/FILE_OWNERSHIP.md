@@ -1,4 +1,7 @@
 # File Ownership — strict allowlists
+
+> **HISTORICAL EXACT-FILE GRANTS — CLOSED 2026-10-13.** These Phase 0/Wave 1 allowlists are retained for audit traceability only and do not grant permission for new edits. The project is active, with fresh file ownership and AI task distribution to be specified in the next owner-approved development wave. No AI should begin or merge new production changes based on this document alone.
+
 Baseline d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237; phase-specific, not permanent ownership. Files absent in an allowlist are READ-ONLY, even if an AI "normally owns" that folder. No wildcard grant by expertise. Never modify a competing AI's files, shared entry points, or global tooling without written HEAD approval for a new task.
 
 ## Phase 0 — documentation-only HEAD branch
