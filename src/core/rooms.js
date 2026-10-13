@@ -25,7 +25,95 @@ export class Rooms {
     this.spent={carbs:0,protein:0,water:0};
     const queen=colony.queen;
     this.rooms=[{id:'room-queen',type:'queen',x:queen.x,y:queen.y,width:1,height:1,
-      status:'ready',connected:true,progress:0,workerId:null,cost:{}}];
+      status:'ready',connected:true,progress:0,workerId:null,cost:{},stock:{carbs:0,protein:0,water:0}}];
+  }
+  // Inventory remains the legacy public aggregate for U1-U5 HUD and conservation tests.
+  // Each storage room now has physical contents and a delivery position.
+  // Reconcile explicit test/debug inventory injections into the starting queen depot;
+  // ordinary game code updates both the room ledger and aggregate atomically.
+  syncInventory() {
+    for(const type of RESOURCE_TYPES) {
+      let counted=this.rooms.reduce((n,r)=>n+(r.stock?.[type]||0),0);
+      const delta=this.foraging.inventory[type]-counted;
+      if(delta>0) this.rooms[0].stock[type]+=delta;
+      else if(delta<0) {
+        let missing=-delta;
+        for(const r of this.rooms) {
+          const deduction=Math.min(missing,r.stock?.[type]||0);
+          if(deduction){r.stock[type]-=deduction;missing-=deduction;}
+          if(!missing)break;
+        }
+      }
+    }
+  }
+  storageSlots(type) {
+    return this.rooms.filter(r=>r.status==='ready' &&
+      (r.type==='queen'||(type==='water'?r.type==='water_store':r.type==='food_store')))
+      .map(r=>({room:r,space:Math.max(0,(r.type==='queen'?BASE_CAPACITY[type]:(ROOM_CATALOG[r.type].capacity[type]||0))-(r.stock?.[type]||0))}));
+  }
+  // Storage requires a physical visit; source distance, destination space and
+  // accessibility are computed from the worker's ACTUAL underground tile.
+  deliveryTarget(type, ant) {
+    this.syncInventory();
+    const layer=this.world.layers[UNDERGROUND];
+    if(ant.layer!==UNDERGROUND)return null;
+    const choices=[];
+    for(const {room,space} of this.storageSlots(type)) {
+      if(space<=0)continue;
+      const site=this.pickWorkSite(layer,ant,room);
+      if(site)choices.push({room,site,space});
+    }
+    choices.sort((a,b)=>a.site.path.length-b.site.path.length||a.room.id.localeCompare(b.room.id));
+    return choices[0]||null;
+  }
+  depositAt(ant,type,quantity,target) {
+    if(!RESOURCE_TYPES.includes(type)||quantity<=0||ant.layer!==UNDERGROUND)return 0;
+    this.syncInventory();
+    const room=this.rooms.find(r=>r.id===target);
+    if(!room||room.status!=='ready'||!this.footprint(room).some(p=>same(p,ant)))return 0;
+    const slot=this.storageSlots(type).find(v=>v.room===room);
+    const amount=Math.min(quantity,slot?.space||0);
+    if(amount<=0)return 0;
+    room.stock[type]+=amount;
+    this.foraging.inventory[type]+=amount;
+    return amount;
+  }
+  take(type,amount=1) {
+    this.syncInventory();
+    if(this.foraging.inventory[type]<amount)return false;
+    const accessible=this.storageSlots(type).map(v=>v.room).filter(r=>r.status==='ready');
+    if(accessible.reduce((sum,r)=>sum+(r.stock[type]||0),0)<amount)return false;
+    let remaining=amount;
+    for(const room of accessible) {
+      const n=Math.min(remaining,room.stock[type]||0);
+      room.stock[type]-=n;remaining-=n;
+      if(!remaining)break;
+    }
+    this.foraging.inventory[type]-=amount;
+    return true;
+  }
+  reserveMaterials(cost) {
+    this.syncInventory();
+    const pickups=[];
+    for(const [type,quantity] of Object.entries(cost)) {
+      let remaining=quantity;
+      for(const room of this.storageSlots(type).map(v=>v.room)) {
+        const amount=Math.min(remaining,room.stock[type]);
+        if(amount){room.stock[type]-=amount;this.foraging.inventory[type]-=amount;pickups.push({type,amount,x:room.x,y:room.y,sourceRoomId:room.id,collected:false});remaining-=amount;}
+        if(!remaining)break;
+      }
+      if(remaining)throw new Error('Material reservation after validation failed');
+    }
+    return pickups;
+  }
+  // A dropped construction supply is recovered at its real last carrier tile.
+  onWorkerDeath(ant) {
+    const room=this.rooms.find(r=>r.id===ant.roomId);
+    if(!room)return;
+    for(const pickup of room.pickups||[])if(pickup.collected) {
+      pickup.x=ant.x;pickup.y=ant.y;pickup.collected=false;
+    }
+    room.workerId=null;room.status='planned';
   }
   footprint(room) {
     const tiles=[];
@@ -59,8 +147,10 @@ export class Rooms {
       if(this.world.entrances.some(e=>same(e.underground,{x:xx,y:yy})))return {ok:false,reason:'entrance'};
     }
     if(this.queuedCount>=32)return {ok:false,reason:'queue-full'};
+    this.syncInventory();
     for(const [kind,amount] of Object.entries(def.cost)) {
-      if(this.foraging.inventory[kind]<amount)return {ok:false,reason:'insufficient-resources'};
+      const available=this.storageSlots(kind).reduce((n,v)=>n+v.room.stock[kind],0);
+      if(available<amount)return {ok:false,reason:'insufficient-resources'};
     }
     return {ok:true,reason:'ok'};
   }
@@ -68,25 +158,28 @@ export class Rooms {
     const verdict=this.validate(type,x,y);
     if(!verdict.ok)return {...verdict,room:null};
     const def=ROOM_CATALOG[type];
-    for(const [kind,amount] of Object.entries(def.cost)){
-      this.foraging.inventory[kind]-=amount;
-      this.held[kind]+=amount;
-    }
+    const pickups=this.reserveMaterials(def.cost);
+    for(const [kind,amount] of Object.entries(def.cost))this.held[kind]+=amount;
     const room={id:`room-${this.nextId++}`,type,x,y,width:def.width,height:def.height,
-      progress:0,status:'planned',connected:true,workerId:null,cost:{...def.cost}};
+      progress:0,status:'planned',connected:true,workerId:null,cost:{...def.cost},pickups,stock:{carbs:0,protein:0,water:0}};
     this.rooms.push(room);
     return {ok:true,reason:'ok',room};
   }
   release(ant) {
-    if(ant.state!=='room-walk'&&ant.state!=='room-build')return;
+    if(!['room-walk','room-build','room-fetch','room-guard'].includes(ant.state))return;
     ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;ant.roomId=null;
   }
   cancel(id) {
     const room=this.rooms.find(r=>r.id===id);
     if(!room||!['planned','building'].includes(room.status))return false;
-    for(const [kind,amount] of Object.entries(room.cost)){
-      this.held[kind]-=amount;
-      this.foraging.inventory[kind]+=amount;
+    for(const [kind,amount] of Object.entries(room.cost))this.held[kind]-=amount;
+    // Undo an unfinished reservation, including any material already carried.
+    // Restore to accessible storage; if it became disconnected the queen's
+    // reserved-stock ledger retains it until the player reconnects the room.
+    for(const pickup of room.pickups||[]) {
+      const target=this.rooms.find(r=>r.id===pickup.sourceRoomId)||this.rooms[0];
+      target.stock[pickup.type]+=pickup.amount;
+      this.foraging.inventory[pickup.type]+=pickup.amount;
     }
     const ant=this.colony.workers.find(w=>w.id===room.workerId);
     if(ant)this.release(ant);
@@ -132,12 +225,34 @@ export class Rooms {
       }
       if(!best)continue;
       room.workerId=best.ant.id;room.status='building';
-      best.ant.roomId=room.id;best.ant.path=best.site.path;best.ant.next=null;best.ant.motion=0;
-      best.ant.state=best.ant.path.length?'room-walk':'room-build';
+      best.ant.roomId=room.id;best.ant.path=[];best.ant.next=null;best.ant.motion=0;
+      best.ant.state=(room.pickups||[]).some(p=>!p.collected)?'room-fetch':(best.site.path.length?'room-walk':'room-build');
+      if(best.ant.state!=='room-fetch')best.ant.path=best.site.path;
     }
   }
   advance(room,ant,layer) {
     if(ant.layer!==UNDERGROUND||!isWalkable(layer,ant.x,ant.y))return false;
+    // Construction supplies must be collected by the assigned ant from their
+    // reserved physical location before building may advance.
+    const pickup=(room.pickups||[]).find(p=>!p.collected);
+    if(pickup) {
+      if(!same(pickup,ant)) {
+        if(!ant.next && !ant.path.length) {
+          const route=findPath(layer,ant,pickup);
+          if(!route)return false;
+          ant.path=route;
+        }
+        const step=ant.next||ant.path[0];
+        if(!step||!isWalkable(layer,step.x,step.y)||Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1)return false;
+        if(!ant.next){ant.next=step;ant.motion=0;}
+        ant.state='room-fetch';ant.motion+=WORKER_SPEED;
+        if(ant.motion>=1){ant.x=step.x;ant.y=step.y;ant.next=null;ant.motion=0;ant.path.shift();}
+        return true;
+      }
+      pickup.collected=true;
+      ant.path=[];ant.next=null;ant.motion=0;
+      ant.state='room-walk';
+    }
     const targetInside=this.footprint(room).some(t=>same(t,ant));
     if(!targetInside) {
       if(!ant.next && ant.path.length===0){
@@ -163,8 +278,44 @@ export class Rooms {
     }
     return true;
   }
+  get roomStock() { this.syncInventory();return this.rooms.map(r=>({id:r.id,stock:{...r.stock}})); }
   isResting(ant) {
     return ant.state==='room-rest' && this.rooms.some(room=>room.type==='rest'&&room.status==='ready'&&this.footprint(room).some(p=>same(p,ant)));
+  }
+  // U5 guard preparation is a real, low-priority tunnel patrol between the
+  // guard staging room and the nest entrance. Fighting remains reserved for U6.
+  stepGuard() {
+    const layer=this.world.layers[UNDERGROUND];
+    const entrance=this.world.entrances[0].underground;
+    const stations=this.rooms.filter(r=>r.type==='guard'&&r.status==='ready');
+    const busy=this.colony.orders.size>0||this.rooms.some(r=>r.status==='planned'||r.status==='building')||
+      (this.lifecycle?.brood.length && this.lifecycle.nurseCount<this.lifecycle.nurseSlots);
+    for(const ant of this.colony.workers.filter(a=>a.state==='room-guard')){
+      const station=stations.find(r=>r.id===ant.guardRoomId);
+      if(!station||busy||this.colony.isForager(ant)){
+        this.release(ant);ant.guardRoomId=null;ant.guardLeg=null;continue;
+      }
+      const goal=ant.guardLeg===1?entrance:{x:station.x,y:station.y};
+      if(ant.x===goal.x&&ant.y===goal.y&&!ant.next){ant.guardLeg=1-ant.guardLeg;ant.path=[];continue;}
+      if(!ant.next&&!ant.path.length){const route=findPath(layer,ant,goal);if(!route){this.release(ant);ant.guardRoomId=null;continue;}ant.path=route;}
+      const step=ant.next||ant.path[0];
+      if(!step||!isWalkable(layer,step.x,step.y)||Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1){
+        this.release(ant);ant.guardRoomId=null;continue;
+      }
+      if(!ant.next){ant.next=step;ant.motion=0;}
+      ant.motion+=WORKER_SPEED;
+      if(ant.motion>=1){ant.x=step.x;ant.y=step.y;ant.motion=0;ant.next=null;ant.path.shift();}
+    }
+    if(busy)return;
+    for(const station of stations){
+      if(this.colony.workers.some(a=>a.state==='room-guard'&&a.guardRoomId===station.id))continue;
+      let ant=this.colony.workers.find(a=>a.state==='idle'&&a.layer===UNDERGROUND&&!this.colony.isForager(a));
+      if(!ant){ant=this.colony.workers.find(a=>a.state==='room-rest'&&a.layer===UNDERGROUND&&!this.colony.isForager(a));if(ant)this.releaseRestWorker(ant);}
+      if(ant){ant.state='room-guard';ant.guardRoomId=station.id;ant.guardLeg=0;ant.path=[];ant.next=null;ant.motion=0;}
+    }
+  }
+  releaseRestWorker(ant) {
+    ant.state='idle';ant.restRoomId=null;ant.path=[];ant.next=null;ant.motion=0;
   }
   stepRest() {
     const layer=this.world.layers[UNDERGROUND];
@@ -206,6 +357,7 @@ export class Rooms {
       }
     }
     this.assign();
+    this.stepGuard();
     this.stepRest();
   }
 }

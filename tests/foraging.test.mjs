@@ -135,7 +135,7 @@ test('U3.9 long-run workers stay on valid terrain, carry safely, and count depos
     g.update(100);
     if(i%67===0){assert.ok(validAll(g));assert.equal(conserved(g),total);}
   }
-  assert.ok(g.foraging.completedTrips>=40);
+  assert.ok(g.foraging.completedTrips>=35, 'physical warehouse visits take longer than the former instant depot credit');
   assert.ok(g.foraging.nodes.some(n=>n.amount< n.initialAmount));
   assert.ok(Object.values(g.foraging.inventory).every(v=>Number.isInteger(v)&&v>=0));
 });

@@ -46,8 +46,8 @@ export class Lifecycle {
   }
   consume(type, amount=1) {
     if(!NUTRIENTS.includes(type)||!Number.isSafeInteger(amount)||amount<1) throw new RangeError('Invalid nutrient');
-    if(this.foraging.inventory[type]<amount) return false;
-    this.foraging.inventory[type]-=amount;
+    if(this.rooms ? !this.rooms.take(type,amount) : this.foraging.inventory[type]<amount) return false;
+    if(!this.rooms)this.foraging.inventory[type]-=amount;
     this.consumed[type]+=amount;
     return true;
   }
@@ -58,6 +58,12 @@ export class Lifecycle {
       const job=this.colony.ordersById.get(ant.orderId);
       if(job && job.workerId===ant.id) {job.workerId=null;job.status='queued';}
     }
+    if(ant.broodCargo) {
+      const baby=this.brood.find(b=>b.id===ant.broodCargo);
+      if(baby){baby.carrierId=null;baby.x=ant.x;baby.y=ant.y;baby.roomId=null;baby.targetRoomId=null;}
+      ant.broodCargo=null;
+    }
+    this.rooms?.onWorkerDeath(ant);
     this.foraging.releaseReservation(ant);
     if(ant.cargo?.amount) {
       this.lost[ant.cargo.type]+=ant.cargo.amount;
@@ -72,7 +78,12 @@ export class Lifecycle {
   }
   releaseNurse(ant) {
     if(ant.state!=='nursing') return;
-    ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;
+    if(ant.broodCargo){
+      const baby=this.brood.find(b=>b.id===ant.broodCargo);
+      if(baby){baby.carrierId=null;baby.x=ant.x;baby.y=ant.y;baby.roomId=null;baby.targetRoomId=null;}
+      ant.broodCargo=null;
+    }
+    ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;ant.nurseDestination=null;
   }
   releaseExcessNurses() {
     const nurses=this.colony.workers.filter(a=>a.state==='nursing');
@@ -91,35 +102,82 @@ export class Lifecycle {
       if(++count===shortage) break;
     }
   }
+  // Movement uses the same walkable grid, one tile at a time, as digging and foraging.
+  nurseWalk(ant,destination) {
+    const layer=this.colony.world.layers[UNDERGROUND];
+    if(!destination||!isWalkable(layer,ant.x,ant.y)||!isWalkable(layer,destination.x,destination.y))return false;
+    const destinationKey=`${destination.x},${destination.y}`;
+    if(ant.nurseDestination!==destinationKey){ant.path=[];ant.next=null;ant.motion=0;ant.nurseDestination=destinationKey;}
+    if(same(ant,destination))return true;
+    if(ant.next && (!isWalkable(layer,ant.next.x,ant.next.y)||Math.abs(ant.next.x-ant.x)+Math.abs(ant.next.y-ant.y)!==1)){
+      ant.path=[];ant.next=null;ant.motion=0;return false;
+    }
+    if(!ant.next&&!ant.path.length){
+      const path=findPath(layer,ant,destination);
+      if(!path)return false;
+      ant.path=path;
+    }
+    if(!ant.next){
+      const step=ant.path[0];
+      if(!step||!isWalkable(layer,step.x,step.y)||Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1){ant.path=[];return false;}
+      ant.next=step;ant.motion=0;
+      ant.facing=step.x>ant.x?1:step.x<ant.x?3:step.y>ant.y?2:0;
+    }
+    ant.motion+=WORKER_SPEED;
+    if(ant.motion>=1){ant.x=ant.next.x;ant.y=ant.next.y;ant.path.shift();ant.motion=0;ant.next=null;}
+    return same(ant,destination);
+  }
+  nurseryDestination(baby) {
+    if(!this.rooms)return null;
+    for(const room of this.rooms.rooms) {
+      if(room.type!=='nursery'||room.status!=='ready')continue;
+      if(room.id===baby.roomId)return room;
+      const occupants=this.brood.filter(b=>b.roomId===room.id||b.targetRoomId===room.id).length;
+      if(occupants<8)return room;
+    }
+    return null;
+  }
   stepNurses() {
     const queen=this.colony.queen;
     const layer=this.colony.world.layers[UNDERGROUND];
-    const atNursery=[];
-    for(const ant of this.colony.workers) {
-      if(ant.state!=='nursing') continue;
-      if(ant.layer!==UNDERGROUND || !isWalkable(layer,ant.x,ant.y)) {this.releaseNurse(ant);continue;}
-      if(same(ant,queen)) {atNursery.push(ant);continue;}
-      if(!ant.next && ant.path.length===0) {
-        const path=findPath(layer,ant,queen);
-        if(path===null){this.releaseNurse(ant);continue;}
-        ant.path=path;
+    const caretakers=[];
+    const nurses=this.colony.workers.filter(a=>a.state==='nursing');
+    for(const ant of nurses){
+      if(ant.layer!==UNDERGROUND||!isWalkable(layer,ant.x,ant.y)){this.releaseNurse(ant);continue;}
+      if(ant.broodCargo){
+        const baby=this.brood.find(b=>b.id===ant.broodCargo);
+        const room=baby&&this.rooms?.rooms.find(r=>r.id===baby.targetRoomId&&r.status==='ready');
+        if(!baby||!room){this.releaseNurse(ant);continue;}
+        const goal={x:room.x,y:room.y};
+        this.nurseWalk(ant,goal);
+        baby.x=ant.x;baby.y=ant.y;
+        if(same(ant,goal)) {
+          baby.carrierId=null;baby.roomId=room.id;baby.targetRoomId=null;
+          ant.broodCargo=null;ant.path=[];ant.next=null;ant.motion=0;
+        }
+        continue;
       }
-      if(!ant.next && ant.path.length){
-        const next=ant.path[0];
-        if(!isWalkable(layer,next.x,next.y)||Math.abs(next.x-ant.x)+Math.abs(next.y-ant.y)!==1){ant.path=[];continue;}
-        ant.next=next;ant.motion=0;
-        ant.facing=next.x>ant.x?1:next.x<ant.x?3:next.y>ant.y?2:0;
+      // New eggs start physically in the queen chamber. Nurses collect and
+      // carry them to a finished nursery; no instant transfer on room completion.
+      const moving=this.brood.find(b=>!b.carrierId&&!b.roomId&&!b.targetRoomId&&this.nurseryDestination(b)&&isWalkable(layer,b.x??queen.x,b.y??queen.y));
+      if(moving){
+        const room=this.nurseryDestination(moving);
+        const origin={x:moving.x??queen.x,y:moving.y??queen.y};
+        if(this.nurseWalk(ant,origin)){
+          moving.carrierId=ant.id;moving.targetRoomId=room.id;
+          ant.broodCargo=moving.id;ant.path=[];ant.next=null;ant.motion=0;
+        }
+        continue;
       }
-      if(ant.next){
-        ant.motion+=WORKER_SPEED;
-        if(ant.motion>=1){ant.x=ant.next.x;ant.y=ant.next.y;ant.path.shift();ant.motion=0;ant.next=null;}
-      }
-      if(!ant.next && same(ant,queen))atNursery.push(ant);
+      // The nurse must visit the exact tile where a larva lives to give care.
+      const larvae=this.brood.filter(b=>b.stage==='larva'&&!b.carrierId&&b.care<LIFE.requiredCare);
+      const baby=larvae.find(b=>findPath(layer,ant,{x:b.x??queen.x,y:b.y??queen.y})!==null);
+      const destination=baby?{x:baby.x??queen.x,y:baby.y??queen.y}:queen;
+      if(this.nurseWalk(ant,destination) && baby && same(ant,destination))caretakers.push({ant,baby});
     }
-    // A nurse tends one larva at a time; no invisible global care multiplier.
-    for(const ant of atNursery){
-      const baby=this.brood.find(b=>b.stage==='larva' && b.care<LIFE.requiredCare);
-      if(baby)baby.care++;
+    for(const {baby} of caretakers) {
+      const room=baby.roomId?this.rooms?.rooms.find(r=>r.id===baby.roomId):null;
+      if(!room||room.status==='ready')baby.care++;
     }
   }
   tickAdults() {
@@ -143,13 +201,13 @@ export class Lifecycle {
       this.brood.length>=(this.rooms?.broodCapacity ?? LIFE.broodLimit) || this.totalPopulation>=LIFE.maxPopulation) return;
     // Queens lay only after foragers have actually deposited protein.
     if(!this.consume('protein')) {this.lastEvent='รอโปรตีนสำหรับนางพญาวางไข่';return;}
-    this.brood.push({id:`brood-${this.nextBroodId++}`,stage:'egg',age:0,care:0,waiting:0});
+    this.brood.push({id:`brood-${this.nextBroodId++}`,stage:'egg',age:0,care:0,waiting:0,x:this.colony.queen.x,y:this.colony.queen.y,roomId:null,carrierId:null,targetRoomId:null});
     this.lastEvent='นางพญาวางไข่ใหม่แล้ว';
   }
   promote(baby) {
     const q=this.colony.queen;
     const n=this.nextWorkerId++;
-    const ant={id:`worker-${n}`,caste:'worker',layer:UNDERGROUND,x:q.x,y:q.y,
+    const ant={id:`worker-${n}`,caste:'worker',layer:UNDERGROUND,x:baby.x??q.x,y:baby.y??q.y,
       facing:n%4,next:null,motion:0,path:[],orderId:null,state:'idle'};
     this.colony.workers.push(ant);
     this.adultHealth.set(ant.id,{age:0,hunger:0,thirst:0});

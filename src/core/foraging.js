@@ -40,6 +40,9 @@ export class Foraging {
       if (!path) return false;
       ant.path=path;
     }
+    if(ant.next && (!isWalkable(layer,ant.next.x,ant.next.y)||Math.abs(ant.next.x-ant.x)+Math.abs(ant.next.y-ant.y)!==1)) {
+      ant.next=null;ant.path=[];ant.motion=0;return false;
+    }
     if (!ant.next && ant.path.length) {
       const step=ant.path[0];
       if (!isWalkable(layer,step.x,step.y) || Math.abs(step.x-ant.x)+Math.abs(step.y-ant.y)!==1) {
@@ -60,7 +63,8 @@ export class Foraging {
     ant.state=`forage-${phase}`;ant.path=[];ant.next=null;ant.motion=0;
   }
   pickNode(ant) {
-    const available = this.nodes.filter(n=>n.amount-n.reserved>0 && this.inventory[n.type] < this.capacityFor(n.type));
+    this.rooms?.syncInventory();
+    const available = this.nodes.filter(n=>n.amount-n.reserved>0 && (this.rooms ? this.rooms.storageSlots(n.type).some(v=>v.space>0) : this.inventory[n.type] < this.capacityFor(n.type)));
     if(!available.length) return null;
     // Diversify nutrients without a global expensive full-map search every tick.
     const totals = Object.fromEntries(RESOURCE_TYPES.map(type => [type, this.inventory[type] + this.colony.workers.reduce((n,w)=>n+(w.cargo?.type===type?w.cargo.amount:0),0)]));
@@ -86,6 +90,23 @@ export class Foraging {
       this.setPhase(ant,ant.layer===SURFACE?'return-surface':'return-underground');
     } else if (ant.layer===SURFACE) this.setPhase(ant,'return-empty');
     else this.resetAnt(ant);
+  }
+  // Deliver ONLY while the ant stands inside a reachable completed warehouse.
+  // If that storage fills, reroute with cargo to another real destination.
+  deliverCargo(ant, underground, fallback) {
+    if(!ant.cargo?.amount){this.resetAnt(ant);return;}
+    const type=ant.cargo.type;
+    const target=this.rooms?.deliveryTarget(type,ant);
+    if(!target) {ant.state='forage-wait-storage';ant.path=[];ant.next=null;ant.motion=0;return;}
+    if(!this.walk(ant,underground,target.site.tile)) {
+      ant.state='forage-wait-storage';return;
+    }
+    const amount=this.rooms ? this.rooms.depositAt(ant,type,ant.cargo.amount,target.room.id)
+      : Math.min(ant.cargo.amount,Math.max(0,this.capacityFor(type)-this.inventory[type]));
+    if(!this.rooms)this.inventory[type]+=amount;
+    if(amount>0){this.delivered+=amount;ant.cargo.amount-=amount;}
+    if(ant.cargo.amount===0){this.completedTrips++;this.resetAnt(ant);}
+    else {this.setPhase(ant,'wait-storage');}
   }
   resetAnt(ant) {
     this.releaseReservation(ant);
@@ -129,27 +150,11 @@ export class Foraging {
           this.setPhase(ant,phase==='return-empty'?'home-empty':'return-underground');
         }
       } else if(phase==='return-underground'||phase==='home-empty') {
-        if(this.walk(ant,underground,depot)) {
-          if (ant.cargo?.amount) {
-            const type=ant.cargo.type;
-            const free=Math.max(0,this.capacityFor(type)-this.inventory[type]);
-            const amount=Math.min(ant.cargo.amount,free);
-            if(amount===0){ant.state='forage-wait-storage';continue;}
-            this.inventory[type]+=amount;
-            this.delivered+=amount;
-            ant.cargo.amount-=amount;
-            if(ant.cargo.amount>0){ant.state='forage-wait-storage';continue;}
-            this.completedTrips++;
-          }
-          this.resetAnt(ant);
-        }
+        if(phase==='home-empty') {
+          if(this.walk(ant,underground,depot))this.resetAnt(ant);
+        } else this.deliverCargo(ant,underground,depot);
       } else if(phase==='wait-storage') {
-        // Held cargo is never discarded, and partial space is usable immediately.
-        if(!ant.cargo?.amount){this.resetAnt(ant);continue;}
-        const type=ant.cargo.type;
-        const amount=Math.min(ant.cargo.amount,Math.max(0,this.capacityFor(type)-this.inventory[type]));
-        if(amount>0){this.inventory[type]+=amount;this.delivered+=amount;ant.cargo.amount-=amount;}
-        if(ant.cargo.amount===0){this.completedTrips++;this.resetAnt(ant);}
+        this.deliverCargo(ant,underground,depot);
       }
     }
   }
