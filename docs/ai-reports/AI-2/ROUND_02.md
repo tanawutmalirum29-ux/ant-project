@@ -4,7 +4,8 @@
 **Task:** R2-COMBAT-01 / FORM-01
 **Live GitHub report Issue:** https://github.com/tanawutmalirum29-ux/ant-project/issues/24
 **Prior design and addendum review:** https://github.com/tanawutmalirum29-ux/ant-project/issues/21
-**Starting main:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Historical gameplay baseline:** `615fac2b8cbffbc498f98c9aef0b13b03ec9a750`
+**Actual branch base:** current `main` after planning PR #27, containing this report template; agent must record exact SHA
 **Proposed feature branch:** `work/r2-ai2-dynamic-formation`
 
 **Exact files permitted after successor HEAD's written contract freeze:** `src/core/combat.js`, new `tests/formation-dynamic.test.mjs`, this report file. All other paths READ-ONLY. No main push/merge.
