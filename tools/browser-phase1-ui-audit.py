@@ -365,8 +365,24 @@ def audit_view(browser,html,spec,artifacts):
             # exactly that tile. Do not hide the panel or bypass real pointers.
             top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
             if top!='game-canvas':
-                p=exposed(page)
-                assert p,('no map point uncovered after opening info')
+                # Screen pixels near a selected tile can still map to the same
+                # logical tile. Require a different tile and a visible map
+                # hit target; otherwise the new toggle correctly closes it.
+                p=page.evaluate("""selected => {
+                  const {game,cameras,renderer}=__ANT_DEBUG__;
+                  const c=cameras[game.layer],canvas=renderer.canvas;
+                  const pixels=[];
+                  for(let y=4;y<=16;y++)for(let x=4;x<=16;x++){
+                    const px=innerWidth*x/20,py=innerHeight*y/20;
+                    if(document.elementFromPoint(px,py)!==canvas)continue;
+                    const tile=c.screenToCell(px,py,renderer.width,renderer.height);
+                    if(tile.x===selected.x&&tile.y===selected.y)continue;
+                    pixels.push({x:px,y:py,rank:Math.abs(px-innerWidth/2)+Math.abs(py-innerHeight/2)});
+                  }
+                  pixels.sort((a,b)=>a.rank-b.rank);
+                  return pixels[0]||null;
+                }""",s)
+                assert p,('no distinct unobstructed map tile after opening info')
                 tap(page,p,mobile)
                 s=inspect(page)['selection']
                 assert s and page.locator('#selection-card').is_visible()
