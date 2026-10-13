@@ -171,7 +171,7 @@
 
 /* One compact detail card, no instructional prose or redundant tutorial text. */
 .selection-card:not(.hidden){
- top:calc(232px + env(safe-area-inset-top));bottom:auto;
+ top:calc(285px + env(safe-area-inset-top));bottom:auto;
  left:auto;right:12px;width:224px;
  max-height:min(32dvh,260px);overflow:auto;
  padding:9px 10px;border-radius:11px;
@@ -185,10 +185,10 @@
 .selection-note{display:none}
 .cancel-dig,.portal-action{min-height:36px;padding:6px;font-size:11px}
 #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
- top:calc(232px + env(safe-area-inset-top));right:266px;left:auto;
+ top:calc(285px + env(safe-area-inset-top));right:266px;left:auto;
 }
 .debug-panel:not(.hidden){
- top:calc(232px + env(safe-area-inset-top));right:12px;bottom:auto;
+ top:calc(285px + env(safe-area-inset-top));right:12px;bottom:auto;
  max-height:min(38dvh,260px);
 }
 
@@ -249,10 +249,10 @@ body #u6-dock #u6-open{color:#f6d5a5}
  .dig-tools{bottom:calc(71px + env(safe-area-inset-bottom))}
  body #u6-dock{bottom:calc(71px + env(safe-area-inset-bottom))}
  .layer-switch{padding:3px}
- .selection-card:not(.hidden){top:calc(219px + env(safe-area-inset-top));width:204px}
- .debug-panel:not(.hidden){top:calc(219px + env(safe-area-inset-top))}
+ .selection-card:not(.hidden){top:calc(285px + env(safe-area-inset-top));width:204px}
+ .debug-panel:not(.hidden){top:calc(285px + env(safe-area-inset-top))}
  #app:has(.debug-panel:not(.hidden)) .selection-card:not(.hidden){
-  top:calc(219px + env(safe-area-inset-top));right:260px;left:auto;
+  top:calc(285px + env(safe-area-inset-top));right:260px;left:auto;
  }
 }
 
@@ -428,9 +428,9 @@ body #u6-dock #u6-open{color:#f6d5a5}
   min-height:35px;height:35px;padding:3px 6px;font-size:10px;
  }
  .selection-card:not(.hidden){
-  top:calc(135px + env(safe-area-inset-top));bottom:auto;
-  left:auto;right:calc(234px + env(safe-area-inset-right));
-  width:200px;max-height:min(37dvh,136px);padding:7px 9px;
+  top:calc(164px + env(safe-area-inset-top));bottom:auto;
+  left:auto;right:calc(8px + env(safe-area-inset-right));
+  width:196px;max-height:min(32dvh,122px);padding:7px 9px;
  }
  .debug-panel:not(.hidden){
   top:calc(132px + env(safe-area-inset-top));right:8px;bottom:auto;
