@@ -116,3 +116,10 @@
   /* The debug panel owns the upper-right; give its hit targets breathing room. */
   body:has(.debug-panel:not(.hidden)) #u6-dock {left:44%;}
 }
+
+/* Soldier ratio is shared with the colony-wide workforce percent policy. */
+#u6-dialog .u6-percent-control{display:grid;gap:7px;padding:10px 12px;border:1px solid #bba26e70;border-radius:12px;background:#22382e;}
+#u6-dialog .u6-percent-control label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;}
+#u6-dialog .u6-percent-control strong{color:#f7d499;font-size:16px;font-variant-numeric:tabular-nums;}
+#u6-dialog .u6-percent-control input{width:100%;height:30px;accent-color:#e8c287;cursor:pointer;touch-action:pan-y;}
+#u6-dialog .u6-percent-control small{color:#b8c7bb;font-size:10px;}

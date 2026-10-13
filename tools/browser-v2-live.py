@@ -19,13 +19,12 @@ source=source.replace(needle,replacement)
 check="        # Real UI pointer click:"
 assert source.count(check)==1
 geometry='''        # V2 commands must be reachable and not hidden outside the viewport.
-        for control in ('#tool-inspect','#tool-dig','#tool-room','#forage-plus',
-                        '#forage-minus','#nurse-plus','#nurse-minus','#seed-button',
+        for control in ('#tool-inspect','#tool-dig','#tool-room','#workforce-open','#seed-button',
                         '#pause-button','#colony-button','#surface-button',
                         '#underground-button'):
             # U5 intentionally hides worker assignment while the room palette
             # is expanded in short landscape mode to preserve map visibility.
-            if name=='landscape' and control in ('#forage-plus','#forage-minus','#nurse-plus','#nurse-minus'):
+            if name=='landscape' and control=='#workforce-open':
                 assert page.locator(control).is_hidden(),(name,control,'expected compact U5 mode')
                 continue
             box=page.locator(control).bounding_box()

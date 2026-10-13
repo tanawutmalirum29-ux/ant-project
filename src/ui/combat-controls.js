@@ -2,7 +2,7 @@ import { TILE } from '../world/generate.js';
 /** Non-invasive U6 gameplay controls. No edits to V1/V2 styles or DOM IDs. */
 export class CombatControls {
   constructor(ui){
-    this.ui=ui;this.targeting=false;this.rosterSignature='';
+    this.ui=ui;ui.combatControls=this;this.targeting=false;this.rosterSignature='';
     const sheet=document.createElement('link');
     sheet.rel='stylesheet';sheet.href=new URL('./combat.css',import.meta.url).href;
     document.head.append(sheet);
@@ -25,12 +25,15 @@ export class CombatControls {
     dialog.innerHTML=`<section class="u6-sheet">
       <header><h2 id="u6-title">กองทัพมด · ศูนย์บัญชาการ</h2><button type="button" id="u6-close" aria-label="ปิด">×</button></header>
       <div class="u6-stats"><span>มดทหาร <b id="u6-soldiers">1/1</b></span><span>ศัตรู <b id="u6-enemies">0</b></span><span>ปกป้องสำเร็จ <b id="u6-kills">0</b></span><span>นางพญา <b id="u6-queen">48/48</b></span></div>
-      <div class="u6-actions"><span>กำลังมดทหาร</span><button id="u6-minus" type="button" aria-label="ลดทหาร">−</button><strong id="u6-target">1</strong><button id="u6-plus" type="button" aria-label="เพิ่มทหาร">+</button></div>
+      <div class="u6-percent-control"><label for="u6-percent"><span>สัดส่วนมดทหารอัตโนมัติ</span><strong id="u6-target">20%</strong></label>
+        <input id="u6-percent" type="range" min="0" max="40" step="5" value="20" aria-label="เปอร์เซ็นต์มดทหาร" />
+        <small>คำนวณใหม่เมื่อมดเกิดหรือตาย · เปลี่ยนสัดส่วนกลุ่มอื่นได้ที่รายงานประชากร</small>
+      </div>
       <div class="u6-modes" role="group" aria-label="ยุทธศาสตร์"><button type="button" data-u6-mode="defend">ป้องกันรัง</button><button type="button" data-u6-mode="rally">รวมพล</button><button type="button" data-u6-mode="retreat">ถอยและพักฟื้น</button></div>
       <button id="u6-rally" type="button">⌖ เลือกช่องบนแผนที่เพื่อรวมพล</button>
       <p id="u6-rally-status" class="u6-subnote">ยังไม่ได้ตั้งจุดรวมพล</p>
       <p id="u6-workforce" class="u6-subnote"></p>
-      <h3>รายชื่อมด <small>เกณฑ์ / ปลด / ติดตามตำแหน่ง</small></h3>
+      <h3>รายชื่อมด <small>จัดกำลังอัตโนมัติ · แตะดูตำแหน่ง</small></h3>
       <div id="u6-roster" class="u6-roster" aria-label="กำลังพลและมดงาน"></div>
       <button id="u6-alarm" type="button">จำลองการบุกรุกทันที</button>
       <p id="u6-notice" aria-live="polite">เลือกทหารเพื่อเริ่มป้องกันรัง</p>
@@ -46,8 +49,11 @@ export class CombatControls {
     document.addEventListener('keydown',e=>{if(e.code==='Escape'&&this.targeting)this.cancelRally();});
     dialog.querySelector('#u6-close').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
-    dialog.querySelector('#u6-minus').addEventListener('click',()=>this.changeSoldiers(-1));
-    dialog.querySelector('#u6-plus').addEventListener('click',()=>this.changeSoldiers(1));
+    dialog.querySelector('#u6-percent').addEventListener('input',event=>{
+      this.ui.game.workforce.setShare('soldier',Number(event.target.value));
+      this.report('อัปเดตสัดส่วนทหารแล้ว ระบบจะเกณฑ์มดว่างตามเป้าหมายโดยอัตโนมัติ');
+      this.ui.updateMetrics();this.update(true);
+    });
     for(const button of dialog.querySelectorAll('[data-u6-mode]')){
       button.addEventListener('click',()=>{
         const mode=button.dataset.u6Mode;
@@ -67,20 +73,12 @@ export class CombatControls {
       const btn=e.target.closest('button[data-action]');if(!btn)return;
       const ant=this.ui.game.colony.workers.find(a=>a.id===btn.dataset.id);if(!ant)return;
       if(btn.dataset.action==='focus'){dialog.close();this.follow(ant);return;}
-      const ok=btn.dataset.action==='recruit'?this.combat.recruit(ant):this.combat.demobilize(ant);
-      this.report(ok?`${ant.id}: เปลี่ยนหน้าที่สำเร็จ`:'มดตัวนี้ยังไม่พร้อมเปลี่ยนหน้าที่');
       this.update(true);
     });
     this.update(true);
   }
   get combat(){return this.ui.game.combat;}
   report(message){this.dialog.querySelector('#u6-notice').textContent=message;}
-  changeSoldiers(delta){
-    const c=this.combat,n=this.ui.game.colony.workers.length;
-    c.setSoldierSlots(Math.min(n,Math.max(0,c.soldierSlots+delta)));
-    this.report(c.soldiers.length<c.soldierSlots?'กำลังรอมดงานว่างเพื่อเข้าเกณฑ์':'จัดกำลังพลเรียบร้อย');
-    this.update(true);
-  }
   armRally(){
     if(!this.combat.soldiers.length){this.report('กรุณาเกณฑ์ทหารก่อน');return false;}
     this.targeting=true;this.ui.setTool('inspect');this.dialog.close();
@@ -137,10 +135,7 @@ export class CombatControls {
       const actions=document.createElement('div');actions.className='u6-unit-buttons';
       const locate=document.createElement('button');locate.type='button';locate.dataset.action='focus';
       locate.dataset.id=ant.id;locate.textContent='ดู';locate.setAttribute('aria-label',`ติดตาม ${ant.id}`);
-      const assign=document.createElement('button');assign.type='button';assign.dataset.id=ant.id;
-      assign.dataset.action=soldier?'demobilize':'recruit';assign.textContent=soldier?'ปลด':'เกณฑ์';
-      assign.disabled=!soldier&&!c.canRecruit(ant);
-      actions.append(locate,assign);row.append(info,actions);body.append(row);
+      actions.append(locate);row.append(info,actions);body.append(row);
     }
     list.replaceChildren(body);list.scrollTop=scroll;
   }
@@ -151,11 +146,14 @@ export class CombatControls {
     if(!this.dialog.open)return;
     const set=(id,value)=>{this.dialog.querySelector(id).textContent=String(value)};
     set('#u6-soldiers',`${ready}/${c.soldierSlots}`);set('#u6-enemies',c.threatCount);
-    set('#u6-kills',c.defeated);set('#u6-queen',`${c.queenHP}/48`);set('#u6-target',c.soldierSlots);
-    set('#u6-workforce',`แรงงาน ${this.ui.game.colony.workers.length} · ว่างสำหรับเกณฑ์ ${c.availableRecruits.length}`);
+    set('#u6-kills',c.defeated);set('#u6-queen',`${c.queenHP}/48`);
+    const workforce=this.ui.game.workforce,share=workforce.shares.soldier;
+    set('#u6-target',share+'%');
+    const slider=this.dialog.querySelector('#u6-percent');
+    slider.max=String(100-workforce.shares.forage-workforce.shares.nurse);
+    slider.value=String(share);
+    set('#u6-workforce',`มดงาน ${this.ui.game.colony.workers.length} ตัว · ทหารเป้าหมาย ${c.soldierSlots} · ประจำการ ${ready} · พร้อมเข้าเกณฑ์ ${c.availableRecruits.length}`);
     set('#u6-rally-status',c.rally?`จุดรวมพล ${c.rally.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${c.rally.x},${c.rally.y}) · ถึงแล้ว ${c.ralliedCount}/${ready}`:'ยังไม่มีจุดรวมพล');
-    this.dialog.querySelector('#u6-minus').disabled=c.soldierSlots===0;
-    this.dialog.querySelector('#u6-plus').disabled=c.soldierSlots>=this.ui.game.colony.workers.length;
     for(const btn of this.dialog.querySelectorAll('[data-u6-mode]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Mode===c.mode));
     this.renderRoster(force);
   }

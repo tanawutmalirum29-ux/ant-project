@@ -39,8 +39,9 @@ export class Lifecycle {
   get pupae() { return this.brood.filter(b=>b.stage==='pupa').length; }
   get nurseCount() { return this.colony.workers.filter(a=>a.state==='nursing').length; }
   get totalPopulation() { return this.colony.population+this.brood.length; }
-  setNurseSlots(n) {
+  setNurseSlots(n,fromPolicy=false) {
     if(!Number.isInteger(n)||n<0||n>this.colony.workers.length) throw new RangeError('Invalid nurse count');
+    if(!fromPolicy)this.workforce?.disableAuto('nurse');
     this.nurseSlots=n;
     this.releaseExcessNurses();
   }
@@ -168,7 +169,14 @@ export class Lifecycle {
   releaseExcessNurses() {
     const nurses=this.colony.workers.filter(a=>a.state==='nursing');
     const max=this.brood.length ? this.nurseSlots : 0;
-    for(const nurse of nurses.slice(max)) this.releaseNurse(nurse);
+    // Finish any already-carried brood delivery before downsizing nurse quota.
+    // Other nurses can be released immediately; no egg is dropped on a slider drag.
+    let surplus=nurses.length-max;
+    for(const nurse of nurses) {
+      if(surplus<=0)break;
+      if(nurse.broodCargo)continue;
+      this.releaseNurse(nurse);surplus--;
+    }
   }
   assignNurses() {
     this.releaseExcessNurses();

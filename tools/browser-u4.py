@@ -17,17 +17,19 @@ with sync_playwright() as pw:
         page.set_content(html,wait_until='domcontentloaded')
         page.wait_for_function('window.__ANT_DEBUG__?.game?.lifecycle')
         assert page.locator('#population').inner_text()=='6'
-        assert page.locator('#nurse-count').inner_text()=='1/5'
+        assert page.locator('#nurse-count').inner_text()=='20% · 1/5'
         assert page.locator('#brood-summary').inner_text()=='ไข่ 0 · ตัวอ่อน 0 · ดักแด้ 0'
         page.locator('#colony-button').click()
         assert page.locator('#colony-panel').is_visible()
         assert page.locator('#report-workers').inner_text()=='5'
         page.locator('#close-colony').click()
         assert not page.locator('#colony-panel').is_visible()
-        page.locator('#nurse-plus').click()
-        assert page.locator('#nurse-count').inner_text()=='2/5'
-        page.locator('#nurse-minus').click()
-        assert page.locator('#nurse-count').inner_text()=='1/5'
+        page.locator('#workforce-open').click()
+        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#nurse-count').inner_text()=='40% · 2/5'
+        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#nurse-count').inner_text()=='20% · 1/5'
+        page.locator('#close-colony').click()
         page.evaluate('''() => {const g=__ANT_DEBUG__.game;g.foraging.inventory.protein=30;g.foraging.inventory.carbs=35;g.foraging.inventory.water=30;g.colony.setForageSlots(0);for(let i=0;i<930;i++)g.update(100);__ANT_DEBUG__.ui.updateMetrics();}''')
         births=page.evaluate('''() => __ANT_DEBUG__.game.lifecycle.births''')
         assert births>=1,(name,births)

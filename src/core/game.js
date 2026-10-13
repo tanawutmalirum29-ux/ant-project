@@ -6,6 +6,65 @@ import { Lifecycle } from './lifecycle.js';
 import { Rooms } from './rooms.js';
 import { Combat } from './combat.js';
 import { createResourceNodes } from '../world/resources.js';
+/** Worker assignment policy: editable shares plus a protected general-work remainder.
+ * Only real workers count (not queen or brood). All integer quotas sum to N via
+ * deterministic largest-remainder apportionment, stable on birth/death. */
+export class WorkforcePolicy {
+  constructor(game) {
+    this.game=game;
+    this.shares={forage:40,nurse:20,soldier:20};
+    this.manual=new Set();
+    this.dirty=true;
+    this.lastPopulation=-1;
+    this.reconcile();
+  }
+  get generalPercent(){return 100-this.shares.forage-this.shares.nurse-this.shares.soldier;}
+  setShare(kind,percent) {
+    if(!['forage','nurse','soldier'].includes(kind)||
+       !Number.isInteger(percent)||percent<0||percent>100)
+      throw new RangeError('Invalid workforce percentage');
+    const limit=100-Object.entries(this.shares).reduce((n,[key,value])=>n+(key===kind?0:value),0);
+    if(percent>limit)throw new RangeError('Workforce percentages exceed 100');
+    this.shares[kind]=percent;
+    this.manual.clear(); // UI takes control of all three workforce targets again.
+    this.dirty=true;
+    this.reconcile();
+    return this.shares[kind];
+  }
+  disableAuto(kind){
+    if(['forage','nurse','soldier'].includes(kind))this.manual.add(kind);
+  }
+  plan(population=this.game.colony.workers.length){
+    const n=population,weights={...this.shares,general:this.generalPercent};
+    const keys=['forage','nurse','soldier','general'];
+    const counts={},remainders=[];
+    let assigned=0;
+    for(const key of keys) {
+      const numerator=n*weights[key];
+      counts[key]=Math.floor(numerator/100);
+      assigned+=counts[key];
+      remainders.push({key,remainder:numerator%100,index:keys.indexOf(key)});
+    }
+    remainders.sort((a,b)=>b.remainder-a.remainder||a.index-b.index);
+    for(let i=0;i<n-assigned;i++)counts[remainders[i].key]++;
+    return counts;
+  }
+  reconcile() {
+    const n=this.game.colony.workers.length;
+    if(!this.dirty && n===this.lastPopulation)return;
+    const targets=this.plan(n);
+    const {colony,lifecycle,combat}=this.game;
+    // Existing in-progress digging, resource trips, carried brood and construction
+    // are not cancelled by quotas. The original schedulers decide safe turnover.
+    if(!this.manual.has('forage')&&colony.forageSlots!==targets.forage)
+      colony.setForageSlots(targets.forage,true);
+    if(!this.manual.has('nurse')&&lifecycle.nurseSlots!==targets.nurse)
+      lifecycle.setNurseSlots(targets.nurse,true);
+    if(!this.manual.has('soldier')&&combat.soldierSlots!==targets.soldier)
+      combat.setSoldierSlots(targets.soldier,true);
+    this.lastPopulation=n;this.dirty=false;
+  }
+}
 export class Game {
   constructor(seed = 'ANT-001') {
     this.world = createWorld(seed);
@@ -20,8 +79,12 @@ export class Game {
     this.lifecycle.rooms = this.rooms;
     this.rooms.lifecycle = this.lifecycle;
     this.combat = new Combat(this.world,this.colony,this.foraging,this.lifecycle,this.rooms);
+    this.workforce = new WorkforcePolicy(this);
+    this.colony.workforce=this.workforce;
+    this.lifecycle.workforce=this.workforce;
+    this.combat.workforce=this.workforce;
     this.renderMotion = null;
-    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
+    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
       for (const system of this.systems) system(this);

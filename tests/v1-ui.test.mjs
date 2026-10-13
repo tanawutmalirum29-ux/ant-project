@@ -14,10 +14,10 @@ test('V1 keeps U1-U3 controller bindings and adds only a visual stylesheet', () 
   const ids = [
     'game-canvas','game-time','population','colony-button','colony-panel','close-colony',
     'report-workers','report-nurses','report-brood','report-message','brood-summary',
-    'queen-status','nurse-minus','nurse-plus','nurse-count','seed-button','seed-label',
+    'queen-status','alloc-nurse','alloc-nurse-label','nurse-count','seed-button','seed-label',
     'stock-carbs','stock-protein','stock-water',
     'region-name','region-subtitle','layer-hint','tool-inspect','tool-dig',
-    'forage-minus','forage-plus','forage-count','worker-status','queue-status',
+    'alloc-forage','alloc-forage-label','alloc-soldier','workforce-open','forage-count','worker-status','queue-status',
     'pause-button','zoom-in','zoom-out','recenter','debug-toggle','debug-panel',
     'selection-card','selection-close','selection-resource','selection-work',
     'selection-note','cancel-dig','portal-button','seed-dialog','seed-form',

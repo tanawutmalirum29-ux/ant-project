@@ -22,11 +22,14 @@ with sync_playwright() as playwright:
         page.set_content(html,wait_until='domcontentloaded')
         page.wait_for_function('window.__ANT_DEBUG__ && __ANT_DEBUG__.game.foraging.nodes.length >= 9')
         assert page.locator('#stock-carbs').inner_text()=='0'
-        assert page.locator('#forage-count').inner_text()=='2/5'
-        page.locator('#forage-plus').click()
-        assert page.locator('#forage-count').inner_text()=='3/5'
-        page.locator('#forage-minus').click()
-        assert page.locator('#forage-count').inner_text()=='2/5'
+        assert page.locator('#forage-count').inner_text()=='40% · 2/5'
+        page.locator('#workforce-open').click()
+        assert page.locator('#colony-panel').is_visible()
+        page.locator('#alloc-forage').evaluate('(el)=>{el.value="50";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#forage-count').inner_text()=='50% · 3/5'
+        page.locator('#alloc-forage').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
+        assert page.locator('#forage-count').inner_text()=='40% · 2/5'
+        page.locator('#close-colony').click()
         assert page.locator('#tool-dig').is_enabled()
         page.locator('#surface-button').click()
         assert page.locator('#tool-dig').is_disabled()
