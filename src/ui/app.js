@@ -48,8 +48,9 @@ export class UI {
     $('debug-toggle').addEventListener('click', () => { this.debug = !this.debug; $('debug-panel').classList.toggle('hidden', !this.debug); });
     $('selection-close').addEventListener('click', () => this.select(null));
     $('tool-inspect').addEventListener('click', () => this.setTool('inspect'));
-    $('tool-dig').addEventListener('click', () => this.setTool('dig'));
-    $('tool-room').addEventListener('click', () => this.setTool('room'));
+    // Re-clicking an active action tool exits to inspection (same as G/R keys).
+    $('tool-dig').addEventListener('click', () => this.setTool(this.tool === 'dig' ? 'inspect' : 'dig'));
+    $('tool-room').addEventListener('click', () => this.setTool(this.tool === 'room' ? 'inspect' : 'room'));
     $('room-type').addEventListener('change', () => { this.updateRoomCost();this.roomPreview=null; });
     $('cancel-room').addEventListener('click', () => {
       const s=this.selection, room=s?.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
@@ -146,7 +147,9 @@ export class UI {
           else this.notice(result.existing?'พื้นที่นี้อยู่ในคิวแล้ว':'พื้นที่นี้ขุดไม่ได้');
           this.select({layer:this.game.layer,...cell});
         }else if(dragDistance<7) {
-          this.select(cellAt(this.game.currentLayer,cell.x,cell.y)!=null ? {layer:this.game.layer,...cell} : null);
+          // Inspection only: tapping an already selected tile dismisses its info.
+          // Digging, room placement and tactical targeting remain command actions.
+          this.toggleMapSelection({layer:this.game.layer,...cell});
         }
       }
       if(pointers.size===1){start=null;pinch=null;this.digPreview=null;}
@@ -204,6 +207,13 @@ export class UI {
   select(selection) {
     this.selection=selection;
     this.refreshSelection();
+  }
+  toggleMapSelection(tile) {
+    const current=this.selection;
+    const isSame=current && current.layer===tile.layer &&
+      current.x===tile.x && current.y===tile.y;
+    const valid=cellAt(this.game.currentLayer,tile.x,tile.y)!=null;
+    this.select(!valid || isSame ? null : tile);
   }
   refreshSelection() {
     const s=this.selection;
