@@ -1,5 +1,5 @@
 import { SURFACE, UNDERGROUND, portalAt } from '../world/generate.js';
-import { findPath, isWalkable } from '../world/navigation.js';
+import { findPath, isWalkable, reachablePaths } from '../world/navigation.js';
 import { WORKER_SPEED } from './colony.js';
 import { createRandom } from './random.js';
 
@@ -15,6 +15,13 @@ export const ENEMIES = Object.freeze({
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const same=(a,b)=>a.x===b.x&&a.y===b.y;
 const stateOf=ant=>ant.state||'idle';
+const FORMATION_RADIUS=8;
+const FORMATION_PATH_LIMIT=12;
+const FORMATION_LEGACY=Object.freeze([[0,0],[1,0],[-1,0],[0,1],[0,-1],
+  [1,1],[-1,-1],[1,-1],[-1,1],[2,0],[-2,0],[0,2],[0,-2]]);
+const FORMATION_DIRECTIONS=[[0,-1],[1,0],[0,1],[-1,0]];
+const formationKey=g=>g.layer+':'+g.x+','+g.y;
+const sameGoal=(a,b)=>a===b||!!(a&&b&&a.layer===b.layer&&same(a,b));
 
 /** Fixed-tick deterministic combat. Enemies and defenders always move on the real walkable grid. */
 export class Combat {
@@ -23,6 +30,7 @@ export class Combat {
     this.lifecycle=lifecycle;this.rooms=rooms;
     this.enemies=[];this.nextEnemyId=1;this.tickCount=0;
     this.soldierSlots=1;this.mode='defend';this.rally=null;
+    this._formation=null;this._formationDirty=true;this._allocating=false;
     this.spawned=0;this.defeated=0;this.casualties=0;this.portalCrossings=0;
     this.queenHP=COMBAT.queenHP;
     this.rng=createRandom(world.seed^0x6c0b47);
@@ -39,12 +47,15 @@ export class Combat {
     if(a.state==='room-guard')this.rooms?.release(a);
     a.combatRole='soldier';a.combatHP??=COMBAT.soldierHP;a.combatCooldown=0;
     a.retreating=false;a.combatGoal=null;a.state='combat-guard';a.path=[];a.next=null;a.motion=0;
-    this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);return true;
+    this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);
+    this._formationDirty=true;
+    if(!this._allocating)this.ensureFormation();
+    return true;
   }
   demobilize(a){
     if(!this.soldiers.includes(a))return false;
     this.soldierSlots=Math.max(0,this.soldiers.length-1);
-    this.releaseSoldier(a);return true;
+    this.releaseSoldier(a);this.ensureFormation();return true;
   }
 
   raiseAlarm(){
@@ -60,46 +71,161 @@ export class Combat {
   }
   setMode(mode){
     if(!['defend','rally','retreat'].includes(mode))throw new RangeError('Unknown battle command');
-    this.mode=mode;return mode;
+    this.mode=mode;
+    if(mode==='rally')this.ensureFormation();
+    return mode;
   }
   setRally(layer,x,y){
     if(![SURFACE,UNDERGROUND].includes(layer)||!Number.isInteger(x)||!Number.isInteger(y)||
-      !isWalkable(this.world.layers[layer],x,y))return false;
+      !this.world.layers[layer]||!isWalkable(this.world.layers[layer],x,y))return false;
     const origin=layer===UNDERGROUND?this.colony.queen:this.world.entrances[0].surface;
+    // Reject before mutating rally, mode or any in-flight soldier motion.
     if(!findPath(this.world.layers[layer],origin,{x,y}))return false;
+    const changed=!this.rally||this.rally.layer!==layer||this.rally.x!==x||this.rally.y!==y;
     this.rally={layer,x,y};this.mode='rally';
     this.lastEvent=`กำลังพลเคลื่อนสู่จุดรวมพล ${x},${y}`;
+    // Reissuing the same rally still cancels motion, without reshuffling valid slots.
     for(const a of this.soldiers)this.clearMotion(a);
+    if(changed)this._formationDirty=true;
+    this.ensureFormation();
     return true;
   }
-  getRallyGoal(ant){
-    if(!this.rally)return null;
-    const idx=Math.max(0,this.soldiers.indexOf(ant));
-    const offsets=[[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1],[2,0],[-2,0],[0,2],[0,-2]];
-    const map=this.world.layers[this.rally.layer];
-    for(let i=0;i<offsets.length;i++){
-      const [dx,dy]=offsets[(idx+i)%offsets.length],g={layer:this.rally.layer,x:this.rally.x+dx,y:this.rally.y+dy};
-      if(isWalkable(map,g.x,g.y)&&findPath(map,this.rally,g))return g;
+  /** Bounded 4-neighbor BFS. No slot may be outside R8 or beyond twelve steps. */
+  buildFormationSlots(){
+    const center=this.rally, map=this.world.layers[center.layer];
+    const positions=new Map(), queue=[{x:center.x,y:center.y,d:0}];
+    const coordinate=(x,y)=>x+','+y;
+    positions.set(coordinate(center.x,center.y),queue[0]);
+    for(let head=0;head<queue.length;head++){
+      const p=queue[head];
+      if(p.d===FORMATION_PATH_LIMIT)continue;
+      for(const [dx,dy] of FORMATION_DIRECTIONS){
+        const x=p.x+dx,y=p.y+dy,k=coordinate(x,y);
+        if(positions.has(k)||Math.max(Math.abs(x-center.x),Math.abs(y-center.y))>FORMATION_RADIUS||
+           !isWalkable(map,x,y))continue;
+        const next={x,y,d:p.d+1};
+        positions.set(k,next);queue.push(next);
+      }
     }
-    return this.rally;
+    const preferred=[],used=new Set();
+    for(const [dx,dy] of FORMATION_LEGACY){
+      const key=coordinate(center.x+dx,center.y+dy);
+      if(positions.has(key)){preferred.push(positions.get(key));used.add(key);}
+    }
+    const extras=queue.filter(p=>!used.has(coordinate(p.x,p.y)))
+      .sort((a,b)=>a.d-b.d||a.y-b.y||a.x-b.x);
+    return [...preferred,...extras].map(p=>({layer:center.layer,x:p.x,y:p.y}));
   }
-  get ralliedCount(){if(!this.rally)return 0;return this.soldiers.filter(a=>{const g=this.getRallyGoal(a);return a.layer===g.layer&&same(a,g)&&!a.next;}).length;}
+  /** Cache geometry and connectivity; only roster/world/rally/finished digs may rebuild it. */
+  ensureFormation(){
+    if(!this.rally)return null;
+    const soldiers=this.soldiers;
+    const roster=soldiers.map(a=>String(a.id)).sort().join('|');
+    const centerKey=formationKey(this.rally);
+    const prev=this._formation;
+    const geometryChanged=!prev||prev.world!==this.world||
+      prev.layerMap!==this.world.layers[this.rally.layer]||prev.centerKey!==centerKey||
+      prev.completed!==this.colony.completed;
+    if(!this._formationDirty&&!geometryChanged&&prev.roster===roster&&
+       prev.soldiers.length===soldiers.length&&
+       soldiers.every(a=>prev.goals.has(a)))return prev;
+    const slots=geometryChanged?this.buildFormationSlots():prev.slots;
+    // Full-map connectivity BFS is for physical reachability only; slot enumeration
+    // above remains strictly bounded to the R8 / D12 formation footprint.
+    const centerReach=geometryChanged?reachablePaths(this.world.layers[this.rally.layer],this.rally):prev.centerReach;
+    const portal=this.world.entrances[0];
+    const otherLayer=this.rally.layer===UNDERGROUND?SURFACE:UNDERGROUND;
+    const sourceMap=this.world.layers[otherLayer];
+    const portalValid=!!(portal&&sourceMap&&portal[otherLayer]&&portal[this.rally.layer]&&
+      isWalkable(sourceMap,portal[otherLayer].x,portal[otherLayer].y)&&
+      isWalkable(this.world.layers[this.rally.layer],portal[this.rally.layer].x,portal[this.rally.layer].y)&&
+      centerReach?.distance(portal[this.rally.layer].x,portal[this.rally.layer].y)>=0);
+    const portalReach=portalValid?
+      (geometryChanged||!prev||prev.portalSourceMap!==sourceMap?
+        reachablePaths(sourceMap,portal[otherLayer]):prev.portalReach):null;
+    const eligible=ant=>{
+      const map=this.world.layers[ant.layer];
+      if(!map||!isWalkable(map,ant.x,ant.y))return false;
+      if(ant.layer===this.rally.layer)return (centerReach?.distance(ant.x,ant.y)??-1)>=0;
+      return ant.layer===otherLayer&&!!portalReach&&portalReach.distance(ant.x,ant.y)>=0;
+    };
+    const goals=new Map(),statuses=new Map(),reserved=new Set();
+    const reachable=new Map(soldiers.map(a=>[a,eligible(a)]));
+    const validSlot=new Set(slots.map(formationKey));
+    // Reserve unchanged goals first, independent of incidental worker-array order.
+    if(prev&&prev.world===this.world&&prev.centerKey===centerKey){
+      for(const ant of soldiers){
+        const existing=prev.goals.get(ant),key=existing&&formationKey(existing);
+        if(reachable.get(ant)&&key&&validSlot.has(key)&&!reserved.has(key)){
+          goals.set(ant,existing);statuses.set(ant,'Assigned');reserved.add(key);
+        }
+      }
+    }
+    const sorted=[...soldiers].sort((a,b)=>String(a.id).localeCompare(String(b.id),'en',{numeric:true}));
+    let nextIndex=0;
+    for(const ant of sorted){
+      if(goals.has(ant))continue;
+      if(!reachable.get(ant)){
+        goals.set(ant,null);statuses.set(ant,'Unreachable');continue;
+      }
+      while(nextIndex<slots.length&&reserved.has(formationKey(slots[nextIndex])))nextIndex++;
+      const goal=nextIndex<slots.length?slots[nextIndex++]:null;
+      goals.set(ant,goal);statuses.set(ant,goal?'Assigned':'Standby');
+      if(goal)reserved.add(formationKey(goal));
+    }
+    // A new null/different rally reservation cannot complete an old rally step.
+    if(prev){
+      for(const ant of soldiers){
+        if(!sameGoal(prev.goals.get(ant),goals.get(ant))&&ant.state==='combat-rally'&&
+           !ant.retreating)this.clearMotion(ant);
+      }
+    }
+    this._formation={world:this.world,layerMap:this.world.layers[this.rally.layer],
+      portalSourceMap:sourceMap,centerKey,completed:this.colony.completed,roster,
+      soldiers,slots,centerReach,portalReach,goals,statuses};
+    this._formationDirty=false;
+    return this._formation;
+  }
+  getRallyGoal(ant){
+    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this.rally)return null;
+    return this.ensureFormation().goals.get(ant)??null;
+  }
+  /** Observable status of a reserved goal (or lack of one), without changing world state. */
+  getFormationStatus(ant){
+    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this.rally)return null;
+    return this.ensureFormation().statuses.get(ant)??null;
+  }
+  get ralliedCount(){
+    if(this.mode!=='rally'||!this.rally)return 0;
+    const formation=this.ensureFormation();
+    return this.soldiers.filter(a=>{
+      const g=formation.goals.get(a);
+      return g&&a.layer===g.layer&&same(a,g)&&!a.next&&!a.retreating&&
+        (a.combatHP||0)>Math.ceil(COMBAT.soldierHP*.3)&&
+        !['combat-intercept','combat-attack','combat-retreat'].includes(a.state);
+    }).length;
+  }
   releaseSoldier(ant){
     if(ant.combatRole!=='soldier')return;
     delete ant.combatRole;delete ant.combatCooldown;
     delete ant.combatGoal;delete ant.retreating;
     ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;
+    this._formationDirty=true;
+    if(!this._allocating)this.ensureFormation();
   }
   allocate(){
-    const soldiers=this.soldiers;
-    // Never steal existing workers in a dig, forage, nursery or construction job.
-    for(const ant of soldiers.slice(this.soldierSlots))this.releaseSoldier(ant);
-    let missing=this.soldierSlots-this.soldiers.length;
-    if(missing<=0)return;
-    for(const ant of this.colony.workers) {
-      if(missing===0)break;
-      if(this.recruit(ant))missing--;
-    }
+    this._allocating=true;
+    try{
+      const soldiers=this.soldiers;
+      // Never steal existing workers in a dig, forage, nursery or construction job.
+      for(const ant of soldiers.slice(this.soldierSlots))this.releaseSoldier(ant);
+      let missing=this.soldierSlots-this.soldiers.length;
+      if(missing>0)for(const ant of this.colony.workers){
+        if(missing===0)break;
+        if(this.recruit(ant))missing--;
+      }
+    }finally{this._allocating=false;}
+    this.ensureFormation();
   }
   /** Testable manual spawn and deterministic scheduled spawn. Never create an enemy on solid terrain. */
   spawn(type='beetle',layer=SURFACE,x=null,y=null) {
@@ -196,10 +322,20 @@ export class Combat {
       destination={layer:threat.layer,x:threat.x,y:threat.y};
       ant.state='combat-intercept';
     } else if(withdrawing){destination=this.findRecovery();ant.state='combat-retreat';}
-    else if(this.mode==='rally'&&this.rally){destination=this.getRallyGoal(ant);ant.state='combat-rally';}
+    else if(this.mode==='rally'&&this.rally){
+      destination=this.getRallyGoal(ant);
+      if(!destination){
+        // No current threat/retreat remains in this branch; cancel stale rally/guard steps.
+        if(ant.next||ant.path?.length||ant.goal)this.clearMotion(ant);
+        ant.state=this.getFormationStatus(ant)==='Unreachable'?'combat-unreachable':'combat-standby';
+        return;
+      }
+      ant.state='combat-rally';
+    }
     else {destination=this.findGuardStation();ant.state='combat-guard';}
     if(ant.layer!==destination.layer){
-      const portal=this.world.entrances[0][ant.layer];
+      const portal=this.world.entrances[0]?.[ant.layer];
+      if(!portal)return;
       if(same(ant,portal)&&!ant.next){this.crossPortal(ant,destination.layer);return;}
       this.walk(ant,ant.layer,portal,WORKER_SPEED*1.15);return;
     }
