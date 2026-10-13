@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Game } from '../src/core/game.js';
 import { Renderer } from '../src/render/renderer.js';
-import { unitPose, snapshotPositions, displayedPosition } from '../src/core/render-motion.js';
+import { unitPose, snapshotPositions, displayedPosition } from '../src/core/game.js';
 import { UNDERGROUND, SURFACE } from '../src/world/generate.js';
 
 function scene() {
