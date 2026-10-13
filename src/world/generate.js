@@ -105,6 +105,102 @@ function surface(seed, entrance) {
   writeCell(layer,e.x,e.y,TERRAINS.ENTRANCE);
   return layer;
 }
+/** Make every excavatable underground cell belong to the queen's potential
+ * four-direction path network. Solid rock forms useful room walls, but must
+ * never enclose an unreachable pocket of soil behind an unmineable ring.
+ *
+ * Tiny sealed specks (1–3 cells) become solid stone rather than fake rooms;
+ * larger areas receive the *shortest* narrow band of diggable hard soil.
+ * Existing tunnel/chamber floors and the two-cell world border are protected.
+ * Does not open new tunnels or teleport ants: workers must still excavate.
+ *
+ * Linear flood passes + breadth-first minimum-breach routes, fully seeded
+ * and independent of animation / game-time RNG. */
+export function connectUndergroundGeology(layer, origin) {
+  if(layer.kind!==UNDERGROUND)throw new TypeError('Underground layer required');
+  const {width:w,height:h,cells}=layer,n=cells.length;
+  const start=origin.y*w+origin.x;
+  if(!Number.isInteger(origin.x)||!Number.isInteger(origin.y)||
+     origin.x<0||origin.y<0||origin.x>=w||origin.y>=h||
+     cells[start]===TERRAINS.ROCK)throw new RangeError('Accessible underground origin required');
+
+  const queue=new Int32Array(n);
+  // Four-direction adjacency matches the ant navigation / mining system.
+  const around=(p)=> {
+    const x=p%w,y=(p-x)/w;
+    const out=[];
+    if(y>0)out.push(p-w);
+    if(x+1<w)out.push(p+1);
+    if(y+1<h)out.push(p+w);
+    if(x>0)out.push(p-1);
+    return out;
+  };
+  function flood(from,seen) {
+    let head=0,tail=1;queue[0]=from;seen[from]=1;
+    while(head<tail){
+      const cur=queue[head++];
+      for(const next of around(cur)){
+        if(!seen[next]&&cells[next]!==TERRAINS.ROCK){
+          seen[next]=1;queue[tail++]=next;
+        }
+      }
+    }
+    return tail;
+  }
+  let bridges=0,filled=0,carved=0;
+  // Each round either eliminates a closed pocket or joins at least one region.
+  for(let round=0;round<n;round++){
+    const linked=new Uint8Array(n);
+    flood(start,linked);
+    let orphan=-1;
+    for(let i=0;i<n;i++){
+      if(cells[i]!==TERRAINS.ROCK&&!linked[i]){orphan=i;break;}
+    }
+    if(orphan<0)return {bridges,filled,carved};
+
+    const pocket=new Uint8Array(n);
+    const size=flood(orphan,pocket);
+    if(size<=3 && !pocket.some((present,i)=>present &&
+        (cells[i]===TERRAINS.CHAMBER||cells[i]===TERRAINS.TUNNEL||
+         cells[i]===TERRAINS.ENTRANCE))){
+      // Tiny *unexcavated* specks are geological inclusions, not useful rooms.
+      // Existing open floors must always get an accessible connection.
+      for(let i=0;i<n;i++)if(pocket[i]){cells[i]=TERRAINS.ROCK;filled++;}
+      continue;
+    }
+
+    // Multi-source BFS from the connected region across ROCK. Each ROCK
+    // transition costs one step; main-region soil is already seeded. Thus
+    // the first foreign component found needs a minimal number of breaches.
+    const seen=linked.slice(),prev=new Int32Array(n);
+    prev.fill(-1);
+    let head=0,tail=0,target=-1;
+    for(let i=0;i<n;i++)if(linked[i])queue[tail++]=i;
+    while(head<tail&&target<0){
+      const cur=queue[head++];
+      for(const next of around(cur)){
+        if(seen[next])continue;
+        const x=next%w,y=(next-x)/w;
+        // Preserve a permanent 2-tile bedrock rim around the entire map.
+        if(x<2||y<2||x>=w-2||y>=h-2)continue;
+        seen[next]=1;prev[next]=cur;
+        if(cells[next]!==TERRAINS.ROCK){target=next;break;}
+        queue[tail++]=next;
+      }
+    }
+    if(target<0)throw new Error('Cannot connect underground geological pocket');
+    let opened=0;
+    for(let at=prev[target];at>=0&&!linked[at];at=prev[at]){
+      if(cells[at]===TERRAINS.ROCK){
+        cells[at]=TERRAINS.HARD_SOIL;opened++;carved++;
+      }
+    }
+    if(opened===0)throw new Error('Missing geological bridge through rock');
+    bridges++;
+  }
+  throw new Error('Underground geology repair failed to converge');
+}
+
 function underground(seed, entrance) {
   const layer=makeLayer(UNDERGROUND),rng=createRandom(seed^0x15c0ffee);
   layer.cells.fill(TERRAINS.SOIL);
@@ -169,6 +265,7 @@ function underground(seed, entrance) {
   disc(layer,x+12,y+14,4,3,TERRAINS.CHAMBER);
   disc(layer,x,y,2,2,TERRAINS.TUNNEL);
   writeCell(layer,x,y,TERRAINS.ENTRANCE);
+  connectUndergroundGeology(layer,{x,y:y+9});
   return layer;
 }
 export function createWorld(seedText='ANT-001'){
