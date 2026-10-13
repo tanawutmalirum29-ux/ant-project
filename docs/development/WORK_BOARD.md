@@ -7,7 +7,7 @@ Based on d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237. Status is truthfully DRAFT/PL
 | PH0-HEAD-02 | HEAD | P0 | Draft plan/ownership/contracts/QA/briefs | PH0-HEAD-01 | low | Draft PR pending review | Docs-only diff; owner review |
 | PH0-HEAD-03 | OWNER | P0 | Approve/adjust test-only Wave 1 | PH0-HEAD-02 | low | APPROVED 2026-10-13 (test-only) | Explicit owner authorization |
 | P1-ECO-01 | AI-1 | P0 | Resource+logistics invariants tests | PH0-HEAD-03 | medium | Verified on PR #17; NO MERGE | node --test new file, npm test, npm run build; strict ledger |
-| P1-AI-01 | AI-2 | P0 | Ant allocation/motion/rally state tests | PH0-HEAD-03 | medium | PR #18 Draft; evidence verified, Needs Investigation; NO MERGE | node --test new file; no double task/illegal steps |
+| P1-AI-01 | AI-2 | P0 | Ant allocation/motion/rally state tests | PH0-HEAD-03 | medium | Investigation verified; PR #18 Draft / 2 diagnostic FAIL; NO MERGE | node --test new file; no double task/illegal steps |
 | P1-UI-01 | AI-3 | P1 | Browser interaction regression harness | PH0-HEAD-03 | medium | Draft PR #19; file scope verified; runtime NOT RUN; HOLD MERGE | Chromium 5 viewports, screenshots, no JS errors/overlap |
 | P1-ECO-02 | AI-1 | P0 if confirmed | Fix reproduced accounting bug ONLY | P1-ECO-01 + approved allowlist | high | Not authorized | Repro red→green, full regression, exact ledger preserved |
 | P1-AI-02 | AI-2 | P0 if confirmed | Fix reproduced assignment/path/rally bug ONLY | P1-AI-01 + approved allowlist | high | Not authorized | Repro red→green; no teleport or double reservation |
@@ -20,7 +20,7 @@ Based on d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237. Status is truthfully DRAFT/PL
 
 ## Actual contributor progress at creation
 AI-1: PR #17 verified by HEAD on 2026-10-13. Commit c23f02da37290888301c6be63e57f75cecddd2b7; changed 1 permitted test file (+397); U5 and U6 Actions 109/109 pass, build and browser green; standalone test-file command not independently run; no merge approval.
-AI-2: Draft PR #18, commit 4e09c99c9d28e6f2ad3db99525b676451b0c42f1; exactly 1 authorized test file +403. U5/U6 CI: 116 total, 114 pass, 2 fail (synthetic dynamic obstruction PATH-01, 14-soldier duplicate goal FORM-01). Remaining 97 preexisting cases all pass; build/browser SKIPPED and standalone command NOT RUN. No production changes, no merge.
+AI-2: Investigation follow-up reviewed by HEAD on 2026-10-13; PR #18 Draft, head 4e09c99c9d28e6f2ad3db99525b676451b0c42f1; exactly 1 authorized test file +403. U5/U6 CI: 116 total, 114 pass, 2 fail. PATH-01 synthetic-only P3/Low deferred; FORM-01 duplicate target P2/Medium with supplemental in-memory soldier overlap reported but not independently reproduced by HEAD; dynamic formation owner-design decision pending. Remaining 97 preexisting cases pass; build/browser SKIPPED; standalone command NOT RUN. No production changes or merge.
 AI-3: Draft PR #19, commit d1a8271d6763d449eb09729259aee26a5acf59dd; exactly 1 authorized script tools/browser-phase1-ui-audit.py (+426 lines). No head CI runs (workflow path filters exclude new script). Five-viewports, npm/build, screenshots and JS errors NOT RUN; QA issue #22 opened, HEAD review 5498915840. Room success path assertion needs strengthening.
 HEAD: source-level inspection and new plan draft; local/CI/browser/AWS verification NOT completed.
 
@@ -54,3 +54,9 @@ Owner explicitly approved Phase 0 plan and Wave 1 **test-only** work. AI-1/2/3 a
 - QA issue https://github.com/tanawutmalirum29-ux/ant-project/issues/22; no Actions run for PR head because existing workflow path filters exclude new script. Runtime NOT RUN. Runner Github clone blocked by DNS; no screenshots or console results. npm test/build and existing browser tests on this PR NOT VERIFIED.
 - Review concern: room_gameplay passes when placement is rejected with any toast; must separately prove one successful queue and rejection in test-only file if deterministic feasible.
 - Gate: TEST-ONLY FILE OWNERSHIP VERIFIED; QA BLOCKED / KEEP DRAFT / NO MERGE. No permission to modify gameplay, UI, or workflows.
+
+## HEAD final investigation triage — AI-2 / P1-AI-01 (2026-10-13)
+- Examined AI-2 read-only follow-up report and baseline core/UI code; PR #18 head unchanged and main unchanged. PR HEAD comment 6138505923.
+- PATH-01 (Issue #20, decision comment 6138502344): synthetic terrain mutation mid-movement has confirmed conditional bug in Colony.tick but no production route to close walkable tunnels found; current-game priority **P3/Low deferred**, not a verified user-reachable blocker. Potential stale job.workerId if dig target is externally invalidated remains suspected without runtime reproduction.
+- FORM-01 (Issue #21, decision comment 6138502810): 14 soldiers get 13 distinct goals due fixed offset list. AI-2 reports actual coordinate overlap in in-memory core simulation (tick 6–35, ralliedCount 14/14), but HEAD did not independently run that particular reproduction. Priority **P2/Medium**, requires owner design choice; HEAD recommends unique deterministic dynamic reachable formation and standby overflow, not yet approved.
+- Decision: follow-up investigation accepted, red audit assertions preserved as evidence, **PR #18 remains Draft and unmergeable by policy** pending future explicit authorization. P1-AI-02 Gameplay changes NOT authorized; AI-2 no further code tasks at this stage.
