@@ -3,8 +3,19 @@
  * low-frequency reports are in a dedicated scrollable population sheet.
  * This stylesheet loads after V2.1, but keeps gameplay-owned IDs/handlers. */
 :root{
- --hud-glass:#13251de9; --hud-line:#cfb68750; --hud-ink:#f5e7c9;
- --hud-shadow:0 5px 20px #06100b72;
+ --hud-glass:var(--royal-panel);
+ --hud-line:var(--royal-gold);
+ --hud-ink:var(--royal-cream);
+ --hud-shadow:3px 4px 0 var(--royal-night);
+}
+
+/* Keep the four legacy HUD aliases valid as opaque var() defaults on every
+   browser; translucency is progressive enhancement only. */
+@supports (color: color-mix(in srgb, red, transparent)) {
+ :root {
+  --hud-glass:color-mix(in srgb,var(--royal-panel) 94%,transparent);
+  --hud-line:color-mix(in srgb,var(--royal-gold) 58%,transparent);
+ }
 }
 .topbar{
  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
@@ -456,4 +467,101 @@ body #u6-dock #u6-open{color:#f6d5a5}
 }
 @media(prefers-reduced-motion:reduce){
  .tool-button,.speed-btn,.layer-btn,.room-picker-trigger{transition:none}
+}
+
+/* ROYAL-01 / VIS-E2: visual paint only; preserve positions, dimensions,
+   pointer/touch handling, room fallback, and responsive collision guards.
+   Canonical color definitions belong exclusively to VIS-E1's v1.css. */
+.topbar{background:var(--royal-night);border-bottom:2px solid var(--royal-wood);box-shadow:0 3px 0 var(--royal-night)}
+.brand-box{text-shadow:none}
+.brand-box h1{color:var(--royal-cream);text-shadow:1px 1px 0 var(--royal-brown)}
+.brand-box h1 span{color:var(--royal-gold-light)}
+.brand-icon{background:var(--royal-brown);border:1px solid var(--royal-gold);border-radius:5px;box-shadow:2px 2px 0 var(--royal-night)}
+.status-pill{background:var(--hud-glass);border:1px solid var(--hud-line);border-radius:5px;box-shadow:inset 0 -2px 0 var(--royal-brown);color:var(--royal-cream)}
+.status-pill strong,.status-pill em{color:var(--royal-cream)}
+.status-icon,.seed-pill .chevron{color:var(--royal-gold-light)}
+.population-pill{background:var(--royal-panel)}
+.seed-pill{background:var(--royal-brown)}
+.status-pill:hover,.status-pill:focus-visible{border-color:var(--royal-gold-light)}
+.topbar > .resource-strip{background:var(--hud-glass);border-color:var(--hud-line);border-radius:5px;box-shadow:2px 2px 0 var(--royal-night)}
+.resource-stat{color:var(--royal-cream)}
+.resource-stat + .resource-stat{border-left-color:var(--hud-line)}
+.resource-stat strong{color:var(--royal-gold-light)}
+.resource-stat .resource-emoji{color:var(--royal-green)}
+.resource-stat:nth-child(2) .resource-emoji{color:var(--royal-copper)}
+.resource-stat:nth-child(3) .resource-emoji{color:var(--royal-water)}
+.brood-summary{background:var(--hud-glass);border-color:var(--hud-line);border-radius:5px;color:var(--royal-cream);box-shadow:2px 2px 0 var(--royal-night)}
+.queen-status.is-alert{color:var(--royal-copper)}
+.dig-tools{background:var(--hud-glass);border-color:var(--hud-line);border-radius:6px;box-shadow:var(--hud-shadow);backdrop-filter:none}
+.dig-tools > .tool-switch{background:var(--royal-night);border-radius:5px}
+.tool-switch:has(#tool-room) .tool-button{border-radius:4px;font-family:var(--sans)}
+.tool-button.active,.speed-btn.active,.layer-btn.selected{background:var(--royal-gold-light);color:var(--royal-brown);box-shadow:inset 0 -2px 0 var(--royal-copper)}
+.tool-button:not(.active),.speed-btn:not(.active),.layer-btn:not(.selected){color:var(--royal-cream)}
+.tool-button:not(.active):hover,.speed-btn:hover:not(.active),.layer-btn:not(.selected):hover,.icon-button:hover{color:var(--royal-cream);background:var(--royal-wood)}
+.dig-tools > .workforce-open{background:var(--royal-panel);border-color:var(--hud-line);border-radius:5px;color:var(--royal-cream);font-family:var(--sans);box-shadow:inset 0 -2px 0 var(--royal-brown)}
+.workforce-open[aria-expanded="true"]{background:var(--royal-gold-light);color:var(--royal-brown);border-color:var(--royal-gold-light)}
+.dig-tools > .room-palette{background:var(--royal-panel);border-color:var(--royal-gold);border-radius:6px;color:var(--royal-cream);box-shadow:var(--hud-shadow)}
+.room-palette select{background:var(--royal-night);color:var(--royal-cream);border-color:var(--royal-gold);border-radius:5px}
+.room-palette .room-cost,.room-picker-cost{color:var(--royal-cream)}
+.room-picker-trigger{background:var(--royal-wood);color:var(--royal-cream);border-color:var(--royal-gold);border-radius:5px;box-shadow:2px 2px 0 var(--royal-night);font-family:var(--sans)}
+.room-picker-option{color:var(--royal-cream);background:var(--royal-panel);border-color:var(--hud-line);border-radius:5px;font-family:var(--sans)}
+.room-picker-option[aria-selected="true"]{background:var(--royal-gold-light);color:var(--royal-brown);border-color:var(--royal-gold-light)}
+.room-picker-mark{color:var(--royal-gold-light)}
+.room-picker-option[aria-selected="true"] .room-picker-mark{color:var(--royal-brown)}
+.right-controls .control-card,.right-controls .control-stack,.layer-switch{background:var(--hud-glass);border-color:var(--hud-line);border-radius:6px;box-shadow:var(--hud-shadow);backdrop-filter:none}
+.speed-btn,.layer-btn,.icon-button,.debug-toggle{border-radius:5px;font-family:var(--sans)}
+.icon-button,.debug-toggle{background:var(--royal-panel);color:var(--royal-cream);border-color:var(--hud-line)}
+.control-stack .icon-button{background:var(--royal-panel)}
+.selection-card:not(.hidden),.debug-panel:not(.hidden),.colony-panel{background:var(--royal-panel);border:1px solid var(--hud-line);border-radius:6px;color:var(--royal-cream);box-shadow:var(--hud-shadow);backdrop-filter:none}
+.selection-title,.colony-panel-title,.panel-head{color:var(--royal-gold-light)}
+.selection-title button,.colony-panel-title button{color:var(--royal-cream)}
+.selection-card p,.selection-card #selection-coords,.selection-card .selection-resource{color:var(--royal-cream)}
+.selection-work,.selection-brood,.selection-room{color:var(--royal-gold-light)!important}
+.colony-grid,.colony-panel-note,.metric{color:var(--royal-cream)}
+.colony-grid strong,.metric strong,.workforce-row output{color:var(--royal-gold-light)}
+.colony-details,.workforce-editor,.workforce-general{border-color:var(--hud-line)}
+.colony-details .orders-status{color:var(--royal-cream)}
+.workforce-editor h3,.workforce-row{color:var(--royal-cream)}
+.workforce-editor input[type=range]{accent-color:var(--royal-gold-light)}
+.workforce-bar{background:var(--royal-night);border-color:var(--hud-line);border-radius:5px}
+#alloc-bar-forage{background:var(--royal-green)}
+#alloc-bar-nurse{background:var(--royal-gold)}
+#alloc-bar-soldier{background:var(--royal-copper)}
+#alloc-bar-general{background:var(--royal-water)}
+.cancel-dig{background:var(--royal-wood);color:var(--royal-cream);border-color:var(--royal-copper);border-radius:5px}
+.portal-action,.primary-btn{background:var(--royal-gold-light);color:var(--royal-brown);border-color:var(--royal-gold);border-radius:5px}
+.seed-dialog{background:var(--royal-panel);color:var(--royal-cream);border:2px solid var(--royal-gold);border-radius:6px;box-shadow:5px 5px 0 var(--royal-night)}
+.seed-dialog::backdrop{background:var(--royal-night);backdrop-filter:none}
+.seed-dialog h2,.seed-dialog p,.seed-dialog label{color:var(--royal-cream)}
+.dialog-eyebrow{color:var(--royal-gold-light)}
+.seed-dialog input{background:var(--royal-night);color:var(--royal-cream);border-color:var(--royal-gold);border-radius:5px;font-family:var(--sans)}
+.dialog-actions button{border-color:var(--royal-gold);border-radius:5px}
+.secondary-btn{background:var(--royal-wood);color:var(--royal-cream)}
+.toast{background:var(--royal-panel);border-color:var(--hud-line);color:var(--royal-cream);border-radius:5px;box-shadow:var(--hud-shadow)}
+button:focus-visible,input:focus-visible,select:focus-visible,.room-picker-trigger:focus-visible,.room-picker-option:focus-visible{outline:2px solid var(--royal-gold-light);outline-offset:2px}
+button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
+
+/* Opaque paint above remains legible even if color-mix() is unsupported. */
+@supports (color: color-mix(in srgb, red, transparent)) {
+  .topbar{background:color-mix(in srgb,var(--royal-night) 95%,transparent)}
+  .population-pill{background:color-mix(in srgb,var(--royal-panel) 85%,var(--royal-green))}
+  .seed-pill{background:color-mix(in srgb,var(--royal-panel) 89%,var(--royal-brown))}
+  .tool-button:not(.active):hover,.speed-btn:hover:not(.active),.layer-btn:not(.selected):hover,.icon-button:hover{background:color-mix(in srgb,var(--royal-panel) 70%,var(--royal-wood))}
+  .seed-dialog::backdrop{background:color-mix(in srgb,var(--royal-night) 86%,transparent)}
+}
+
+/* ROYAL-01 E2: keyboard-only layer switch focus is visible on the first frame.
+   Cancel only this focused button's inherited all-property transition, so a
+   0px -> 3px outline never needs a settling frame. Restrict normal transitions
+   to background/text so the ring also disappears instantly on blur. The inset separates
+   the ring from a selected gold button; the cream outline contrasts against
+   the forest switch background. No box model or pointer changes. */
+.layer-switch .layer-btn{
+  transition-property:background-color,color;
+}
+.layer-switch .layer-btn:focus-visible{
+  transition:none;
+  outline:3px solid var(--royal-cream);
+  outline-offset:1px;
+  box-shadow:inset 0 0 0 2px var(--royal-night),0 0 0 1px var(--royal-night);
 }
