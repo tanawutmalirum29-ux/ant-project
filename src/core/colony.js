@@ -29,7 +29,7 @@ export class Colony {
     });
   }
   isForager(ant) { return this.forageSlots > 0 && this.workers.indexOf(ant) >= Math.max(0,this.workers.length-this.forageSlots); }
-  setForageSlots(count) { if (!Number.isInteger(count) || count<0 || count>this.workers.length) throw new RangeError('Invalid forager count'); this.forageSlots=count; }
+  setForageSlots(count,fromPolicy=false) { if (!Number.isInteger(count) || count<0 || count>this.workers.length) throw new RangeError('Invalid forager count'); if(!fromPolicy)this.workforce?.disableAuto('forage'); this.forageSlots=count; }
   get population() { return this.workers.length + (this.queen.alive ? 1 : 0); }
   get pendingCount() { return this.orders.size; }
   get busyCount() { return this.workers.filter(a=>a.orderId!=null).length; }
