@@ -1,7 +1,9 @@
 import { TERRAINS, SURFACE, UNDERGROUND, TILE, cellAt } from '../world/generate.js';
 import { tileHash } from '../core/random.js';
 import { ROOM_CATALOG } from '../core/rooms.js';
+import { displayedPosition } from '../core/render-motion.js';
 
+const RALLY_PING_MS = 1500;
 const ROOM_TICKS = type=>({queen:1,nursery:65,food_store:90,water_store:80,rest:60,guard:85})[type]||1;
 const colors = {
   [TERRAINS.GRASS]: '#344d38', [TERRAINS.DIRT]: '#685039', [TERRAINS.THICKET]: '#1c382c',
@@ -27,6 +29,10 @@ export class Renderer {
     this.height = 1;
     this.dpr = 1;
     this.lastSize = '';
+    this.rallyPing = null;
+  }
+  showRallyPing(game, layer, x, y, startedAt = performance.now()) {
+    this.rallyPing = { game, layer, x, y, startedAt };
   }
   resize() {
     const box = this.canvas.getBoundingClientRect();
@@ -190,13 +196,13 @@ export class Renderer {
   }
   drawAnts(ctx,game,elapsedMs,camera) {
     const c=game.colony;
-    if (c.queen.alive && c.queen.layer===game.layer) this.drawAnt(ctx,c.queen,true,elapsedMs);
-    for(const ant of c.workers) if(ant.layer===game.layer) this.drawAnt(ctx,ant,false,elapsedMs);
+    if (c.queen.alive && c.queen.layer===game.layer) this.drawAnt(ctx,game,c.queen,true,elapsedMs);
+    for(const ant of c.workers) if(ant.layer===game.layer) this.drawAnt(ctx,game,ant,false,elapsedMs);
   }
-  drawAnt(ctx,ant,queen,elapsedMs) {
-    const lerp=ant.next ? ant.motion : 0;
-    const x=((ant.x+(ant.next?(ant.next.x-ant.x)*lerp:0))+.5)*TILE;
-    const y=((ant.y+(ant.next?(ant.next.y-ant.y)*lerp:0))+.5)*TILE;
+  drawAnt(ctx,game,ant,queen,elapsedMs) {
+    const pose=displayedPosition(game,ant);
+    const x=(pose.x+.5)*TILE;
+    const y=(pose.y+.5)*TILE;
     const dir=ant.facing||0;
     const angle=[-Math.PI/2,0,Math.PI/2,Math.PI][dir];
     const scale=queen?1.42:.82;
@@ -229,8 +235,9 @@ export class Renderer {
     ctx.save();
     for(const ant of combat.soldiers) {
       if(ant.layer!==game.layer)continue;
-      const x=(ant.x+.5+(ant.next?(ant.next.x-ant.x)*ant.motion:0))*TILE;
-      const y=(ant.y+.5+(ant.next?(ant.next.y-ant.y)*ant.motion:0))*TILE;
+      const pose=displayedPosition(game,ant);
+      const x=(pose.x+.5)*TILE;
+      const y=(pose.y+.5)*TILE;
       ctx.strokeStyle=ant.retreating?'#eaa58b':'#a9dce0';ctx.lineWidth=2;
       ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.stroke();
       ctx.fillStyle='#202322';ctx.fillRect(x-10,y-18,20,3);
@@ -238,8 +245,9 @@ export class Renderer {
     }
     for(const enemy of combat.enemies) {
       if(enemy.layer!==game.layer)continue;
-      const x=(enemy.x+.5+(enemy.next?(enemy.next.x-enemy.x)*enemy.motion:0))*TILE;
-      const y=(enemy.y+.5+(enemy.next?(enemy.next.y-enemy.y)*enemy.motion:0))*TILE;
+      const pose=displayedPosition(game,enemy);
+      const x=(pose.x+.5)*TILE;
+      const y=(pose.y+.5)*TILE;
       ctx.fillStyle=enemy.type==='beetle'?'#7c3450':'#7b2f2d';
       ctx.strokeStyle='#f0b8a1';ctx.lineWidth=1.8;
       ctx.beginPath();ctx.ellipse(x,y,enemy.type==='beetle'?12:9,10,0,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -248,11 +256,17 @@ export class Renderer {
       ctx.fillStyle='#2a1716';ctx.fillRect(x-10,y-18,20,3);
       ctx.fillStyle='#e68d79';ctx.fillRect(x-10,y-18,20*enemy.hp/enemy.maxHP,3);
     }
-    if(combat.rally?.layer===game.layer){
-      const x=(combat.rally.x+.5)*TILE,y=(combat.rally.y+.5)*TILE;
+    const ping=this.rallyPing;
+    if(ping && (ping.game!==game || elapsedMs-ping.startedAt>=RALLY_PING_MS)) this.rallyPing=null;
+    else if(ping && ping.layer===game.layer && elapsedMs>=ping.startedAt){
+      const age=elapsedMs-ping.startedAt, progress=age/RALLY_PING_MS;
+      const x=(ping.x+.5)*TILE,y=(ping.y+.5)*TILE;
+      ctx.save();
+      ctx.globalAlpha=Math.min(1,(RALLY_PING_MS-age)/450);
       ctx.strokeStyle='#ffe29a';ctx.lineWidth=2;
-      ctx.beginPath();ctx.arc(x,y,11+Math.sin(elapsedMs/350)*2,0,Math.PI*2);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(x-4,y);ctx.lineTo(x+4,y);ctx.moveTo(x,y-4);ctx.lineTo(x,y+4);ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,11+progress*12,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.moveTo(x,y-5);ctx.lineTo(x,y+5);ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
   }
