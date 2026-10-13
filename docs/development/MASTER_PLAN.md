@@ -1,4 +1,6 @@
 # New Development Master Plan — Ant Kingdom
+
+> **ARCHIVED AS HISTORICAL PLANNING — 2026-10-13.** The owner has ordered consolidation of Phase 0/Wave 1 audit work to main before redesigning team organization. Tasks, file ownership and stop/merge gates below describe the prior wave and are not a current work order. Existing PRs #17, #18, #19 have been squash-merged by AI-HEAD under direct owner authorization; PR #18 retains 2 known diagnostic failures; PR #19 browser run remains unverified. This document does NOT approve gameplay fixes or Dynamic Formation C implementation. Await a new owner-approved development roadmap and new AI assignments. Project remains active.
 Baseline d508a7fd96a2d8b9dbee2ef05f40d4ee7f5eb237 | Draft awaiting owner approval; existing rounds remain closed, GAME DEVELOPMENT REMAINS ACTIVE.
 
 ## Decision policy
