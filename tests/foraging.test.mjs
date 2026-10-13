@@ -116,7 +116,7 @@ test('U3.7 when all sources deplete no further food is harvested and workers do 
   run(g,100);
   assert.equal(g.foraging.activeCount,0);
   assert.equal(deposited(g),0);
-  assert.ok(g.colony.workers.every(w=>w.state==='idle'));
+  assert.ok(g.colony.workers.every(w=>w.state==='idle'||w.combatRole==='soldier')); // One initial defensive worker is deliberately on guard.
 });
 test('U3.8 reset creates independent fresh stock and ants with same deterministic world',()=>{
   const before=new Game('reset-world');run(before,450);
