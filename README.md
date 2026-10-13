@@ -76,3 +76,18 @@ tests/               Automated regression
 ## แผนถัดไป
 
 **U3 — Foraging & Transport:** แหล่งอาหาร/น้ำบนพื้นผิว, AI หาอาหาร, เดินเข้า/ออกปากรัง, ลำเลียงอาหารกลับคลัง และตรวจสอบระบบทรัพยากรไม่เพิ่มซ้ำ
+
+## Deploy บน AWS Amplify Hosting
+
+โปรเจกต์นี้เป็นเว็บเกมแบบ static ไม่ต้องรัน Node server ใน Production และไม่ต้องติดตั้ง dependencies เพิ่ม
+
+```bash
+npm test
+npm run build
+```
+
+ไฟล์ `amplify.yml` ที่ root ให้ Amplify ทดสอบเกมและสร้าง `dist/` ก่อน Publish โดย Deploy เฉพาะ `index.html` และ `src/` (ไม่ส่ง `tests/`, `docs/`, หรือ `tools/` ขึ้น Hosting)
+
+เชื่อม GitHub repository นี้กับ AWS Amplify เลือก branch `main` และใช้ build image Amazon Linux 2023 (Node.js 20+)
+
+วิธีตั้งค่าและตรวจเช็กปัญหา: [docs/AMPLIFY_DEPLOY.md](docs/AMPLIFY_DEPLOY.md)
