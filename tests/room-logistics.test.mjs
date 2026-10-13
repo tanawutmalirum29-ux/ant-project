@@ -11,7 +11,8 @@ const mass=g=>g.foraging.nodes.reduce((s,n)=>s+n.amount,0)+
  Object.values(g.foraging.inventory).reduce((a,b)=>a+b,0)+
  g.colony.workers.reduce((s,w)=>s+(w.cargo?.amount||0),0)+
  ['consumed','lost'].reduce((s,p)=>s+Object.values(g.lifecycle[p]).reduce((a,b)=>a+b,0),0)+
- ['held','spent'].reduce((s,p)=>s+Object.values(g.rooms[p]).reduce((a,b)=>a+b,0),0);
+ ['held','spent'].reduce((s,p)=>s+Object.values(g.rooms[p]).reduce((a,b)=>a+b,0),0)-
+ Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 
 test('U5R1 builder physically collects materials before construction and moves across walkable cells',()=>{
  const g=new Game('u5r-build');fund(g);const r=place(g,'food_store');assert.ok(r.ok);
