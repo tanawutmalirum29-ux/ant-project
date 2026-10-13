@@ -1,4 +1,21 @@
-# Ant Kingdom — U3 Foraging & Transport
+# Ant Kingdom — U4 Colony Lifecycle
+
+**Version 0.4.0** — Queens lay eggs, larvae receive nurse care and protein, pupae become autonomous adult workers. Worker hunger, thirst, lifespan, natural deaths, real resource consumption and population reporting now run alongside the original U1–U3 simulation.
+
+## What's new in U4
+
+- Queen egg laying is paid from delivered protein; eggs / larvae / pupae are not counted as adults.
+- Designate nursery workers with the **มดพี่เลี้ยง +/−** control. Nurses walk to the queen and care for larvae while the other workers dig and forage.
+- Each worker and the queen track life ticks, hunger and thirst. Starvation, dehydration and age can lead to death; work reservations are cleaned up safely.
+- Tap/click the **ประชากร** badge to see colony population, births, deaths, shortages, food consumption and queen age.
+- Source-to-stock resource conservation now includes amounts **consumed** and **lost** after worker death.
+- `npm test` includes U4 scenarios plus U1–U3 regressions. `python tools/browser-u4.py` checks responsive UI; see `docs/U4_ACCEPTANCE.md`.
+
+**Gameplay scope:** U5 will add proper rooms and warehouse capacity. No save/load or combat has been added yet.
+
+---
+
+# Historical U3 notes — Foraging & Transport
 
 Play through the `index.html` entry point using a static HTTP server (`npm start`).
 
@@ -9,7 +26,7 @@ Play through the `index.html` entry point using a static HTTP server (`npm start
 - **Physical transportation:** workers walk from underground chamber to the tunnel entrance, transition at its paired surface coordinate, pathfind to a source, gather at a finite work rate, physically carry up to 3 units back through the entry, and deposit in the starting chamber. HUD inventory changes on deposit, never on pickup.
 - **Reservation/conservation accounting:** workers reserve source quantities so multiple ants cannot duplicate limited stock. Units live at source, in worker cargo, or in storage.
 - **Canvas resources / carrying indicators:** sources are color-coded and selectable on the surface; ants are shown only on the correct world layer, with visible cargo.
-- **U1–U2 preserved:** the same shared clock, seed generation, portal, camera and dig queue remain. No food consumption, production cycles, source respawn or constructed storage rooms yet (U4–U7).
+- **U1–U2 preserved:** the same shared clock, seed generation, portal, camera and dig queue remain. Food consumption and lifecycle are added in U4; renewable sources and storage rooms remain future work (U5–U7).
 
 ## Verification
 

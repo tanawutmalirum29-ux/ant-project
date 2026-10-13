@@ -9,7 +9,9 @@ import { CARRY_CAPACITY } from '../src/core/foraging.js';
 const run=(g,ticks)=>{for(let i=0;i<ticks;i++)g.update(100)};
 const deposited = g => Object.values(g.foraging.inventory).reduce((a,b)=>a+b,0);
 const inTransit = g => g.colony.workers.reduce((a,w)=>a+(w.cargo?.amount||0),0);
-const conserved = g => deposited(g)+inTransit(g)+g.foraging.remaining;
+const consumed = g => Object.values(g.lifecycle.consumed).reduce((a,b)=>a+b,0);
+const lost = g => Object.values(g.lifecycle.lost).reduce((a,b)=>a+b,0);
+const conserved = g => deposited(g)+inTransit(g)+g.foraging.remaining+consumed(g)+lost(g);
 const initial = g => g.foraging.nodes.reduce((a,b)=>a+b.initialAmount,0);
 const validAll = g => g.colony.workers.every(w => isWalkable(g.world.layers[w.layer],w.x,w.y));
 
@@ -43,7 +45,7 @@ test('U3.2 ants traverse actual entrances; inventory changes only after undergro
   }
   assert.ok(sawSurface && sawCargo && sawReturn);
   assert.ok(deposited(g)>0);
-  assert.equal(g.foraging.delivered,deposited(g));
+  assert.equal(g.foraging.delivered,deposited(g)+consumed(g));
   assert.ok(g.foraging.completedTrips>0);
   assert.ok(validAll(g));
   assert.equal(cellAt(g.world.layers[SURFACE],entrance.surface.x,entrance.surface.y),TERRAINS.ENTRANCE);
@@ -54,7 +56,7 @@ test('U3.3 no food is created or duplicated: exact mass conservation across trip
     g.update(100);
     if(i%7===0){
       assert.equal(conserved(g),total);
-      assert.equal(g.foraging.delivered,deposited(g));
+      assert.equal(g.foraging.delivered,deposited(g)+consumed(g));
       for(const node of g.foraging.nodes) {
         assert.ok(node.amount>=0);assert.ok(node.reserved>=0);assert.ok(node.reserved<=node.amount);
       }

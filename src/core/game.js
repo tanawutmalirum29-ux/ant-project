@@ -2,6 +2,7 @@ import { createClock, FixedStepper } from './time.js';
 import { createWorld, SURFACE, UNDERGROUND } from '../world/generate.js';
 import { Colony } from './colony.js';
 import { Foraging } from './foraging.js';
+import { Lifecycle } from './lifecycle.js';
 import { createResourceNodes } from '../world/resources.js';
 export class Game {
   constructor(seed = 'ANT-001') {
@@ -11,7 +12,8 @@ export class Game {
     this.world.resources = createResourceNodes(this.world);
     this.colony = new Colony(this.world);
     this.foraging = new Foraging(this.world,this.colony);
-    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick()];
+    this.lifecycle = new Lifecycle(this.colony,this.foraging);
+    this.systems = [(game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.lifecycle.tick()];
     this.stepper = new FixedStepper(() => {
       for (const system of this.systems) system(this);
       this.metrics.pendingTasks = this.colony.pendingCount;
