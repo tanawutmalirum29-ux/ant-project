@@ -84,8 +84,9 @@ export class Combat {
     const changed=!this.rally||this.rally.layer!==layer||this.rally.x!==x||this.rally.y!==y;
     this.rally={layer,x,y};this.mode='rally';
     this.lastEvent=`กำลังพลเคลื่อนสู่จุดรวมพล ${x},${y}`;
-    // Reissuing the same rally still cancels motion, without reshuffling valid slots.
-    for(const a of this.soldiers)this.clearMotion(a);
+    // Keep an emergency interception in motion: a rally order may be stored,
+    // but must not pull defenders away from an actively threatened queen.
+    if(!this.queenThreat())for(const a of this.soldiers)this.clearMotion(a);
     if(changed)this._formationDirty=true;
     this.ensureFormation();
     return true;
@@ -291,6 +292,19 @@ export class Combat {
     const station=this.rooms?.rooms.find(r=>r.type==='rest'&&r.status==='ready'&&r.connected);
     return station?{x:station.x,y:station.y,layer:UNDERGROUND}:{x:this.colony.queen.x,y:this.colony.queen.y,layer:UNDERGROUND};
   }
+  /** A nest intruder already within striking distance of the queen overrides all orders. */
+  queenThreat() {
+    const queen=this.colony.queen;
+    if(!queen?.alive)return null;
+    let closest=null;
+    for(const enemy of this.enemies){
+      if(enemy.layer!==UNDERGROUND||distance(enemy,queen)>1)continue;
+      if(!closest||distance(enemy,queen)<distance(closest,queen)||
+         (distance(enemy,queen)===distance(closest,queen)&&String(enemy.id)<String(closest.id)))
+        closest=enemy;
+    }
+    return closest;
+  }
   chooseThreat(soldier){
     if(!this.enemies.length)return null;
     // Defend the queen and tunnel entrance, but intercept threats already adjacent to soldiers first.
@@ -304,12 +318,16 @@ export class Combat {
   soldierTick(ant){
     if(!this.colony.workers.includes(ant))return;
     ant.combatCooldown=Math.max(0,(ant.combatCooldown||0)-1);
+    // Queen survival is above rally, standing orders, and even ordinary retreat.
+    // Both nest guards and troops on the surface return immediately when a
+    // hostile unit reaches the queen's own tile or an adjacent tile.
+    const queenEmergency=this.queenThreat();
     const wounded=(ant.combatHP||0)<=Math.ceil(COMBAT.soldierHP*.3);
-    const withdrawing=this.mode==='retreat'||wounded;
+    const withdrawing=!queenEmergency&&(this.mode==='retreat'||wounded);
     ant.retreating=withdrawing;
     let destination=null;
-    const threat=withdrawing?null:this.mode==='rally'?
-      this.enemies.filter(e=>e.layer===ant.layer&&distance(e,ant)<=COMBAT.alertRadius).sort((a,b)=>distance(a,ant)-distance(b,ant))[0]||null:this.chooseThreat(ant);
+    const threat=queenEmergency||(withdrawing?null:this.mode==='rally'?
+      this.enemies.filter(e=>e.layer===ant.layer&&distance(e,ant)<=COMBAT.alertRadius).sort((a,b)=>distance(a,ant)-distance(b,ant))[0]||null:this.chooseThreat(ant));
     if(threat){
       if(threat.layer===ant.layer&&distance(threat,ant)<=1){
         ant.state='combat-attack';this.clearMotion(ant);
@@ -320,7 +338,7 @@ export class Combat {
         return;
       }
       destination={layer:threat.layer,x:threat.x,y:threat.y};
-      ant.state='combat-intercept';
+      ant.state=queenEmergency?'combat-queen-defense':'combat-intercept';
     } else if(withdrawing){destination=this.findRecovery();ant.state='combat-retreat';}
     else if(this.mode==='rally'&&this.rally){
       destination=this.getRallyGoal(ant);
