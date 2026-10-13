@@ -98,3 +98,21 @@
     max-width:calc(100vw - 320px);
   }
 }
+
+
+/* R2-UIFIX-01 tablet regression: legacy V1 places its nurse/forager
+   controls at bottom-left, so the default bottom-left army row intercepts
+   nurse-plus at 768×1024. Put the full military row in the clear upper
+   middle lane for medium-width, tall tablets, out of economic controls. */
+@media (min-width:681px) and (max-width:849px) and (min-height:501px) {
+  #u6-dock {
+    top:calc(175px + env(safe-area-inset-top));
+    bottom:auto;
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+  }
+  #u6-target-tip {top:calc(231px + env(safe-area-inset-top));}
+  /* The debug panel owns the upper-right; give its hit targets breathing room. */
+  body:has(.debug-panel:not(.hidden)) #u6-dock {left:44%;}
+}
