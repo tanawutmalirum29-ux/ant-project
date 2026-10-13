@@ -5,6 +5,7 @@ on:
     paths:
       - 'index.html'
       - 'src/ui/visual/v2.css'
+      - 'design/v2/**'
       - 'tests/v2-live.test.mjs'
       - 'tools/browser-v2-live.py'
       - '.github/workflows/v2-live.yml'
