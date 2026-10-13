@@ -8,9 +8,8 @@ export class CombatControls {
     const trigger=document.createElement('button');trigger.id='u6-open';
     trigger.type='button';trigger.textContent='⚔ ป้องกันรัง';
     trigger.setAttribute('aria-label','เปิดหน้าควบคุมมดทหารและการป้องกัน');
-    const host=document.querySelector('.dig-tools');
-    if(!host)throw new Error('U6 requires existing construction tool dock');
-    host.append(trigger);
+    // Keep U5 construction dock geometry unchanged: mount as an independent fixed control.
+    document.body.append(trigger);
     const dialog=document.createElement('dialog');dialog.id='u6-dialog';
     dialog.setAttribute('aria-labelledby','u6-title');
     dialog.innerHTML=`<section class="u6-sheet">

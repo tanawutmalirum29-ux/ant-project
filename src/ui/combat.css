@@ -1,5 +1,5 @@
 /* U6 functional command dialog. Isolated from V1/V2 visual ownership. */
-#u6-open{min-height:38px;max-width:100%;border:1px solid #d7b77e88;border-radius:10px;padding:6px 12px;background:#24342be8;color:#f8e6bf;font-weight:700;cursor:pointer;white-space:normal;}
+#u6-open{position:fixed;z-index:12;right:calc(12px + env(safe-area-inset-right));bottom:calc(58px + env(safe-area-inset-bottom));min-height:38px;max-width:160px;border:1px solid #d7b77e88;border-radius:10px;padding:6px 12px;background:#24342be8;color:#f8e6bf;font-weight:700;cursor:pointer;white-space:normal;}
 #u6-open:focus-visible,#u6-dialog button:focus-visible{outline:2px solid #f5cb83;outline-offset:2px;}
 #u6-dialog{width:min(440px,calc(100vw - 24px));max-height:min(88dvh,700px);overflow:auto;margin:auto;border:1px solid #c3a46e;border-radius:16px;background:#152720;color:#f0e5cf;box-shadow:0 18px 50px #000b;padding:0;}
 #u6-dialog::backdrop{background:#040806b5;}
@@ -20,4 +20,7 @@
 @media(max-width:380px){#u6-dialog .u6-sheet{padding:12px;}#u6-open{padding:5px 7px;font-size:12px;}}
 @media(prefers-reduced-motion:reduce){#u6-dialog *{animation:none!important;transition:none!important;}}
 /* U5 makes transparent dock regions click-through; explicitly restore this control. */
-.dig-tools>#u6-open{pointer-events:auto;position:relative;z-index:1;}
+
+
+@media(min-width:681px){#u6-open{right:24px;bottom:75px;}}
+@media(max-height:500px) and (orientation:landscape){#u6-open{right:10px;bottom:50px;}}
