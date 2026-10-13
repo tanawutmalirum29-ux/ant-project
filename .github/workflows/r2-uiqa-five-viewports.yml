@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/r2-uiqa-five-viewports.yml'
-      - 'tools/browser-phase1-ui-audit.py'
+      - 'index.html'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/browser*.py'
       - 'docs/ai-reports/AI-3/ROUND_02.md'
   workflow_dispatch:
 
