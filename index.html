@@ -22,11 +22,12 @@
       </div>
       <div class="status-cluster">
         <div class="status-pill time-pill"><span class="status-icon">◷</span><div><small>เวลาในอาณาจักร</small><strong id="game-time">วันที่ 1 · 06:00</strong></div></div>
-        <div class="status-pill population-pill"><span class="status-icon">♙</span><div><small>ประชากร</small><strong><span id="population">0</span> <em>ตัว</em></strong></div></div>
+        <button type="button" class="status-pill population-pill" id="colony-button" aria-expanded="false" aria-controls="colony-panel" title="ดูข้อมูลประชากร"><span class="status-icon">♙</span><span><small>ประชากร</small><strong><span id="population">0</span> <em>ตัว</em></strong></span></button>
         <button class="status-pill seed-pill" id="seed-button" title="เปลี่ยน Seed ของแผนที่"><span class="status-icon">⌘</span><div><small>WORLD SEED</small><strong id="seed-label">ANT-001</strong></div><span class="chevron">⌄</span></button>
       </div>
     </header>
 
+    <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p></aside>
     <div class="resource-strip" role="status" aria-label="ทรัพยากรในคลัง">
       <div class="resource-stat"><span class="resource-emoji">◉</span><span>อาหารพลังงาน</span><strong id="stock-carbs">0</strong></div>
       <div class="resource-stat"><span class="resource-emoji">◆</span><span>โปรตีน</span><strong id="stock-protein">0</strong></div>
@@ -34,7 +35,7 @@
     </div>
     <aside class="left-overlay" aria-label="ข้อมูลบริเวณแผนที่">
       <div class="region-heading"><div class="region-overline">CURRENT REGION <span>•</span> 01 / 02</div><h2 id="region-name">ใต้ผืนดิน</h2><p id="region-subtitle">อุโมงค์แห่งอาณาจักรเริ่มต้น</p></div>
-      <div class="phase-note"><span class="phase-dot"></span><span>FORAGING & TRANSPORT <b>U3</b></span></div>
+      <div class="phase-note"><span class="phase-dot"></span><span>COLONY LIFECYCLE <b>U4</b></span></div><div class="brood-summary" aria-live="off"><span id="brood-summary">ไข่ 0 · ตัวอ่อน 0 · ดักแด้ 0</span><span id="queen-status" class="queen-status">นางพญาพร้อมวางไข่</span></div>
     </aside>
 
     <aside class="dig-tools" aria-label="เครื่องมือก่อสร้าง">
@@ -48,6 +49,7 @@
         <strong id="forage-count">2/5</strong>
         <button id="forage-plus" type="button" aria-label="เพิ่มจำนวนมดหาอาหาร">+</button>
       </div>
+      <div class="forage-control nurse-control" aria-label="กำหนดจำนวนมดพี่เลี้ยง"><span>มดพี่เลี้ยง</span><button id="nurse-minus" type="button" aria-label="ลดมดพี่เลี้ยง">−</button><strong id="nurse-count">1/5</strong><button id="nurse-plus" type="button" aria-label="เพิ่มมดพี่เลี้ยง">+</button></div>
       <div class="orders-status"><span id="worker-status">มดงาน 0/5</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 0</span></div>
     </aside>
 
@@ -67,7 +69,7 @@
     </div>
 
     <aside class="debug-panel hidden" id="debug-panel" aria-live="off">
-      <div class="panel-head">SIMULATION / DEBUG <span>U3</span></div>
+      <div class="panel-head">SIMULATION / DEBUG <span>U4</span></div>
       <div class="metric"><span>FPS</span><strong id="metric-fps">—</strong></div>
       <div class="metric"><span>TPS</span><strong id="metric-tps">—</strong></div>
       <div class="metric"><span>Simulation</span><strong id="metric-sim">— ms</strong></div>
@@ -76,6 +78,7 @@
       <div class="metric"><span>Pending tasks</span><strong id="metric-pending">0</strong></div>
       <div class="metric"><span>Camera</span><strong id="metric-camera">—</strong></div>
       <div class="metric"><span>Layer</span><strong id="metric-layer">—</strong></div>
+      <div class="metric"><span>Births / deaths</span><strong id="metric-life">0 / 0</strong></div>
     </aside>
 
     <aside class="selection-card hidden" id="selection-card" aria-live="polite">
@@ -85,6 +88,7 @@
       <p id="selection-work" class="selection-work hidden"></p>
       <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
 <p class="selection-resource hidden" id="selection-resource"></p>
+      <p class="selection-brood hidden" id="selection-brood"></p>
       <span class="selection-note" id="selection-note">เลือกเครื่องมือขุดแล้วแตะหรือลากบนดินเพื่อสั่งมดงาน</span>
     </aside>
 

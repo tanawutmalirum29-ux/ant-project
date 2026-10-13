@@ -8,7 +8,7 @@ base=Path(__file__).resolve().parents[1]
 # Chromium in this sandbox blocks localhost; inline verified ES-module sources for visual testing.
 source=(base/'tools/browser-smoke.py').read_text()
 code=source[:source.index('html=bundle_html()')]
-code=code.replace("mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','core/colony.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']", "mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']")
+code=code.replace("mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','core/colony.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']", "mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/game.js','render/camera.js','render/renderer.js','ui/app.js','main.js']")
 namespace={'__file__':str(base/'tools/browser-smoke.py')}
 exec(code,namespace)
 html=namespace['bundle_html']()

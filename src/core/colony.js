@@ -20,7 +20,7 @@ export class Colony {
     const entrance = world.entrances[0].underground;
     const center = { x: entrance.x, y: entrance.y + 9 };
     if (!isWalkable(layer, center.x, center.y)) throw new Error('Spawn chamber is blocked');
-    this.queen = { id:'queen-1', caste:'queen', layer:UNDERGROUND, x:center.x, y:center.y, facing:0 };
+    this.queen = { id:'queen-1', caste:'queen', layer:UNDERGROUND, x:center.x, y:center.y, facing:0, alive:true };
     const offsets = [[-2,0],[-1,-1],[0,1],[1,-1],[2,0]];
     this.workers = offsets.map(([dx,dy],i) => {
       const x = center.x+dx, y=center.y+dy;
@@ -28,9 +28,9 @@ export class Colony {
       return { id:`worker-${i+1}`, caste:'worker', layer:UNDERGROUND, x,y, facing:i%4, next:null, motion:0, path:[], orderId:null, state:'idle' };
     });
   }
-  isForager(ant) { return this.workers.indexOf(ant) >= WORKER_COUNT - this.forageSlots; }
-  setForageSlots(count) { if (!Number.isInteger(count) || count<0 || count>WORKER_COUNT) throw new RangeError('Invalid forager count'); this.forageSlots=count; }
-  get population() { return this.workers.length + 1; }
+  isForager(ant) { return this.forageSlots > 0 && this.workers.indexOf(ant) >= Math.max(0,this.workers.length-this.forageSlots); }
+  setForageSlots(count) { if (!Number.isInteger(count) || count<0 || count>this.workers.length) throw new RangeError('Invalid forager count'); this.forageSlots=count; }
+  get population() { return this.workers.length + (this.queen.alive ? 1 : 0); }
   get pendingCount() { return this.orders.size; }
   get busyCount() { return this.workers.filter(a=>a.orderId!=null).length; }
   getOrder(x,y) { return this.orders.get(key(x,y)) || null; }
