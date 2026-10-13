@@ -30,7 +30,20 @@
       </div>
     </header>
 
-    <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p></aside>
+    <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p>
+      <section class="workforce-editor" aria-labelledby="workforce-heading">
+        <h3 id="workforce-heading">จัดสรรมดาอัตโนมัติ</h3>
+        <p class="workforce-help">ปรับสัดส่วนครั้งเดียว จำนวนมดเปลี่ยนตามประชากรเอง · รวมสูงสุด 100%</p>
+        <div class="workforce-bar" aria-hidden="true"><span id="alloc-bar-forage"></span><span id="alloc-bar-nurse"></span><span id="alloc-bar-soldier"></span><span id="alloc-bar-general"></span></div>
+        <label class="workforce-row" for="alloc-forage"><span>หาอาหาร</span><output id="alloc-forage-label" for="alloc-forage">40% · 2 ตัว</output></label>
+        <input id="alloc-forage" type="range" min="0" max="60" step="5" value="40" aria-label="เปอร์เซ็นต์มดหาอาหาร" />
+        <label class="workforce-row" for="alloc-nurse"><span>พี่เลี้ยง</span><output id="alloc-nurse-label" for="alloc-nurse">20% · 1 ตัว</output></label>
+        <input id="alloc-nurse" type="range" min="0" max="40" step="5" value="20" aria-label="เปอร์เซ็นต์มดพี่เลี้ยง" />
+        <label class="workforce-row" for="alloc-soldier"><span>ทหาร</span><output id="alloc-soldier-label" for="alloc-soldier">20% · 1 ตัว</output></label>
+        <input id="alloc-soldier" type="range" min="0" max="40" step="5" value="20" aria-label="เปอร์เซ็นต์มดทหาร" />
+        <div class="workforce-row workforce-general"><span>ขุด · สร้าง · งานทั่วไป</span><output id="alloc-general-label">20% · 1 ตัว</output></div>
+        <p class="workforce-help">งานที่กำลังขุด ขนอาหาร หรือดูแลตัวอ่อนจะไม่ถูกยกเลิกกลางทาง จำนวนที่ปฏิบัติงานจริงอาจปรับตามงานว่าง</p>
+      </section></aside>
     <div class="resource-strip" role="status" aria-label="ทรัพยากรในคลัง">
       <div class="resource-stat"><span class="resource-emoji">◉</span><span>อาหารพลังงาน</span><strong id="stock-carbs">0</strong></div>
       <div class="resource-stat"><span class="resource-emoji">◆</span><span>โปรตีน</span><strong id="stock-protein">0</strong></div>
@@ -48,13 +61,11 @@
         <button type="button" class="tool-button" id="tool-room" aria-pressed="false" title="วางผังห้องบนอุโมงค์ที่ขุดแล้ว">▣ <span>สร้างห้อง</span></button>
       </div>
       <div class="room-palette hidden" id="room-palette"><label for="room-type">ประเภทห้อง</label><select id="room-type" aria-label="เลือกประเภทห้อง"><option value="food_store">คลังอาหาร</option><option value="water_store">คลังน้ำ</option><option value="nursery">ห้องเลี้ยงตัวอ่อน</option><option value="rest">ห้องพักมดงาน</option><option value="guard">ห้องเตรียมป้องกัน</option></select><span class="room-cost" id="room-cost">คลิกบนพื้นที่อุโมงค์ 2×2</span></div>
-      <div class="forage-control" aria-label="กำหนดจำนวนมดหาอาหาร">
-        <span>มดหาอาหาร</span>
-        <button id="forage-minus" type="button" aria-label="ลดจำนวนมดหาอาหาร">−</button>
-        <strong id="forage-count">2/5</strong>
-        <button id="forage-plus" type="button" aria-label="เพิ่มจำนวนมดหาอาหาร">+</button>
-      </div>
-      <div class="forage-control nurse-control" aria-label="กำหนดจำนวนมดพี่เลี้ยง"><span>มดพี่เลี้ยง</span><button id="nurse-minus" type="button" aria-label="ลดมดพี่เลี้ยง">−</button><strong id="nurse-count">1/5</strong><button id="nurse-plus" type="button" aria-label="เพิ่มมดพี่เลี้ยง">+</button></div>
+      <button type="button" id="workforce-open" class="workforce-open" aria-controls="colony-panel" aria-label="เปิดหน้าจัดสรรกำลังมดตามเปอร์เซ็นต์">
+        <span>⚙ จัดสรรกำลังมด</span>
+        <strong>หาอาหาร <span id="forage-count">40% · 2/5</span></strong>
+        <strong>พี่เลี้ยง <span id="nurse-count">20% · 1/5</span></strong>
+      </button>
       <div class="orders-status" id="room-summary" aria-live="off">ห้องพร้อมใช้ 1 · กำลังสร้าง 0 · คลัง 24/24/24</div>
       <div class="orders-status"><span id="worker-status">มดงาน 0/5</span><span class="status-dot">•</span><span id="queue-status">คิวขุด 0</span></div>
     </aside>
