@@ -1,16 +1,41 @@
 # AI-3 — R2-UIFIX-01 Mobile UI Hit-Target Correction
 
 **Date (ICT):** 2026-10-13  
-**Status:** CSS hit-target fix implemented, 5/5 real Chromium viewports executed; full-audit gate **FAIL** (46 PASS / 14 FAIL), tracked separately.  
+**Status:** CSS hit-target correction verified on five real Chromium viewports, **55 PASS / 5 FAIL** comprehensive audit. Three independent UI/Combat CI workflows SUCCESS. Five remaining audit cases disclosed.  
 **Task:** https://github.com/tanawutmalirum29-ux/ant-project/issues/32  
 **Previous QA report:** https://github.com/tanawutmalirum29-ux/ant-project/issues/25  
 **Pinned main/base:** `c108aab1b602a089eca40eb495b8ad4b26d408bf`  
 **Work branch:** `work/r2-ai3-ui-hit-targets`  
 **Draft PR:** https://github.com/tanawutmalirum29-ux/ant-project/pull/34 — no self-merge  
-**CSS source branch SHA:** `a241cb99c1fa146c2c84423ccf454fd9ba081476`  
-**Actual PR-merge tested SHA:** `3fa25ba2b05a4eba5a1e49c705df2f4e84eba4fb`  
+**Latest tested CSS source SHA:** `c639f421a7347e81dc04dcf43f5aa76f4d356f28`  
+**Actual latest tested PR-merge SHA:** `f6cf95a5f71c42a8345ca833125ca4baccbf2dba`  
 **Changed paths (exact):** `src/ui/combat.css`, `src/ui/visual/v2-fixes.css`, `src/styles.css`, `docs/ai-reports/AI-3/ROUND_02.md`.  
 **Out-of-scope paths modified:** NONE. In particular no JS, gameplay, tests, harness, index or workflow changes.
+
+## Final UI CSS verification — latest tested implementation (2026-10-13, ICT)
+
+**Work code SHA:** `c639f421a7347e81dc04dcf43f5aa76f4d356f28`; **actual tested PR merge-ref SHA:** `f6cf95a5f71c42a8345ca833125ca4baccbf2dba`. The PR was created from `main@c108aab1b602a089eca40eb495b8ad4b26d408bf`; test merge-ref includes concurrent main changes. The later report-only commit is not a new CSS implementation.
+
+**Five-viewport Actions run:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38361647332 — overall FAIL because full-audit has five remaining red cases. **Downloadable screenshots, five `results.json`, versions and exact exit logs:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38361647332/artifacts/11794798436 .
+
+| Viewport | PASS | FAIL | Page / console errors |
+|---|---:|---:|---:|
+| 320×568 | 12 | 0 | 0 / 0 |
+| 390×844 | 12 | 0 | 0 / 0 |
+| 768×1024 | 11 | 1 | 0 / 0 |
+| 844×390 | 12 | 0 | 0 / 0 |
+| 1440×900 | 8 | 4 | 0 / 0 |
+| **Total, 5/5 executed** | **55** | **5** | **0 / 0** |
+
+**Real command exits (run 38361647332):** `npm_test=0` (152/152 tests), `npm_build=0`, `playwright_install=0`, `py_compile=0`, `ui_5_viewports=1` (55 PASS / 5 FAIL), `browser_v2_ui_fix=0`, `browser_u6=0`, `browser_v2_live=0`. The comprehensive gate is **red**, not PASS.
+
+**Independent PR workflows on the same CSS commit:** [V1 Visual Integrity](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38361647281) **SUCCESS**, [V2.1 UI interaction regression](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38361647475) **SUCCESS**, [U6 Combat and Regression](https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38361647339) **SUCCESS**. Legacy V1 had independently reproduced a tablet 768px `#nurse-plus` interception by `#u6-quick-defend`; a tightly scoped `combat.css` medium-tall tablet breakpoint repositions dock above the left allocation lane and V1 now passes. 320/390 portrait and 844 short landscape originally blocked controls pass all 12 comprehensive cases. All three military buttons remain real touch targets and `#room-type` unchanged.
+
+**Remaining red tests — not hidden / not patched outside allowlist:** tablet `#recenter` test expected camera world y434 but observed y512; desktop expected y434 but observed y450 (**UNVERIFIED SUSPECT**, possibly viewport clamp). Desktop military scenario has no recruitable worker although the test asserts a positive recruit count; on failure its modal remains open, leading to downstream Rally and layout interception reports. This may be fixture/test cleanup, **not independently proven** game or harness fault. Refer to [Issue #33](https://github.com/tanawutmalirum29-ux/ant-project/issues/33) for AI-HEAD-directed triage and do not edit JS/harness here.
+
+**Exact branch allowlist:** `src/ui/combat.css`, `src/ui/visual/v2-fixes.css`, `src/styles.css`, `docs/ai-reports/AI-3/ROUND_02.md`; no out-of-scope paths. No worker merge. **Request AI-HEAD review of Draft PR #34**, with full-audit FAIL disclosed rather than concealed.
+
+---
 
 ## Root-cause evidence from the earlier live Chromium run
 
@@ -28,9 +53,9 @@ GitHub Actions original [run 38357247806](https://github.com/tanawutmalirum29-ux
 - **Short landscape ≤500px:** move the full tactical dock row from `left:35%; bottom:8px` (over layer switch) to horizontal center just above the layer switch (bottom 60px), below the room-option list. Preserve every military command and the existing CSS room picker.
 - **320px room palette expanded:** selection card retains visible header and internal scroll, but caps at 86px high above the moved tool row so Inspect remains clickable.
 - **Transparent right-side HUD gap:** `.right-controls` wrapper ignores pointer events, its real children remain interactive; this restores map tile hit targets without disabling buttons.
-- **Tablet / full desktop:** existing rules untouched except the specifically targeted short landscape breakpoint. Existing interface aesthetics, CSS focus indicators and pointer-events for genuine buttons preserved. `#room-type` and all game logic untouched.
+- **Tablet width 681–849px, height ≥501px:** the whole tactical dock moves to the upper-center band to avoid the V1 economic/nurse control lane; medium tablet V1 regression now passes. Full desktop layout otherwise unchanged. Existing interface aesthetics, CSS focus indicators and pointer-events for genuine buttons preserved. `#room-type` and all game logic untouched.
 
-## Actual Chromium QA on PR #34 (2026-10-13, approx. 14:04 ICT)
+## Earlier PR #34 QA iteration (superseded by latest verification above)
 
 **Workflow:** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38360138935 — overall **FAIL** (not a false PASS).  
 **Artifact (screenshots + JSONs + stdout + exits):** https://github.com/tanawutmalirum29-ux/ant-project/actions/runs/38360138935/artifacts/11793209865 . Contains five `five-viewports/<viewport>/results.json` and available `initial.png`, `selection.png`, `selection-debug.png`, `room-success.png`, `room-invalid.png`, `fail-*.png`, plus `environment.txt` and `exit-codes.txt`. 13.6 MB, GitHub Actions artifact retention as configured.
