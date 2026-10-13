@@ -287,7 +287,8 @@ export class UI {
     $('nurse-minus').disabled=this.game.lifecycle.nurseSlots===0;
     $('nurse-plus').disabled=this.game.lifecycle.nurseSlots===this.game.colony.workers.length;
     const life=this.game.lifecycle;
-    $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae} · พักชั่วคราว ${life.brood.filter(b=>b.site==='temporary').length}`;
+    const temporaryBrood=life.brood.filter(b=>b.site==='temporary').length;
+    $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae}${temporaryBrood?` · พักชั่วคราว ${temporaryBrood}`:''}`;
     $('queen-status').textContent=this.game.colony.queen.alive?life.lastEvent:'นางพญาสิ้นชีวิต';
     $('forage-minus').disabled=this.game.colony.forageSlots===0;
     $('forage-plus').disabled=this.game.colony.forageSlots===this.game.colony.workers.length;
