@@ -35,6 +35,9 @@ with sync_playwright() as pw:
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==1,label
         slider.evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==2,label
+        # The invasion simulator is an advanced action; open its visible disclosure first.
+        page.locator('.u6-advanced summary').click()
+        assert page.locator('#u6-alarm').is_visible(),label
         page.locator('#u6-alarm').click()
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.enemies.length')==1,label
         # Actual battle: no enemy damaging queen remotely, soldier marches to the invader.
