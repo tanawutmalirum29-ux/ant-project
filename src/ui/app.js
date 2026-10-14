@@ -320,7 +320,7 @@ export class UI {
     $('selection-terrain').textContent=sourceText?.title??(room?ROOM_CATALOG[room.type].name:terrainName(terrain));
     $('selection-coords').textContent=`X:${s.x} · Y:${s.y}`;
     const occupants=antsAtTile(this.game,s.layer,s.x,s.y);
-    $('selection-card').dataset.inspecting=occupants.length?'ant':'tile';
+    if($('selection-card').dataset) $('selection-card').dataset.inspecting=occupants.length?'ant':'tile';
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
