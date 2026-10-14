@@ -50,13 +50,27 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$GITHUB_REF" = "refs/heads/feat/colony-milestones-v1-integration"
           test "$GITHUB_REPOSITORY" = "tanawutmalirum29-ux/ant-project"
-          git fetch --no-tags origin refs/heads/feat/colony-milestones-v1-core refs/heads/feat/colony-milestones-v1-ui
-          CORE_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
-          UI_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
-          test "$CORE_LIVE" = "$CORE_SHA"
-          test "$UI_LIVE" = "$UI_SHA"
+          # GitHub may auto-delete source branches immediately after PR merge.
+          # The canonical read-only PR refs continue to name their exact heads.
+          # Fetch both PR refs (not deletable feature branch refs), then assert
+          # their SHAs; post-merge also requires both as actual ancestors below.
+          git fetch --no-tags origin refs/pull/123/head refs/pull/124/head
+          CORE_LIVE=$(git ls-remote origin refs/pull/123/head | cut -f1)
+          UI_LIVE=$(git ls-remote origin refs/pull/124/head | cut -f1)
+          test -n "$CORE_LIVE" && test "$CORE_LIVE" = "$CORE_SHA"
+          test -n "$UI_LIVE" && test "$UI_LIVE" = "$UI_SHA"
           test "$(git rev-parse "$CORE_SHA")" = "$CORE_SHA"
           test "$(git rev-parse "$UI_SHA")" = "$UI_SHA"
+          CORE_BRANCH_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
+          UI_BRANCH_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
+          if test -n "$CORE_BRANCH_LIVE"; then test "$CORE_BRANCH_LIVE" = "$CORE_SHA"; fi
+          if test -n "$UI_BRANCH_LIVE"; then test "$UI_BRANCH_LIVE" = "$UI_SHA"; fi
+          # Missing former feature branches are allowed ONLY after both PR
+          # heads are ancestors of the checkout and the integrated scope passes.
+          if test -z "$CORE_BRANCH_LIVE" || test -z "$UI_BRANCH_LIVE"; then
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+          fi
           git merge-base --is-ancestor "$BASELINE_SHA" "$GITHUB_SHA"
           git merge-base --is-ancestor "$BASELINE_SHA" "$CORE_SHA"
           git merge-base --is-ancestor "$BASELINE_SHA" "$UI_SHA"
@@ -431,11 +445,26 @@ jobs:
           set +e
           E="$GITHUB_WORKSPACE/qa-evidence"
           mkdir -p "$E"
-          C=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
-          U=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
-          printf 'end_core=%s\nend_ui=%s\n' "$C" "$U" | tee "$E/end-source-shas.txt"
-          test "$C" = "$CORE_SHA" && test "$U" = "$UI_SHA"
-          echo "post_sha_check=$?" >> "$E/exit-codes.txt"
+          # Post-merge source branches may be auto-deleted. Canonical PR-head
+          # refs remain exact, and the merged checkout contains both commits.
+          C=$(git ls-remote origin refs/pull/123/head | cut -f1)
+          U=$(git ls-remote origin refs/pull/124/head | cut -f1)
+          CB=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
+          UB=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
+          printf 'end_core_pr=%s\nend_ui_pr=%s\nend_core_branch=%s\nend_ui_branch=%s\n' "$C" "$U" "$CB" "$UB" | tee "$E/end-source-shas.txt"
+          test -n "$C" && test -n "$U" && test "$C" = "$CORE_SHA" && test "$U" = "$UI_SHA"
+          status=$?
+          if test -n "$CB" && test "$CB" != "$CORE_SHA"; then status=1; fi
+          if test -n "$UB" && test "$UB" != "$UI_SHA"; then status=1; fi
+          if test -z "$CB" || test -z "$UB"; then
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            a=$?
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+            b=$?
+            if test "$a" -ne 0 || test "$b" -ne 0; then status=1; fi
+          fi
+          echo "post_sha_check=$status" >> "$E/exit-codes.txt"
+          exit 0
           exit 0
 
       - name: Upload native logs browser screenshots and candidate evidence
