@@ -144,6 +144,7 @@ def run_view(browser,html,name,w,h,root):
             speed=page.evaluate('window.__ANT_DEBUG__.game.clock.speed')
             a=page.locator('[data-u6-squad="A"]')
             b=page.locator('[data-u6-squad="B"]')
+            page.keyboard.press('Tab')  # Real keyboard navigation establishes focus-visible modality.
             b.focus()
             page.keyboard.press('Enter')
             assert b.get_attribute('aria-pressed')=='true','Enter must select Squad B'
@@ -205,7 +206,7 @@ def run_view(browser,html,name,w,h,root):
                 }""")
                 assert page.evaluate('document.activeElement?.id')=='multi-squad-keyboard-editable-probe'
                 page.keyboard.press('Space')
-                assert ' ' in page.locator('#multi-squad-keyboard-editable-probe').inner_text()
+                assert ' ' in page.locator('#multi-squad-keyboard-editable-probe').evaluate('el=>el.textContent')
                 assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
             finally:
                 page.evaluate("""() => {
