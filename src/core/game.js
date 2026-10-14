@@ -8,6 +8,7 @@ import { Combat } from './combat.js';
 import { createResourceNodes } from '../world/resources.js';
 import { ResourceEcology } from './resource-ecology.js';
 import { Weather } from './weather.js';
+import { MilestoneTracker } from './milestones.js';
 /** Worker assignment policy: editable shares plus a protected general-work remainder.
  * Only real workers count (not queen or brood). All integer quotas sum to N via
  * deterministic largest-remainder apportionment, stable on birth/death. */
@@ -91,7 +92,8 @@ export class Game {
     this.lifecycle.workforce=this.workforce;
     this.combat.workforce=this.workforce;
     this.renderMotion = null;
-    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat)];
+    this.milestones = new MilestoneTracker(this);
+    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat), (game) => game.milestones.observe()];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
       for (const system of this.systems) system(this);
@@ -108,7 +110,8 @@ export class Game {
     if (layer !== SURFACE && layer !== UNDERGROUND) throw new RangeError('Unknown layer');
     this.layer = layer;
   }
-  onTick(system) { this.systems.push(system); }
+  // Subscriber callbacks precede the milestone observer, which must remain last.
+  onTick(system) { this.systems.splice(this.systems.length - 1, 0, system); }
   update(ms) { return this.stepper.update(ms); }
   setSpeed(value) { this.stepper.changeSpeed(value); }
 }
