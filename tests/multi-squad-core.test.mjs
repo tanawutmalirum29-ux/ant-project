@@ -137,7 +137,9 @@ test('SQUAD-07: queen attack globally overrides both squad modes and retains ord
   assert.equal(c.getSquad('A').data.queenEmergency,true);
   assert.equal(c.getSquad('B').data.queenEmergency,true);
   assert.equal(c.mode,'rally');assert.equal(ok(c.getSquad('B')).mode,'retreat');
-  assert.equal(first.layer,bRoute.layer);
+  assert.deepEqual(bRoute,{layer:SURFACE,x:entry.surface.x,y:entry.surface.y});
+  assert.deepEqual(pos(first),{layer:UNDERGROUND,x:entry.underground.x,y:entry.underground.y},
+    'physical paired portal crossing may happen in the first rescue tick');
   c.enemies.splice(c.enemies.indexOf(enemy),1);
   c.soldierTick(first);c.soldierTick(second);
   assert.equal(first.state,'combat-rally');assert.equal(second.state,'combat-retreat');
