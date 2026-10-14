@@ -269,17 +269,65 @@ def run_view(browser,html,name,w,h,root):
                 page.keyboard.press('Space')
                 assert page.locator('#multi-squad-keyboard-input-probe').input_value()==' '
                 assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+                # Real Chromium may serialize an inserted ASCII Space as U+00A0
+                # inside contenteditable. Prove the exact insertion and events,
+                # not merely presence of whitespace somewhere in the content.
                 page.evaluate("""() => {
                     const el=document.createElement('div');
                     el.id='multi-squad-keyboard-editable-probe';
                     el.setAttribute('contenteditable','true');
                     el.setAttribute('tabindex','0');
                     el.textContent='Editable';document.body.append(el);el.focus();
+                    const selection=window.getSelection(),range=document.createRange();
+                    range.setStart(el.firstChild,4);range.collapse(true);
+                    selection.removeAllRanges();selection.addRange(range);
+                    window.__qaEditableEvents=[];
+                    for(const type of ['keydown','beforeinput','input','keyup']){
+                        document.addEventListener(type,ev=>{
+                            if(ev.target!==el)return;
+                            window.__qaEditableEvents.push({
+                                type:ev.type,key:ev.key??null,code:ev.code??null,
+                                data:ev.data??null,inputType:ev.inputType??null,
+                                defaultPrevented:ev.defaultPrevented,
+                                focused:document.activeElement===el
+                            });
+                        });
+                    }
                 }""")
-                assert page.evaluate('document.activeElement?.id')=='multi-squad-keyboard-editable-probe'
+                before=page.evaluate("""() => {
+                    const el=document.querySelector('#multi-squad-keyboard-editable-probe');
+                    return {text:el.textContent,codepoints:[...el.textContent].map(x=>x.codePointAt(0)),
+                        focused:document.activeElement===el,
+                        caret:window.getSelection()?.anchorOffset,
+                        gameSpeed:window.__ANT_DEBUG__.game.clock.speed};
+                }""")
                 page.keyboard.press('Space')
-                assert ' ' in page.locator('#multi-squad-keyboard-editable-probe').evaluate('el=>el.textContent')
-                assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+                after=page.evaluate("""() => {
+                    const el=document.querySelector('#multi-squad-keyboard-editable-probe');
+                    return {text:el.textContent,codepoints:[...el.textContent].map(x=>x.codePointAt(0)),
+                        html:el.innerHTML,focused:document.activeElement===el,
+                        caret:window.getSelection()?.anchorOffset,
+                        gameSpeed:window.__ANT_DEBUG__.game.clock.speed,
+                        events:window.__qaEditableEvents.slice()};
+                }""")
+                evidence['editable_diagnostics']={'before':before,'after':after,
+                    'browser':browser.version,'viewport':{'width':w,'height':h}}
+                assert before['focused'] and after['focused'],(before,after)
+                assert before['text']=='Editable' and before['caret']==4,before
+                assert before['gameSpeed']==initial and after['gameSpeed']==initial,(before,after)
+                inserted=after['text'][4:5]
+                assert inserted and ord(inserted) in (0x0020,0x00A0),after
+                assert after['text']==before['text'][:4]+inserted+before['text'][4:],(
+                    'Space inserted at wrong position or altered other content',before,after)
+                events=after['events']
+                kinds=[ev['type'] for ev in events]
+                assert all(k in kinds for k in ('keydown','beforeinput','input','keyup')),events
+                assert kinds.index('keydown')<kinds.index('beforeinput')<kinds.index('input')<kinds.index('keyup'),events
+                assert any(ev['type']=='keydown' and ev['code']=='Space' and
+                    ev['key']==' ' and not ev['defaultPrevented'] for ev in events),events
+                assert any(ev['type']=='beforeinput' and ev['data']==' ' and
+                    ev['inputType']=='insertText' and not ev['defaultPrevented'] for ev in events),events
+                assert any(ev['type']=='input' and ev['data']==' ' for ev in events),events
             finally:
                 page.evaluate("""() => {
                     document.getElementById('multi-squad-keyboard-input-probe')?.remove();
