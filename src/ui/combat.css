@@ -163,3 +163,71 @@
   #u6-dialog .u6-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
   #u6-dialog .u6-unit-buttons{width:100%;justify-content:flex-start;}
 }
+
+
+/* TACTICAL-UX-01: targeting hint follows the military dock, not map centre. */
+#u6-dock{isolation:isolate;}
+#u6-target-tip{
+  position:absolute;inset:auto 0 calc(100% + 7px) auto;
+  top:auto;left:auto;transform:none;
+  width:max-content;max-width:min(280px,calc(100vw - 28px));
+  padding:5px 6px 5px 10px;gap:7px;border-radius:10px;
+  font-size:11px;line-height:1.3;box-shadow:0 3px 12px #0008;
+  white-space:normal;
+}
+#u6-target-tip button{min-height:44px;min-width:60px;padding:5px 8px;}
+/* The portrait dock button width rule must not stretch the chip's Cancel action. */
+#u6-dock #u6-target-tip button{width:auto;white-space:nowrap;}
+@media(max-width:680px) and (min-height:501px){
+  #u6-target-tip{inset:calc(100% + 7px) 0 auto auto;bottom:auto;max-width:min(210px,calc(100vw - 24px));}
+}
+@media(min-width:681px) and (max-width:849px) and (min-height:501px){
+  #u6-target-tip{inset:auto 0 calc(100% + 7px) auto;top:auto;}
+}
+@media(max-height:500px) and (orientation:landscape){
+  #u6-target-tip{inset:auto 0 calc(100% + 5px) auto;top:auto;max-width:210px;}
+}
+
+/* TACTICAL-UX-01: orders stay visible while the troop list scrolls separately. */
+#u6-dialog{width:min(920px,calc(100vw - 20px));max-height:min(90dvh,760px);}
+#u6-dialog .u6-sheet{gap:10px;min-width:0;padding:14px;}
+#u6-dialog .u6-heading{display:grid;gap:2px;min-width:0;}
+#u6-dialog .u6-heading small{font-size:11px;color:#b4cbb7;}
+#u6-dialog .u6-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
+#u6-dialog .u6-stats span{min-width:0;padding:8px;flex-wrap:wrap;}
+#u6-dialog .u6-main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0;}
+#u6-dialog .u6-command-column{display:grid;align-content:start;gap:10px;min-width:0;}
+#u6-dialog .u6-command-actions{display:grid;gap:6px;min-width:0;}
+#u6-dialog #u6-rally{width:100%;min-height:44px;border-color:#d1ab70;}
+#u6-dialog .u6-squad-overview p{font-size:11px;line-height:1.4;}
+#u6-dialog .u6-squad-detail{gap:5px;}
+#u6-dialog .u6-roster-panel{min-width:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);align-content:start;gap:8px;padding:10px;border:1px solid #526e5c;border-radius:12px;background:#1b3028;}
+#u6-dialog .u6-roster-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;min-width:0;}
+#u6-dialog .u6-roster-head h3{margin:0;}
+#u6-dialog .u6-roster-head label{display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;}
+#u6-dialog #u6-roster-filter{min-height:44px;max-width:190px;min-width:0;border:1px solid #92a58c;border-radius:8px;background:#294136;color:#fff0d8;padding:6px;font:600 12px system-ui,sans-serif;}
+#u6-dialog .u6-roster{max-height:270px;min-height:84px;}
+#u6-dialog .u6-empty{margin:0;padding:15px 10px;border:1px dashed #627a66;border-radius:8px;color:#b9cdbb;font-size:12px;text-align:center;}
+#u6-dialog .u6-unit{gap:6px;}
+#u6-dialog .u6-unit-info strong{font-size:12px;}
+#u6-dialog .u6-advanced{font-size:12px;color:#c6d5c1;padding:8px 10px;border:1px solid #45614f;border-radius:9px;}
+#u6-dialog .u6-advanced summary{cursor:pointer;min-height:26px;display:list-item;}
+#u6-dialog .u6-advanced button{display:block;margin:8px 0;min-height:44px;}
+#u6-dialog .u6-advanced small{display:block;}
+#u6-dialog #u6-roster-filter:focus-visible{outline:3px solid #f5cb83;outline-offset:2px;}
+@media(min-width:740px) and (min-height:520px){
+  #u6-dialog .u6-main{grid-template-columns:minmax(0,.96fr) minmax(0,1.12fr);}
+  #u6-dialog .u6-roster{max-height:min(430px,53dvh);}
+}
+@media(max-width:600px){
+  #u6-dialog .u6-sheet{padding:10px;gap:8px;}
+  #u6-dialog .u6-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #u6-dialog .u6-roster-panel{padding:8px;}
+  #u6-dialog .u6-roster{max-height:220px;}
+}
+@media(max-height:500px) and (orientation:landscape){
+  #u6-dialog{max-height:94dvh;}
+  #u6-dialog .u6-sheet{padding:8px;}
+  #u6-dialog .u6-main{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #u6-dialog .u6-roster{max-height:min(190px,45dvh);}
+}

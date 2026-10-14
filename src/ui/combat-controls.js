@@ -3,7 +3,7 @@ import { TILE } from '../world/generate.js';
 export class CombatControls {
   constructor(ui){
     this.ui=ui;ui.combatControls=this;this.targeting=false;this.rosterSignature='';
-    this.selectedSquad='A';this.armedSquad=null;this.lastGame=ui.game;
+    this.selectedSquad='A';this.armedSquad=null;this.rosterFilter='all';this.lastGame=ui.game;
     const sheet=document.createElement('link');
     sheet.rel='stylesheet';sheet.href=new URL('./combat.css',import.meta.url).href;
     document.head.append(sheet);
@@ -19,13 +19,14 @@ export class CombatControls {
     defend.textContent='ป้องกัน';dock.append(rally,defend);document.body.append(dock);
     const tip=document.createElement('div');tip.id='u6-target-tip';tip.hidden=true;
     const tipText=document.createElement('span');tipText.textContent='กอง A · แตะช่องบนแผนที่เพื่อรวมพล · ลากเลื่อนได้';
-    const cancel=document.createElement('button');cancel.id='u6-cancel-target';cancel.textContent='ยกเลิก';
-    tip.append(tipText,cancel);document.body.append(tip);this.tip=tip;this.tipText=tipText;
+    const cancel=document.createElement('button');cancel.id='u6-cancel-target';cancel.type='button';cancel.textContent='ยกเลิก';cancel.setAttribute('aria-label','ยกเลิกการเลือกจุดรวมพล');
+    tip.append(tipText,cancel);dock.append(tip);this.tip=tip;this.tipText=tipText;
     const dialog=document.createElement('dialog');dialog.id='u6-dialog';
     dialog.setAttribute('aria-labelledby','u6-title');
     dialog.innerHTML=`<section class="u6-sheet">
-      <header><h2 id="u6-title">กองทัพมด · ศูนย์บัญชาการ</h2><button type="button" id="u6-close" aria-label="ปิด">×</button></header>
+      <header><div class="u6-heading"><h2 id="u6-title">ศูนย์บัญชาการทหาร</h2><small>เลือกกอง · สั่งการ · จัดกำลัง</small></div><button type="button" id="u6-close" aria-label="ปิด">×</button></header>
       <div class="u6-stats"><span>มดทหาร <b id="u6-soldiers">1/1</b></span><span>ศัตรู <b id="u6-enemies">0</b></span><span>ปกป้องสำเร็จ <b id="u6-kills">0</b></span><span>นางพญา <b id="u6-queen">48/48</b></span></div>
+      <div class="u6-main"><div class="u6-command-column">
       <section class="u6-squad-panel" aria-label="จัดการกองทหาร">
         <div class="u6-squad-tabs" role="group" aria-label="เลือกกองทหาร">
           <button type="button" data-u6-squad="A" aria-pressed="true">กอง A</button>
@@ -42,19 +43,32 @@ export class CombatControls {
           <p id="u6-squad-emergency"></p>
         </div>
       </section>
+      <div class="u6-command-actions">
+        <div class="u6-modes" role="group" aria-label="ยุทธศาสตร์"><button type="button" data-u6-mode="defend">ป้องกันรัง</button><button type="button" data-u6-mode="rally">รวมพล</button><button type="button" data-u6-mode="retreat">ถอยและพักฟื้น</button></div>
+        <button id="u6-rally" type="button">⌖ เลือกจุดรวมพลบนแผนที่</button>
+        <p id="u6-rally-status" class="u6-subnote">ยังไม่ได้ตั้งจุดรวมพล</p>
+      </div>
       <div class="u6-percent-control"><label for="u6-percent"><span>สัดส่วนมดทหารอัตโนมัติ</span><strong id="u6-target">20%</strong></label>
         <input id="u6-percent" type="range" min="0" max="40" step="5" value="20" aria-label="เปอร์เซ็นต์มดทหาร" />
-        <small>คำนวณใหม่เมื่อมดเกิดหรือตาย · เปลี่ยนสัดส่วนกลุ่มอื่นได้ที่รายงานประชากร</small>
+        <small>เกณฑ์มดว่างตามสัดส่วนที่ตั้งไว้ โดยไม่ขัดจังหวะงานเดิม</small>
       </div>
-      <div class="u6-modes" role="group" aria-label="ยุทธศาสตร์"><button type="button" data-u6-mode="defend">ป้องกันรัง</button><button type="button" data-u6-mode="rally">รวมพล</button><button type="button" data-u6-mode="retreat">ถอยและพักฟื้น</button></div>
-      <button id="u6-rally" type="button">⌖ เลือกช่องบนแผนที่เพื่อรวมพล</button>
-      <p id="u6-rally-status" class="u6-subnote">ยังไม่ได้ตั้งจุดรวมพล</p>
-      <p id="u6-workforce" class="u6-subnote"></p>
-      <h3>รายชื่อมด <small>จัดกำลังอัตโนมัติ · แตะดูตำแหน่ง</small></h3>
-      <div id="u6-roster" class="u6-roster" aria-label="กำลังพลและมดงาน"></div>
-      <button id="u6-alarm" type="button">จำลองการบุกรุกทันที</button>
-      <p id="u6-notice" aria-live="polite">เลือกทหารเพื่อเริ่มป้องกันรัง</p>
-      <small>ศัตรูตามธรรมชาติเริ่มปรากฏหลังผ่านไป 3,600 Tick; สามารถทดสอบการบุกได้ทันที ปุ่มรวมพลใช้ช่องแผนที่ที่สำรวจเลือกไว้</small>
+      </div>
+      <section class="u6-roster-panel" aria-label="รายชื่อและการย้ายกอง">
+        <div class="u6-roster-head">
+          <h3>จัดกำลังพล <small>แตะดูตำแหน่งหรือย้ายกอง</small></h3>
+          <label for="u6-roster-filter">แสดง <select id="u6-roster-filter" aria-label="กรองรายชื่อมด">
+            <option value="all">มดทั้งหมด</option><option value="soldiers">ทหารทั้งหมด</option>
+            <option value="selected">ทหารกองที่เลือก</option><option value="workers">มดงาน</option>
+          </select></label>
+        </div>
+        <p id="u6-workforce" class="u6-subnote"></p>
+        <div id="u6-roster" class="u6-roster" aria-label="กำลังพลและมดงาน"></div>
+      </section></div>
+      <details class="u6-advanced"><summary>เครื่องมือทดสอบการบุกรุก</summary>
+        <button id="u6-alarm" type="button">จำลองการบุกรุกทันที</button>
+        <small>ศัตรูตามธรรมชาติเริ่มปรากฏหลังผ่านไป 3,600 Tick</small>
+      </details>
+      <p id="u6-notice" aria-live="polite">เลือกกองทหารเพื่อเริ่มสั่งการ</p>
     </section>`;
     document.body.append(dialog);
     this.dialog=dialog;
@@ -82,6 +96,10 @@ export class CombatControls {
       });
     }
     dialog.querySelector('#u6-rally').addEventListener('click',()=>this.armRally());
+    dialog.querySelector('#u6-roster-filter').addEventListener('change',event=>{
+      this.rosterFilter=event.target.value;this.rosterSignature='';
+      this.renderRoster(true,this.combat.getSquads?.().data??[]);
+    });
     dialog.querySelector('#u6-alarm').addEventListener('click',()=>{
       const result=this.combat.raiseAlarm();
       this.report(result?'ตรวจพบศัตรูบนพื้นผิวแล้ว':'ไม่สามารถสร้างศัตรูได้ (อาจเต็มจำนวนหรือไม่มีทางเดิน)');
@@ -146,7 +164,7 @@ export class CombatControls {
     // Empty squads may receive a standing rally order under Contract v1.0.
     this.armedSquad=squad;this.targeting=true;this.ui.setTool('inspect');this.dialog.close();
     this.tip.hidden=false;
-    this.tipText.textContent=`กอง ${squad} · แตะช่องเดินได้เพื่อรวมพล · ลากเลื่อนได้`;
+    this.tipText.textContent=`กอง ${squad} · แตะช่องเพื่อรวมพล`;
     document.getElementById('u6-quick-rally').setAttribute('aria-pressed','true');
     this.ui.notice(`เลือกจุดรวมพลกอง ${squad} บนแผนที่ · ยกเลิกได้ด้วย Escape`);
     return true;
@@ -179,12 +197,28 @@ export class CombatControls {
     const members=new Map();
     for(const squad of squads)for(const member of squad.soldiers)members.set(String(member.id),{squadId:squad.id,member});
     const signature=workers.map(a=>[a.id,a.state,a.combatRole,a.combatHP,a.x,a.y,a.layer,c.canRecruit(a)].join(':')).join('|')+
-      '|'+squads.map(s=>s.id+':'+s.soldiers.map(a=>[a.id,a.hp,a.maxHP,a.formationStatus,a.arrived].join(':')).join(';')).join('|');
+      '|'+squads.map(s=>s.id+':'+s.soldiers.map(a=>[a.id,a.hp,a.maxHP,a.formationStatus,a.arrived].join(':')).join(';')).join('|')+
+      '|'+(this.rosterFilter??'all')+':'+this.selectedSquad;
     if(!force&&signature===this.rosterSignature)return;
     this.rosterSignature=signature;
     const list=this.dialog.querySelector('#u6-roster'),scroll=list.scrollTop;
     const body=document.createDocumentFragment();
-    for(const ant of workers){
+    const filter=this.rosterFilter??'all';
+    const visible=workers.filter(ant=>{
+      const soldier=ant.combatRole==='soldier';
+      if(filter==='soldiers')return soldier;
+      if(filter==='selected')return soldier&&members.get(String(ant.id))?.squadId===this.selectedSquad;
+      if(filter==='workers')return !soldier;
+      return true;
+    });
+    if(!visible.length){
+      const empty=document.createElement('p');empty.className='u6-empty';
+      empty.textContent=filter==='selected'
+        ?`กอง ${this.selectedSquad} ยังไม่มีทหาร · เลือก “ทหารทั้งหมด” เพื่อย้ายทหารเข้ากอง`
+        :'ไม่มีมดในรายการนี้';
+      body.append(empty);
+    }
+    for(const ant of visible){
       const membership=members.get(String(ant.id));
       const soldier=ant.combatRole==='soldier',squadId=membership?.squadId;
       const row=document.createElement('div');row.className='u6-unit'+(soldier?' is-soldier':'');
@@ -227,7 +261,7 @@ export class CombatControls {
   }
   update(force=false){
     if(this.lastGame!==this.ui.game){
-      this.lastGame=this.ui.game;this.selectedSquad='A';this.rosterSignature='';
+      this.lastGame=this.ui.game;this.selectedSquad='A';this.rosterFilter='all';this.rosterSignature='';
       this.cancelRally();
     }
     const c=this.combat,read=c.getSquads?.();
@@ -237,6 +271,8 @@ export class CombatControls {
     const ready=c.soldiers.length;
     document.getElementById('u6-badge').textContent=`${ready}/${c.soldierSlots}${c.threatCount?' !'+c.threatCount:''}`;
     document.getElementById('u6-quick-defend').setAttribute('aria-pressed',String(active?.mode==='defend'));
+    document.getElementById('u6-quick-rally').textContent=`⌖ รวมพล ${this.selectedSquad}`;
+    document.getElementById('u6-quick-defend').textContent=`ป้องกัน ${this.selectedSquad}`;
     if(!this.dialog.open)return;
     const set=(id,value)=>{this.dialog.querySelector(id).textContent=String(value)};
     set('#u6-soldiers',`${ready}/${c.soldierSlots}`);set('#u6-enemies',c.threatCount);
@@ -250,12 +286,12 @@ export class CombatControls {
     for(const squad of squads){
       const rally=squad.rally?`${squad.rally.layer} (${squad.rally.x},${squad.rally.y})`:'ไม่มีจุดรวมพล';
       set('#u6-overview-'+squad.id.toLowerCase(),
-        `กอง ${squad.id} · ${squad.count} ตัว · HP ${squad.hpCurrent}/${squad.hpMax} · ${squad.mode} · ${rally} · ถึงแล้ว ${squad.ralliedCount}`);
+        `กอง ${squad.id} · ${squad.count} ตัว · HP ${squad.hpCurrent}/${squad.hpMax} · ${{defend:'ป้องกันรัง',rally:'รวมพล',retreat:'พักฟื้น'}[squad.mode]??squad.mode}`);
     }
     set('#u6-selected-squad',`กอง ${this.selectedSquad}`);
     set('#u6-squad-count',active?`กำลังพล ${active.count} ตัว · HP ${active.hpCurrent}/${active.hpMax}`:'ไม่มีข้อมูลกอง');
-    set('#u6-squad-order',active?`คำสั่ง ${active.mode} · จุดรวมพล ${active.rally?`${active.rally.layer} (${active.rally.x},${active.rally.y})`:'ยังไม่กำหนด'}`:'');
-    set('#u6-squad-formation',active?`Formation: Assigned ${active.formation.assigned} · Standby ${active.formation.standby} · Unreachable ${active.formation.unreachable} · ถึงแล้ว ${active.ralliedCount}/${active.count}`:'');
+    set('#u6-squad-order',active?`คำสั่ง ${{defend:'ป้องกันรัง',rally:'รวมพล',retreat:'ถอยและพักฟื้น'}[active.mode]??active.mode} · จุดรวมพล ${active.rally?`${active.rally.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${active.rally.x},${active.rally.y})`:'ยังไม่กำหนด'}`:'');
+    set('#u6-squad-formation',active?`ประจำจุด ${active.formation.assigned} · รอคำสั่ง ${active.formation.standby} · ไปไม่ถึง ${active.formation.unreachable} · ถึงจุดรวมพล ${active.ralliedCount}/${active.count}`:'');
     set('#u6-squad-emergency',active?.queenEmergency?'ฉุกเฉิน: ปกป้องนางพญา (ทุกกอง)':'');
     set('#u6-rally-status',active?.rally?`กอง ${active.id} · จุดรวมพล ${active.rally.layer} (${active.rally.x},${active.rally.y}) · ถึงแล้ว ${active.ralliedCount}/${active.count}`:'ยังไม่มีจุดรวมพล');
     for(const btn of this.dialog.querySelectorAll('[data-u6-mode]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Mode===active?.mode));

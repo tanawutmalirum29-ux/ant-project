@@ -166,7 +166,7 @@ test('selected-squad readout renders A/B snapshots, formation, emergency and emp
     assert.match(f.nodes.get('#u6-overview-b').textContent,/0 ตัว/);
     f.control.selectSquad('B');
     assert.match(f.nodes.get('#u6-squad-emergency').textContent,/ฉุกเฉิน/);
-    assert.match(f.nodes.get('#u6-squad-formation').textContent,/Assigned 0/);
+    assert.match(f.nodes.get('#u6-squad-formation').textContent,/ประจำจุด 0/);
   }finally{f.cleanup();}
 });
 
@@ -189,4 +189,63 @@ test('new UI source uses squad public methods, native button accessibility and s
   assert.match(css,/@media\(max-width:390px\)/);
   assert.match(css,/@media\(max-width:320px\)/);
   assert.match(css,/min-height:44px/);
+});
+
+
+test('military HUD keeps rally hint at the dock and exposes squad roster filter',()=>{
+  const js=readFileSync(new URL('../src/ui/combat-controls.js',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../src/ui/combat.css',import.meta.url),'utf8');
+  assert.match(js,/dock\.append\(tip\)/);
+  assert.match(js,/id="u6-roster-filter"/);
+  assert.match(js,/this\.rosterFilter='all'/);
+  assert.match(js,/filter==='selected'/);
+  assert.match(js,/class="u6-main"/);
+  assert.match(js,/class="u6-advanced"/);
+  assert.match(css,/#u6-target-tip\{\s*position:absolute;inset:auto/);
+  assert.match(css,/#u6-dialog \.u6-main\{display:grid/);
+  assert.match(css,/@media\(min-width:740px\) and \(min-height:520px\)/);
+});
+
+test('squad roster filters soldiers, workers and currently selected squad without losing transfer buttons',()=>{
+  const oldDocument=globalThis.document;
+  const makeNode=tag=>({
+    tag,children:[],dataset:{},className:'',scrollTop:0,
+    append(...nodes){this.children.push(...nodes);},
+    replaceChildren(fragment){this.children=[...fragment.children];},
+    setAttribute(){},contains(){return false;},querySelectorAll(){return []}
+  });
+  const list=makeNode('roster');
+  globalThis.document={
+    activeElement:null,createElement:makeNode,
+    createDocumentFragment:()=>makeNode('fragment')
+  };
+  const workers=[
+    {id:'worker-1',state:'combat-guard',combatRole:'soldier',combatHP:10,x:1,y:2,layer:'underground'},
+    {id:'worker-2',state:'combat-guard',combatRole:'soldier',combatHP:12,x:3,y:4,layer:'underground'},
+    {id:'worker-3',state:'idle',x:5,y:6,layer:'underground'}
+  ];
+  const combat={canRecruit:()=>false};
+  const control=Object.create(CombatControls.prototype);
+  Object.assign(control,{
+    ui:{game:{colony:{workers},combat}},
+    dialog:{querySelector:()=>list},selectedSquad:'B',rosterFilter:'all',rosterSignature:''
+  });
+  const squadA={id:'A',soldiers:[soldier('worker-1',10)]};
+  const squadB={id:'B',soldiers:[soldier('worker-2',12)]};
+  try{
+    control.renderRoster(true,[squadA,squadB]);
+    assert.equal(list.children.length,3);
+    control.rosterFilter='selected';
+    control.renderRoster(true,[squadA,squadB]);
+    assert.equal(list.children.length,1);
+    assert.match(list.children[0].children[0].children[0].textContent,/worker-2|มด #2/);
+    assert.equal(list.children[0].children[1].children[1].dataset.toSquad,'A');
+    control.rosterFilter='workers';
+    control.renderRoster(true,[squadA,squadB]);
+    assert.equal(list.children.length,1);
+    assert.match(list.children[0].children[0].children[0].textContent,/มดงาน/);
+    control.rosterFilter='soldiers';
+    control.renderRoster(true,[squadA,squadB]);
+    assert.equal(list.children.length,2);
+  }finally{globalThis.document=oldDocument;}
 });
