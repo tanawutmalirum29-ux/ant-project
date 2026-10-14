@@ -299,7 +299,7 @@ export class UI {
     const current=this.selection;
     const isSame=current && current.layer===tile.layer &&
       current.x===tile.x && current.y===tile.y &&
-      this.selectedAntId===antId;
+      (this.selectedAntId??null)===antId;
     const valid=cellAt(this.game.currentLayer,tile.x,tile.y)!=null;
     this.select(!valid || isSame ? null : tile,isSame?null:antId);
   }
