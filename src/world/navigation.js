@@ -88,3 +88,29 @@ export function reachablePaths(layer, start) {
     path(x,y) { const dest=id(layer,x,y);return dist[dest]<0 ? null : route(layer,prev,source,dest); }
   };
 }
+
+/** Plan through diggable earth; workers still only WALK through cleared tiles. */
+export function findExcavationRoute(layer,starts,targets){
+  if(layer.kind!=='underground'||!starts.length||!targets.length)return null;
+  const n=layer.width*layer.height,goal=new Set(targets.filter(p=>isDiggable(layer,p.x,p.y)).map(p=>id(layer,p.x,p.y)));
+  if(!goal.size)return null;
+  const dist=new Float64Array(n).fill(Infinity),prev=new Int32Array(n).fill(-1),heap=[];
+  const push=(idx,cost)=>{heap.push([cost,idx]);let i=heap.length-1;while(i){const p=(i-1)>>1;if(heap[p][0]<=cost)break;heap[i]=heap[p];i=p;}heap[i]=[cost,idx];};
+  const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){let i=0;while(2*i+1<heap.length){let child=2*i+1;if(child+1<heap.length&&heap[child+1][0]<heap[child][0])child++;if(last[0]<=heap[child][0])break;heap[i]=heap[child];i=child;}heap[i]=last;}return top;};
+  for(const s of starts)if(isWalkable(layer,s.x,s.y)){const v=id(layer,s.x,s.y);if(dist[v]>0){dist[v]=0;push(v,0);}}
+  while(heap.length){
+    const [cost,cur]=pop();if(cost!==dist[cur])continue;
+    if(goal.has(cur)){
+      const path=[];for(let v=cur;prev[v]!==-1;v=prev[v])path.push({x:v%layer.width,y:Math.floor(v/layer.width)});
+      return {path:path.reverse(),cost,target:{x:cur%layer.width,y:Math.floor(cur/layer.width)}};
+    }
+    const x=cur%layer.width,y=Math.floor(cur/layer.width);
+    for(const [dx,dy] of DIRECTIONS){
+      const xx=x+dx,yy=y+dy,t=cellAt(layer,xx,yy);
+      if(!isWalkable(layer,xx,yy)&&!isDiggable(layer,xx,yy))continue;
+      const next=id(layer,xx,yy),costNext=cost+(t===TERRAINS.HARD_SOIL?30:t===TERRAINS.SOIL?12:1);
+      if(costNext<dist[next]){dist[next]=costNext;prev[next]=cur;push(next,costNext);}
+    }
+  }
+  return null;
+}
