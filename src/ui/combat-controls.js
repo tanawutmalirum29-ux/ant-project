@@ -355,6 +355,11 @@ export class CombatControls {
     // Live positions and states change every simulation tick. Replacing the
     // entire roster detached buttons during a real pointer click on "ดูมด".
     // Reconcile rows by ant ID so their original buttons remain stable.
+    // Minimal test adapters do not implement the browser's DOM node-move API.
+    if(typeof list.insertBefore!=='function'){
+      list.replaceChildren(body);list.scrollTop=scroll;
+      return;
+    }
     const existing=new Map([...list.querySelectorAll('.u6-unit')].map(row=>[row.dataset.antId,row]));
     const rows=[...body.children];
     for(let i=0;i<rows.length;i++){
