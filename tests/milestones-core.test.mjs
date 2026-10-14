@@ -64,6 +64,40 @@ test('MILESTONE-CORE-01 initial snapshot exact frozen V1 shape; no read-side eff
   assert.equal(g.milestones.getSnapshot().tick, 0);
 });
 
+test('MILESTONE-CORE-11 tick-zero workers mirror the new colony and same-seed reset', () => {
+  const seed = 'milestone-live-initial-workers';
+  const original = new Game(seed);
+  const initialCount = original.colony.workers.length;
+  assert.equal(initialCount, 5);
+  for (const snapshot of [original.milestones.getSnapshot(), original.milestones.getSnapshot()]) {
+    assert.equal(snapshot.tick, 0);
+    assert.equal(snapshot.stages[1].progress.livingWorkers, initialCount);
+    assert.equal(snapshot.stages[1].progress.requiredWorkers, 8);
+    assert.equal(snapshot.stages[1].complete, false);
+    assert.equal(snapshot.stages[1].completedTick, null);
+    assert.equal(snapshot.activeStage, 0);
+    assert.equal(snapshot.allComplete, false);
+  }
+  assert.equal(original.clock.ticks, 0, 'reading progress never executes a tick');
+
+  // A fixture-side loss is observed only on an executed simulation tick.
+  original.colony.workers.pop();
+  step(original);
+  assert.equal(original.milestones.getSnapshot().stages[1].progress.livingWorkers,
+    original.colony.workers.length);
+  assert.equal(original.milestones.getSnapshot().tick, 1);
+
+  const restarted = new Game(seed);
+  const reset = restarted.milestones.getSnapshot();
+  assert.equal(reset.tick, 0);
+  assert.equal(restarted.clock.ticks, 0);
+  assert.equal(reset.stages[1].progress.livingWorkers, restarted.colony.workers.length);
+  assert.equal(reset.stages[1].progress.livingWorkers, initialCount);
+  assert.ok(reset.stages.every(stage => !stage.complete && stage.completedTick === null));
+  assert.equal(reset.activeStage, 0);
+  assert.equal(reset.allComplete, false);
+});
+
 test('MILESTONE-CORE-02 stage1 latches separately delivered-stock observations after depletion and actual completed dig', () => {
   const t = fixture();
   // Cargo/sources and queued jobs do not count as delivered or excavated.
