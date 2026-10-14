@@ -103,13 +103,18 @@ test('marker respects current layer and does not persist across new seed/game', 
 /** Drive real CombatControls methods without requiring a browser or coupling to source syntax. */
 function rallyHarness({ squad='A', accepted=true }={}) {
   const pings=[],commands=[],notices=[],reports=[],attributes=[];
-  const worker={id:'worker-1',combatRole:'soldier'};
+  const workerA={id:'worker-1',combatRole:'soldier',combatHP:16};
+  const workerB={id:'worker-2',combatRole:'soldier',combatHP:14};
+  const members={A:[workerA],B:[workerB]};
+  const snapshot=id=>({id,count:members[id].length,
+    soldiers:members[id].map(w=>({id:w.id,hp:w.combatHP,maxHP:16,layer:UNDERGROUND,
+      x:2,y:3,state:'combat-guard',formationStatus:null,arrived:false})),
+    mode:'defend',rally:null,hpCurrent:members[id][0].combatHP,hpMax:16,ralliedCount:0,
+    formation:{assigned:0,standby:0,unreachable:0},queenEmergency:false});
   const combat={
-    soldiers:[worker],mode:'defend',rally:null,
-    getSquads(){return {ok:true,data:['A','B'].map(id=>({id,count:1,soldiers:[worker],mode:'defend',
-      rally:null,hpCurrent:16,hpMax:16,ralliedCount:0,formation:{assigned:0,standby:0,unreachable:0},
-      queenEmergency:false}))};},
-    getSquad(id){return {ok:true,data:{id,count:1,soldiers:[worker],mode:'defend',rally:null}};},
+    soldiers:[workerA,workerB],mode:'defend',rally:null,
+    getSquads(){return {ok:true,data:['A','B'].map(snapshot)};},
+    getSquad(id){return {ok:true,data:snapshot(id)};},
     setSquadRally(id,layer,x,y){
       commands.push([id,layer,x,y]);
       if(!accepted)return {ok:false,error:{code:'UNREACHABLE_RALLY',message:'No traversable path'}};
