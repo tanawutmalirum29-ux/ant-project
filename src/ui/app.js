@@ -124,7 +124,13 @@ export class UI {
       this.notice('สร้างโลกใหม่สำเร็จ');
     });
     document.addEventListener('keydown', (e) => {
-      if (document.activeElement?.matches('input,textarea') || $('seed-dialog').open) return;
+      // Keep native Space/Enter behavior on focused controls (notably Squad A/B).
+      // Gameplay shortcuts apply only when the page/canvas owns keyboard focus.
+      const focused = document.activeElement;
+      const interactive = focused?.isContentEditable || focused?.closest(
+        'button,input,textarea,select,a[href],summary,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="link"],[role="textbox"],[role="combobox"],[role="slider"],[role="spinbutton"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="radio"],[role="switch"]'
+      );
+      if (interactive || $('seed-dialog').open) return;
       if (e.code === 'Space') { e.preventDefault(); this.changeSpeed(this.game.clock.speed === 0 ? this.lastSpeed : 0); }
       if (e.code === 'Digit1') this.switchLayer(SURFACE);
       if (e.code === 'Digit2') this.switchLayer(UNDERGROUND);

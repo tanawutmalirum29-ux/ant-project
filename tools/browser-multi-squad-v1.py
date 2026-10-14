@@ -141,21 +141,82 @@ def run_view(browser,html,name,w,h,root):
             return {'A':current_squad(page,'A')['mode'],'B':current_squad(page,'B')['mode']}
         check('independent A/B orders, selector via real touch',commands)
         def keyboard():
+            speed=page.evaluate('window.__ANT_DEBUG__.game.clock.speed')
+            a=page.locator('[data-u6-squad="A"]')
             b=page.locator('[data-u6-squad="B"]')
+            page.keyboard.press('Tab')  # Real keyboard navigation establishes focus-visible modality.
             b.focus()
             page.keyboard.press('Enter')
-            assert page.locator('[data-u6-squad="B"]').get_attribute('aria-pressed')=='true'
-            outline=b.evaluate("""el=>({style:getComputedStyle(el).outlineStyle,width:getComputedStyle(el).outlineWidth})""")
-            assert outline['style']!='none' and outline['width']!='0px',outline
-            a=page.locator('[data-u6-squad="A"]')
+            assert b.get_attribute('aria-pressed')=='true','Enter must select Squad B'
+            assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==speed,'Enter changed game speed'
+            outline=b.evaluate("""el=>({style:getComputedStyle(el).outlineStyle,width:getComputedStyle(el).outlineWidth,visible:el.matches(':focus-visible')})""")
+            assert outline['visible'] and outline['style']!='none' and outline['width']!='0px',outline
             a.focus()
             page.keyboard.press('Space')
-            assert a.get_attribute('aria-pressed')=='true'
+            assert a.get_attribute('aria-pressed')=='true','Space must select Squad A'
+            assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==speed,'button Space paused gameplay'
+            b.focus()
+            page.keyboard.press('Space')
+            assert b.get_attribute('aria-pressed')=='true','Space must select Squad B'
+            assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==speed,'button Space toggled speed'
+            a.focus()
+            page.keyboard.press('Enter')
+            assert a.get_attribute('aria-pressed')=='true','Enter must select Squad A'
+            assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==speed
             page.keyboard.press('Tab')
             focused=page.evaluate('document.activeElement?.tagName')
             assert focused in ('BUTTON','INPUT','SELECT'),focused
-            return {'focus':focused,'outline':outline}
-        check('keyboard Enter/Space/Tab and focus indicator',keyboard)
+            return {'focus':focused,'outline':outline,'speed_unchanged':speed}
+        check('keyboard native Enter/Space, Tab, focus and no unintended pause',keyboard)
+        def gameplay_and_editable_shortcuts():
+            page.locator('#u6-close').click()
+            assert page.locator('#u6-dialog').is_hidden()
+            canvas=page.locator('#game-canvas')
+            canvas.evaluate("""el=>{el.setAttribute('tabindex','0');el.focus()}""")
+            assert page.evaluate('document.activeElement?.id')=='game-canvas'
+            initial=page.evaluate('window.__ANT_DEBUG__.game.clock.speed')
+            page.keyboard.press('Space')
+            paused=page.evaluate('window.__ANT_DEBUG__.game.clock.speed')
+            assert paused==(0 if initial!=0 else 1),(initial,paused)
+            page.keyboard.press('Space')
+            resumed=page.evaluate('window.__ANT_DEBUG__.game.clock.speed')
+            assert resumed==initial,(initial,resumed)
+            page.keyboard.press('Digit1')
+            assert page.evaluate('window.__ANT_DEBUG__.game.layer')=='surface'
+            page.keyboard.press('Digit2')
+            assert page.evaluate('window.__ANT_DEBUG__.game.layer')=='underground'
+            # Probe real document-level shortcut dispatch on genuinely focused
+            # editable nodes, without adding gameplay source or mocking events.
+            try:
+                page.evaluate("""() => {
+                    const input=document.createElement('input');
+                    input.id='multi-squad-keyboard-input-probe';
+                    input.type='text';document.body.append(input);input.focus();
+                }""")
+                assert page.evaluate('document.activeElement?.id')=='multi-squad-keyboard-input-probe'
+                page.keyboard.press('Space')
+                assert page.locator('#multi-squad-keyboard-input-probe').input_value()==' '
+                assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+                page.evaluate("""() => {
+                    const el=document.createElement('div');
+                    el.id='multi-squad-keyboard-editable-probe';
+                    el.setAttribute('contenteditable','true');
+                    el.setAttribute('tabindex','0');
+                    el.textContent='Editable';document.body.append(el);el.focus();
+                }""")
+                assert page.evaluate('document.activeElement?.id')=='multi-squad-keyboard-editable-probe'
+                page.keyboard.press('Space')
+                assert ' ' in page.locator('#multi-squad-keyboard-editable-probe').evaluate('el=>el.textContent')
+                assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+            finally:
+                page.evaluate("""() => {
+                    document.getElementById('multi-squad-keyboard-input-probe')?.remove();
+                    document.getElementById('multi-squad-keyboard-editable-probe')?.remove();
+                }""")
+                page.locator('#u6-open').click()
+            return {'canvas_pause':paused,'canvas_resume':resumed,'input_editable_preserved':True,
+                    'layer_shortcuts':'Digit1/Digit2'}
+        check('gameplay Space pause/resume plus editable and legacy key guards',gameplay_and_editable_shortcuts)
         picture('squad-dialog')
         def arm_and_tap(squad,previous=None):
             page.locator('[data-u6-squad="'+squad+'"]').click()
