@@ -262,6 +262,9 @@ test('CSS-native troop filter switches categories and details open without leavi
     setAttribute(name,value){this.attributes[name]=value;}
   }));
   let rendered=0;
+  const trigger=f.dialog.querySelector('#u6-roster-filter');
+  trigger.attributes={};
+  trigger.setAttribute=(name,value)=>{trigger.attributes[name]=value;};
   f.dialog.querySelectorAll=selector=>selector==='[data-u6-filter]'?buttons:[];
   f.control.renderRoster=()=>{rendered++;};
   const ant={id:'worker-1',caste:'worker',state:'combat-guard',combatRole:'soldier',
@@ -272,7 +275,7 @@ test('CSS-native troop filter switches categories and details open without leavi
     assert.equal(f.control.rosterFilter,'soldiers');
     assert.equal(f.dialog.querySelector('#u6-filter-current').textContent,'ทหารทั้งหมด');
     assert.equal(buttons[1].attributes['aria-pressed'],'true');
-    assert.equal(f.dialog.querySelector('#u6-roster-filter').attributes?.['aria-expanded'],undefined);
+    assert.equal(trigger.attributes['aria-expanded'],'false');
     assert.equal(f.control.setRosterFilter('unknown'),false);
     assert.equal(f.control.showAntDetail(ant.id),true);
     assert.equal(f.dialog.open,false,'displaying ant details does not open a browser dialog');
@@ -300,8 +303,8 @@ test('troop CSS owns filter, ant view, progress, accessibility and responsive la
     '#u6-dialog .u6-unit-info progress::-webkit-progress-value',
     '@media(max-width:350px)'
   ])assert.ok(css.includes(needle),needle);
-  assert.doesNotMatch(js,/<select\\b/i);
-  assert.doesNotMatch(js,/\\b(?:alert|prompt|confirm)\\s*\\(/);
+  assert.doesNotMatch(js,/<select\b/i);
+  assert.doesNotMatch(js,/\b(?:alert|prompt|confirm)\s*\(/);
   assert.match(js,/locate.textContent='ดูมด'/);
-  assert.match(js,/dialog.close\\(\\);this.follow\\(ant\\)/);
+  assert.match(js,/dialog.close\(\);this.follow\(ant\)/);
 });
