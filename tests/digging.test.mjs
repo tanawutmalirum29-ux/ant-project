@@ -110,6 +110,8 @@ test('U2.8 blocked and unreachable orders are not mined by teleporting workers',
     if([[0,1],[0,-1],[-1,0],[1,0]].every(([dx,dy])=>!isWalkable(l,x+dx,y+dy)))target={x,y};
   }
   assert.ok(target);
+  // A truly bedrock-enclosed target must remain blocked even with automatic access planning.
+  for(const [dx,dy] of [[0,1],[0,-1],[-1,0],[1,0]])writeCell(l,target.x+dx,target.y+dy,TERRAINS.ROCK);
   g.colony.queueRectangle(target,target);
   run(g,250);
   assert.equal(g.colony.completed,0);
