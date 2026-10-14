@@ -503,7 +503,12 @@ jobs:
                     'browser/portrait-320.png','browser/short-landscape.png',
                     'browser/live-stage-actions.json','browser/real-completed-stages.png','end-source-shas.txt']
           missing=[x for x in expected if codes.get(x)!=0]
-          mode=(root/'qa-mode.txt').read_text().strip() if (root/'qa-mode.txt').exists() else 'MISSING'
+          mode_line=(root/'qa-mode.txt').read_text().strip() if (root/'qa-mode.txt').exists() else 'MISSING'
+          # The evidence records an unambiguous key/value: QA_MODE=POST_MERGE.
+          # Reject malformed or partial mode text; never infer a pass mode.
+          if mode_line not in ('QA_MODE=PRE_MERGE','QA_MODE=POST_MERGE'):
+              missing.append('invalid_qa_mode_manifest')
+          mode=mode_line.removeprefix('QA_MODE=')
           if mode=='PRE_MERGE':
               # Local candidate must add exactly 8 source files.
               required.append('candidate-paths.txt')
