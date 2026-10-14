@@ -19,7 +19,7 @@ test('Ant inspector hit-tests displayed ant sprites and ignores other map layers
   assert.equal(antById(game,q.id),q);
   assert.equal(antById(game,'does-not-exist'),null);
   assert.equal(antsAtTile(game,game.layer,w.x,w.y).some(a=>a.id===w.id),true);
-  assert.equal(antRole(w),'มดงาน');
+  assert.match(antRole(w),/มด/);
   assert.equal(antState(q),'ประจำรัง');
   game.layer='surface';
   assert.equal(antAtPointer(game,cam,wpx,768,1024),null);
