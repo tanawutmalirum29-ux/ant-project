@@ -38,6 +38,19 @@
       </div>
     </header>
 
+
+    <button type="button" id="milestones-toggle" class="milestones-toggle"
+      aria-controls="milestones-panel" aria-expanded="false" title="เปิดรายงานภารกิจรังมด">◇ ภารกิจรังมด</button>
+    <section id="milestones-panel" class="milestones-panel" aria-labelledby="milestones-heading" hidden>
+      <div class="milestones-panel-head">
+        <h2 id="milestones-heading">ภารกิจรังมด</h2>
+        <button type="button" id="milestones-close" aria-label="ปิดรายงานภารกิจ">×</button>
+      </div>
+      <p id="milestones-summary" class="milestones-summary">กำลังเชื่อมต่อระบบภารกิจ</p>
+      <p id="milestones-tick" class="milestones-tick">รอข้อมูลจากเกม</p>
+      <ol id="milestones-list" class="milestones-list" aria-label="ความคืบหน้าภารกิจ"></ol>
+    </section>
+
     <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p>
       <section class="workforce-editor" aria-labelledby="workforce-heading">
         <h3 id="workforce-heading">จัดสรรมดาอัตโนมัติ</h3>

@@ -3,6 +3,7 @@ import { Camera } from './render/camera.js';
 import { Renderer } from './render/renderer.js';
 import { UI } from './ui/app.js';
 import { CombatControls } from './ui/combat-controls.js';
+import { MilestonesPanel } from './ui/milestones-panel.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
 
 const query = new URLSearchParams(location.search);
@@ -10,15 +11,33 @@ const initialSeed = (query.get('seed') || 'ANT-001').slice(0, 40);
 let game = new Game(initialSeed);
 let cameras = createCameras(game);
 const renderer = new Renderer(document.getElementById('game-canvas'));
+let milestonesPanel = null;
 renderer.resize();
 const ui = new UI(game, cameras, renderer, (seed) => {
   game = new Game(seed);
   cameras = createCameras(game);
   ui.game = game;
   ui.cameras = cameras;
+  milestonesPanel?.setGame(game);
   try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
+milestonesPanel = new MilestonesPanel(game, {
+  onOpen: () => {
+    // A report and an active drag/room picker must not compete for touch targets.
+    ui.setTool('inspect');
+    ui.select(null);
+  }
+});
+// Outside controls and map input dismiss the nonmodal report before a new
+// action (including a keyboard-activated button) displays its own controls.
+const dismissMilestonesForOutsideAction = event => {
+  if (!event.target?.closest?.('#milestones-panel, #milestones-toggle')) {
+    milestonesPanel.setOpen(false);
+  }
+};
+document.addEventListener('pointerdown', dismissMilestonesForOutsideAction, { capture: true });
+document.addEventListener('click', dismissMilestonesForOutsideAction, { capture: true });
 function createCameras(gameState) {
   const e = gameState.world.entrances[0];
   return { [SURFACE]: new Camera(SURFACE, e.surface), [UNDERGROUND]: new Camera(UNDERGROUND, e.underground) };
@@ -50,7 +69,7 @@ function frame(now) {
     steps = 0;
     statsWindowStart = now;
   }
-  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); lastHud = now; }
+  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); milestonesPanel.render(); lastHud = now; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => {
