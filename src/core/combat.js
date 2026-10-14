@@ -30,6 +30,7 @@ export class Combat {
     this.lifecycle=lifecycle;this.rooms=rooms;
     this.enemies=[];this.nextEnemyId=1;this.tickCount=0;
     this.soldierSlots=1;this.mode='defend';this.rally=null;
+    this._squadB={mode:'defend',rally:null,formation:null,dirty:true};
     this._formation=null;this._formationDirty=true;this._allocating=false;
     this.spawned=0;this.defeated=0;this.casualties=0;this.portalCrossings=0;
     this.queenHP=COMBAT.queenHP;
@@ -38,6 +39,115 @@ export class Combat {
     this.allocate();
   }
   get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier');}
+
+  /** Unspecified IDs on legacy soldier fixtures belong to the default A squad. */
+  _squadOf(ant){return ant?.squadId==='B'?'B':'A';}
+  _soldiersFor(id){return this.soldiers.filter(a=>this._squadOf(a)===id);}
+  _modeFor(id){return id==='A'?this.mode:this._squadB.mode;}
+  _rallyFor(id){return id==='A'?this.rally:this._squadB.rally;}
+  _formationFor(id){return id==='A'?this._formation:this._squadB.formation;}
+  _dirtyFor(id){return id==='A'?this._formationDirty:this._squadB.dirty;}
+  _markDirty(id){if(id==='A')this._formationDirty=true;else this._squadB.dirty=true;}
+  _setFormation(id,formation){
+    if(id==='A'){this._formation=formation;this._formationDirty=false;}
+    else {this._squadB.formation=formation;this._squadB.dirty=false;}
+  }
+  _error(code,message){return {ok:false,error:{code,message}};}
+  _arrived(ant,goal){
+    return !!(goal&&ant.layer===goal.layer&&same(ant,goal)&&!ant.next&&!ant.retreating&&
+      (ant.combatHP||0)>Math.ceil(COMBAT.soldierHP*.3)&&
+      !['combat-intercept','combat-attack','combat-retreat','combat-queen-defense'].includes(ant.state)&&
+      !this.queenThreat());
+  }
+  _ralliedCount(id){
+    if(this._modeFor(id)!=='rally'||!this._rallyFor(id))return 0;
+    const formation=this.ensureFormation(id);
+    return this._soldiersFor(id).filter(ant=>this._arrived(ant,formation.goals.get(ant))).length;
+  }
+  /** The public Result contract never exports live ants, maps or cached objects. */
+  _snapshot(id){
+    const mode=this._modeFor(id),rally=this._rallyFor(id);
+    const members=this._soldiersFor(id).sort((a,b)=>
+      String(a.id).localeCompare(String(b.id),'en',{numeric:true}));
+    const formation=rally?this.ensureFormation(id):null;
+    const counts={assigned:0,standby:0,unreachable:0};
+    const soldiers=members.map(ant=>{
+      const formationStatus=formation?.statuses.get(ant)??null;
+      if(formationStatus)counts[formationStatus.toLowerCase()]++;
+      const goal=formation?.goals.get(ant)??null;
+      return {id:String(ant.id),hp:ant.combatHP??COMBAT.soldierHP,maxHP:COMBAT.soldierHP,
+        layer:ant.layer,x:ant.x,y:ant.y,state:stateOf(ant),formationStatus,
+        arrived:mode==='rally'&&this._arrived(ant,goal)};
+    });
+    return {id,mode,rally:rally?{...rally}:null,soldiers,count:soldiers.length,
+      hpCurrent:soldiers.reduce((sum,member)=>sum+member.hp,0),
+      hpMax:soldiers.reduce((sum,member)=>sum+member.maxHP,0),
+      ralliedCount:mode==='rally'?soldiers.filter(member=>member.arrived).length:0,
+      formation:counts,queenEmergency:!!this.queenThreat()};
+  }
+  getSquads(){return {ok:true,data:[this._snapshot('A'),this._snapshot('B')]};}
+  getSquad(squadId){
+    if(squadId!=='A'&&squadId!=='B')return this._error('INVALID_SQUAD','Unknown squad');
+    return {ok:true,data:this._snapshot(squadId)};
+  }
+  transferSoldier(soldierId,toSquadId){
+    if(toSquadId!=='A'&&toSquadId!=='B')return this._error('INVALID_SQUAD','Unknown destination squad');
+    if(typeof soldierId!=='string'||!soldierId)return this._error('INVALID_SOLDIER','Invalid soldier ID');
+    const ant=this.colony.workers.find(a=>a.id===soldierId);
+    if(!ant||ant.combatRole!=='soldier')return this._error('NOT_ACTIVE_SOLDIER','Soldier is not active');
+    const fromSquad=this._squadOf(ant);
+    if(fromSquad===toSquadId)return this._error('SAME_SQUAD','Soldier already belongs to this squad');
+    const emergency=!!this.queenThreat();
+    ant.squadId=toSquadId;
+    // Never cancel a live queen interception. Otherwise drop the old squad's route.
+    if(!emergency)this.clearMotion(ant);
+    this._markDirty('A');this._markDirty('B');
+    this.ensureFormation('A');this.ensureFormation('B');
+    return {ok:true,data:{soldierId,fromSquad,toSquad:toSquadId}};
+  }
+  setSquadMode(squadId,mode){
+    if(squadId!=='A'&&squadId!=='B')return this._error('INVALID_SQUAD','Unknown squad');
+    if(!['defend','rally','retreat'].includes(mode))return this._error('INVALID_ORDER','Unknown squad order');
+    const changed=this._modeFor(squadId)!==mode;
+    if(squadId==='A')this.setMode(mode);
+    else {this._squadB.mode=mode;if(mode==='rally')this.ensureFormation('B');}
+    if(changed&&!this.queenThreat())for(const ant of this._soldiersFor(squadId))
+      if(!['combat-attack','combat-queen-defense'].includes(ant.state))this.clearMotion(ant);
+    return {ok:true,data:{squadId,mode}};
+  }
+  _validateSquadRally(layer,x,y){
+    if(![SURFACE,UNDERGROUND].includes(layer)||!Number.isInteger(x)||!Number.isInteger(y)||
+      !this.world.layers[layer]||!isWalkable(this.world.layers[layer],x,y))
+      return this._error('INVALID_RALLY','Rally coordinate or layer is invalid');
+    const entry=this.world.entrances[0];
+    const origin=layer===UNDERGROUND?this.colony.queen:entry?.surface;
+    if(!origin||!findPath(this.world.layers[layer],origin,{x,y}))
+      return this._error('UNREACHABLE_RALLY','Rally position is disconnected');
+    // A cross-layer rally must have a traversable paired portal on both maps.
+    if(!entry||!entry.surface||!entry.underground||
+      !isWalkable(this.world.layers[SURFACE],entry.surface.x,entry.surface.y)||
+      !isWalkable(this.world.layers[UNDERGROUND],entry.underground.x,entry.underground.y)||
+      !findPath(this.world.layers[UNDERGROUND],this.colony.queen,entry.underground))
+      return this._error('UNREACHABLE_RALLY','Paired portal is inaccessible');
+    return null;
+  }
+  setSquadRally(squadId,layer,x,y){
+    if(squadId!=='A'&&squadId!=='B')return this._error('INVALID_SQUAD','Unknown squad');
+    const rejected=this._validateSquadRally(layer,x,y);
+    if(rejected)return rejected;
+    if(squadId==='A'){
+      if(!this.setRally(layer,x,y))return this._error('UNREACHABLE_RALLY','Rally is unreachable');
+    }else{
+      const old=this._squadB.rally;
+      const changed=!old||old.layer!==layer||old.x!==x||old.y!==y;
+      this._squadB.rally={layer,x,y};this._squadB.mode='rally';
+      this.lastEvent=`กอง B เคลื่อนสู่จุดรวมพล ${x},${y}`;
+      if(!this.queenThreat())for(const ant of this._soldiersFor('B'))this.clearMotion(ant);
+      if(changed)this._markDirty('B');
+      this.ensureFormation('B');
+    }
+    return {ok:true,data:{squadId,mode:'rally',rally:{layer,x,y}}};
+  }
   get threatCount(){return this.enemies.length;}
   get availableRecruits(){return this.colony.workers.filter(a=>this.canRecruit(a));}
   canRecruit(a){return this.colony.workers.includes(a)&&!a.combatRole&&a.layer===UNDERGROUND&&!this.colony.isForager(a)&&a.orderId==null&&['idle','room-rest','room-guard'].includes(stateOf(a));}
@@ -45,7 +155,7 @@ export class Combat {
     if(!this.canRecruit(a))return false;
     if(a.state==='room-rest')this.rooms?.releaseRestWorker(a);
     if(a.state==='room-guard')this.rooms?.release(a);
-    a.combatRole='soldier';a.combatHP??=COMBAT.soldierHP;a.combatCooldown=0;
+    a.combatRole='soldier';a.squadId='A';a.combatHP??=COMBAT.soldierHP;a.combatCooldown=0;
     a.retreating=false;a.combatGoal=null;a.state='combat-guard';a.path=[];a.next=null;a.motion=0;
     this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);
     this._formationDirty=true;
@@ -88,14 +198,14 @@ export class Combat {
     this.lastEvent=`กำลังพลเคลื่อนสู่จุดรวมพล ${x},${y}`;
     // Keep an emergency interception in motion: a rally order may be stored,
     // but must not pull defenders away from an actively threatened queen.
-    if(!this.queenThreat())for(const a of this.soldiers)this.clearMotion(a);
+    if(!this.queenThreat())for(const a of this._soldiersFor('A'))this.clearMotion(a);
     if(changed)this._formationDirty=true;
     this.ensureFormation();
     return true;
   }
   /** Bounded 4-neighbor BFS. No slot may be outside R8 or beyond twelve steps. */
-  buildFormationSlots(){
-    const center=this.rally, map=this.world.layers[center.layer];
+  buildFormationSlots(squadId='A'){
+    const center=this._rallyFor(squadId), map=this.world.layers[center.layer];
     const positions=new Map(), queue=[{x:center.x,y:center.y,d:0}];
     const coordinate=(x,y)=>x+','+y;
     positions.set(coordinate(center.x,center.y),queue[0]);
@@ -120,36 +230,37 @@ export class Combat {
     return [...preferred,...extras].map(p=>({layer:center.layer,x:p.x,y:p.y}));
   }
   /** Cache geometry and connectivity; only roster/world/rally/finished digs may rebuild it. */
-  ensureFormation(){
-    if(!this.rally)return null;
-    const soldiers=this.soldiers;
+  ensureFormation(squadId='A'){
+    const rally=this._rallyFor(squadId);
+    if(!rally)return null;
+    const soldiers=this._soldiersFor(squadId);
     const roster=soldiers.map(a=>String(a.id)).sort().join('|');
-    const centerKey=formationKey(this.rally);
-    const prev=this._formation;
+    const centerKey=formationKey(rally);
+    const prev=this._formationFor(squadId);
     const geometryChanged=!prev||prev.world!==this.world||
-      prev.layerMap!==this.world.layers[this.rally.layer]||prev.centerKey!==centerKey||
+      prev.layerMap!==this.world.layers[rally.layer]||prev.centerKey!==centerKey||
       prev.completed!==this.colony.completed;
-    if(!this._formationDirty&&!geometryChanged&&prev.roster===roster&&
+    if(!this._dirtyFor(squadId)&&!geometryChanged&&prev.roster===roster&&
        prev.soldiers.length===soldiers.length&&
        soldiers.every(a=>prev.goals.has(a)))return prev;
-    const slots=geometryChanged?this.buildFormationSlots():prev.slots;
+    const slots=geometryChanged?this.buildFormationSlots(squadId):prev.slots;
     // Full-map connectivity BFS is for physical reachability only; slot enumeration
     // above remains strictly bounded to the R8 / D12 formation footprint.
-    const centerReach=geometryChanged?reachablePaths(this.world.layers[this.rally.layer],this.rally):prev.centerReach;
+    const centerReach=geometryChanged?reachablePaths(this.world.layers[rally.layer],rally):prev.centerReach;
     const portal=this.world.entrances[0];
-    const otherLayer=this.rally.layer===UNDERGROUND?SURFACE:UNDERGROUND;
+    const otherLayer=rally.layer===UNDERGROUND?SURFACE:UNDERGROUND;
     const sourceMap=this.world.layers[otherLayer];
-    const portalValid=!!(portal&&sourceMap&&portal[otherLayer]&&portal[this.rally.layer]&&
+    const portalValid=!!(portal&&sourceMap&&portal[otherLayer]&&portal[rally.layer]&&
       isWalkable(sourceMap,portal[otherLayer].x,portal[otherLayer].y)&&
-      isWalkable(this.world.layers[this.rally.layer],portal[this.rally.layer].x,portal[this.rally.layer].y)&&
-      centerReach?.distance(portal[this.rally.layer].x,portal[this.rally.layer].y)>=0);
+      isWalkable(this.world.layers[rally.layer],portal[rally.layer].x,portal[rally.layer].y)&&
+      centerReach?.distance(portal[rally.layer].x,portal[rally.layer].y)>=0);
     const portalReach=portalValid?
       (geometryChanged||!prev||prev.portalSourceMap!==sourceMap?
         reachablePaths(sourceMap,portal[otherLayer]):prev.portalReach):null;
     const eligible=ant=>{
       const map=this.world.layers[ant.layer];
       if(!map||!isWalkable(map,ant.x,ant.y))return false;
-      if(ant.layer===this.rally.layer)return (centerReach?.distance(ant.x,ant.y)??-1)>=0;
+      if(ant.layer===rally.layer)return (centerReach?.distance(ant.x,ant.y)??-1)>=0;
       return ant.layer===otherLayer&&!!portalReach&&portalReach.distance(ant.x,ant.y)>=0;
     };
     const goals=new Map(),statuses=new Map(),reserved=new Set();
@@ -180,41 +291,33 @@ export class Combat {
     if(prev){
       for(const ant of soldiers){
         if(!sameGoal(prev.goals.get(ant),goals.get(ant))&&ant.state==='combat-rally'&&
-           !ant.retreating)this.clearMotion(ant);
+           !ant.retreating&&!this.queenThreat())this.clearMotion(ant);
       }
     }
-    this._formation={world:this.world,layerMap:this.world.layers[this.rally.layer],
+    const formation={world:this.world,layerMap:this.world.layers[rally.layer],
       portalSourceMap:sourceMap,centerKey,completed:this.colony.completed,roster,
       soldiers,slots,centerReach,portalReach,goals,statuses};
-    this._formationDirty=false;
-    return this._formation;
+    this._setFormation(squadId,formation);
+    return formation;
   }
   getRallyGoal(ant){
-    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this.rally)return null;
-    return this.ensureFormation().goals.get(ant)??null;
+    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this._rallyFor(this._squadOf(ant)))return null;
+    return this.ensureFormation(this._squadOf(ant)).goals.get(ant)??null;
   }
   /** Observable status of a reserved goal (or lack of one), without changing world state. */
   getFormationStatus(ant){
-    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this.rally)return null;
-    return this.ensureFormation().statuses.get(ant)??null;
+    if(!ant||ant.combatRole!=='soldier'||!this.colony.workers.includes(ant)||!this._rallyFor(this._squadOf(ant)))return null;
+    return this.ensureFormation(this._squadOf(ant)).statuses.get(ant)??null;
   }
-  get ralliedCount(){
-    if(this.mode!=='rally'||!this.rally)return 0;
-    const formation=this.ensureFormation();
-    return this.soldiers.filter(a=>{
-      const g=formation.goals.get(a);
-      return g&&a.layer===g.layer&&same(a,g)&&!a.next&&!a.retreating&&
-        (a.combatHP||0)>Math.ceil(COMBAT.soldierHP*.3)&&
-        !['combat-intercept','combat-attack','combat-retreat'].includes(a.state);
-    }).length;
-  }
+  get ralliedCount(){return this._ralliedCount('A');}
   releaseSoldier(ant){
     if(ant.combatRole!=='soldier')return;
-    delete ant.combatRole;delete ant.combatCooldown;
+    const squadId=this._squadOf(ant);
+    delete ant.squadId;delete ant.combatRole;delete ant.combatCooldown;
     delete ant.combatGoal;delete ant.retreating;
     ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;
-    this._formationDirty=true;
-    if(!this._allocating)this.ensureFormation();
+    this._markDirty(squadId);
+    if(!this._allocating)this.ensureFormation(squadId);
   }
   allocate(){
     this._allocating=true;
@@ -321,15 +424,16 @@ export class Combat {
   soldierTick(ant){
     if(!this.colony.workers.includes(ant))return;
     ant.combatCooldown=Math.max(0,(ant.combatCooldown||0)-1);
+    const squadId=this._squadOf(ant),mode=this._modeFor(squadId),rally=this._rallyFor(squadId);
     // Queen survival is above rally, standing orders, and even ordinary retreat.
     // Both nest guards and troops on the surface return immediately when a
     // hostile unit reaches the queen's own tile or an adjacent tile.
     const queenEmergency=this.queenThreat();
     const wounded=(ant.combatHP||0)<=Math.ceil(COMBAT.soldierHP*.3);
-    const withdrawing=!queenEmergency&&(this.mode==='retreat'||wounded);
+    const withdrawing=!queenEmergency&&(mode==='retreat'||wounded);
     ant.retreating=withdrawing;
     let destination=null;
-    const threat=queenEmergency||(withdrawing?null:this.mode==='rally'?
+    const threat=queenEmergency||(withdrawing?null:mode==='rally'?
       this.enemies.filter(e=>e.layer===ant.layer&&distance(e,ant)<=COMBAT.alertRadius).sort((a,b)=>distance(a,ant)-distance(b,ant))[0]||null:this.chooseThreat(ant));
     if(threat){
       if(threat.layer===ant.layer&&distance(threat,ant)<=1){
@@ -343,7 +447,7 @@ export class Combat {
       destination={layer:threat.layer,x:threat.x,y:threat.y};
       ant.state=queenEmergency?'combat-queen-defense':'combat-intercept';
     } else if(withdrawing){destination=this.findRecovery();ant.state='combat-retreat';}
-    else if(this.mode==='rally'&&this.rally){
+    else if(mode==='rally'&&rally){
       destination=this.getRallyGoal(ant);
       if(!destination){
         // No current threat/retreat remains in this branch; cancel stale rally/guard steps.
