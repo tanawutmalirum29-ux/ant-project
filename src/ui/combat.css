@@ -201,7 +201,7 @@
 #u6-dialog #u6-rally{width:100%;min-height:44px;border-color:#d1ab70;}
 #u6-dialog .u6-squad-overview p{font-size:11px;line-height:1.4;}
 #u6-dialog .u6-squad-detail{gap:5px;}
-#u6-dialog .u6-roster-panel{min-width:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);align-content:start;gap:8px;padding:10px;border:1px solid #526e5c;border-radius:12px;background:#1b3028;}
+#u6-dialog .u6-roster-panel{min-width:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);align-content:start;gap:8px;padding:10px;border:1px solid #526e5c;border-radius:12px;background:#1b3028;}
 #u6-dialog .u6-roster-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;min-width:0;}
 #u6-dialog .u6-roster-head h3{margin:0;}
 #u6-dialog .u6-roster-head label{display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;}
@@ -231,3 +231,102 @@
   #u6-dialog .u6-main{grid-template-columns:repeat(2,minmax(0,1fr));}
   #u6-dialog .u6-roster{max-height:min(190px,45dvh);}
 }
+
+/* MILITARY-INSPECT-02: CSS-owned, finger-sized filters; never an OS-native select. */
+#u6-dialog .u6-filter{
+  position:relative;display:flex;align-items:center;gap:6px;min-width:0;
+  font-size:11px;color:#e7d9b9;isolation:isolate;
+}
+#u6-dialog #u6-roster-filter{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  min-height:44px;min-width:148px;max-width:min(230px,72vw);
+  padding:8px 11px;background:#294136;
+  border:1px solid #b9a06c;color:#ffeaca;font-weight:700;
+}
+#u6-dialog .u6-chevron{font-size:15px;transition:transform .15s ease;}
+#u6-dialog #u6-roster-filter[aria-expanded="true"]{
+  border-color:#f5d493;box-shadow:0 0 0 2px #f5d49340;
+}
+#u6-dialog #u6-roster-filter[aria-expanded="true"] .u6-chevron{transform:rotate(180deg);}
+#u6-dialog .u6-filter-options{
+  position:absolute;top:calc(100% + 5px);right:0;
+  display:grid;gap:4px;width:min(232px,calc(100vw - 58px));
+  z-index:15;padding:6px;border:1px solid #e4bc79;
+  border-radius:10px;background:#162a23;
+  box-shadow:0 12px 30px #000b;
+}
+#u6-dialog .u6-filter-options[hidden]{display:none!important;}
+#u6-dialog .u6-filter-options button{
+  width:100%;min-height:44px;text-align:left;
+  font-size:12px;border-color:#456750;background:#294136;
+}
+#u6-dialog .u6-filter-options button[aria-pressed="true"]{
+  border-color:#f5d493;background:#bd9959;color:#162820;font-weight:800;
+}
+#u6-dialog .u6-unit.is-inspected{
+  border-color:#ffde9a;background:#34523a;box-shadow:inset 3px 0 0 #ffde9a;
+}
+#u6-dialog .u6-unit-buttons button[data-action="focus"]{
+  border-color:#bd9c68;background:#38513f;color:#ffe5b3;font-weight:700;
+}
+/* Inline details: no native alert/selection popup and no forced map navigation. */
+#u6-dialog #u6-ant-detail[hidden]{display:none!important;}
+#u6-dialog .u6-ant-detail{
+  display:grid;gap:6px;min-width:0;padding:10px;
+  border:1px solid #d5b373;border-radius:11px;
+  background:linear-gradient(155deg,#294735,#192f28);
+  color:#f8eed8;box-shadow:0 5px 16px #0005;
+}
+#u6-dialog .u6-ant-detail-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+#u6-dialog .u6-ant-detail-head>div{display:grid;gap:2px;min-width:0;}
+#u6-dialog .u6-ant-detail-head strong{font-size:15px;color:#ffdaa0;}
+#u6-dialog .u6-ant-detail-head small{font-size:10px;}
+#u6-dialog #u6-ant-detail-close{width:44px;min-width:44px;min-height:44px;font-size:23px;padding:0;}
+#u6-dialog .u6-ant-detail p{
+  margin:0;padding:4px 7px;border-radius:5px;background:#0b201b66;
+  font-size:12px;line-height:1.45;overflow-wrap:anywhere;
+}
+#u6-dialog .u6-ant-detail .u6-ant-role{
+  font-weight:800;color:#f5d493;background:#755d343a;
+}
+#u6-dialog #u6-ant-follow{
+  min-height:44px;width:100%;font-weight:800;background:#bf9c62;
+  color:#17291e;border-color:#f6dca4;
+}
+#u6-dialog .u6-filter-options button:focus-visible,
+#u6-dialog #u6-roster-filter:focus-visible,
+#u6-dialog .u6-ant-detail button:focus-visible{
+  outline:3px solid #f5cb83;outline-offset:2px;
+}
+@media(max-width:600px){
+  #u6-dialog .u6-roster-head{align-items:stretch;}
+  #u6-dialog .u6-filter{margin-left:auto;}
+  #u6-dialog #u6-roster-filter{min-width:128px;}
+}
+@media(max-width:350px){
+  #u6-dialog .u6-roster-head{display:grid;grid-template-columns:minmax(0,1fr);}
+  #u6-dialog .u6-filter{margin-left:0;justify-content:space-between;}
+  #u6-dialog #u6-roster-filter{flex:1;}
+  #u6-dialog .u6-filter-options{left:0;right:auto;}
+}
+@media(prefers-reduced-motion:reduce){
+  #u6-dialog .u6-chevron{transition:none;}
+}
+
+/* Expand custom choices within the sheet so no browser popup or clipped overlay exists. */
+#u6-dialog .u6-filter{
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;
+}
+#u6-dialog .u6-filter-options{
+  position:static;grid-column:1/-1;width:100%;margin:0;
+}
+#u6-dialog .u6-unit-info progress{
+  appearance:none;-webkit-appearance:none;
+  overflow:hidden;min-height:7px;height:7px;
+  border:0;border-radius:99px;background:#142720;
+}
+#u6-dialog .u6-unit-info progress::-webkit-progress-bar{background:#142720;}
+#u6-dialog .u6-unit-info progress::-webkit-progress-value{background:#c9de8e;border-radius:99px;}
+#u6-dialog .u6-unit-info progress::-moz-progress-bar{background:#c9de8e;border-radius:99px;}

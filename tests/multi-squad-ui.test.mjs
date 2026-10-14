@@ -197,6 +197,10 @@ test('military HUD keeps rally hint at the dock and exposes squad roster filter'
   const css=readFileSync(new URL('../src/ui/combat.css',import.meta.url),'utf8');
   assert.match(js,/dock\.append\(tip\)/);
   assert.match(js,/id="u6-roster-filter"/);
+  assert.doesNotMatch(js,/<select id="u6-roster-filter"/);
+  assert.match(js,/id="u6-filter-options"/);
+  assert.match(js,/id="u6-ant-detail"/);
+  assert.match(js,/id="u6-ant-follow"/);
   assert.match(js,/this\.rosterFilter='all'/);
   assert.match(js,/filter==='selected'/);
   assert.match(js,/class="u6-main"/);
@@ -248,4 +252,59 @@ test('squad roster filters soldiers, workers and currently selected squad withou
     control.renderRoster(true,[squadA,squadB]);
     assert.equal(list.children.length,2);
   }finally{globalThis.document=oldDocument;}
+});
+
+
+test('CSS-native troop filter switches categories and details open without leaving the army dialog',()=>{
+  const f=fixture();
+  const buttons=['all','soldiers','selected','workers'].map(value=>({
+    dataset:{u6Filter:value},attributes:{},
+    setAttribute(name,value){this.attributes[name]=value;}
+  }));
+  let rendered=0;
+  const trigger=f.dialog.querySelector('#u6-roster-filter');
+  trigger.attributes={};
+  trigger.setAttribute=(name,value)=>{trigger.attributes[name]=value;};
+  f.dialog.querySelectorAll=selector=>selector==='[data-u6-filter]'?buttons:[];
+  f.control.renderRoster=()=>{rendered++;};
+  const ant={id:'worker-1',caste:'worker',state:'combat-guard',combatRole:'soldier',
+    combatHP:9,squadId:'B',x:4,y:6,layer:'underground'};
+  f.ui.game.colony.workers=[ant];
+  try{
+    assert.equal(f.control.setRosterFilter('soldiers'),true);
+    assert.equal(f.control.rosterFilter,'soldiers');
+    assert.equal(f.dialog.querySelector('#u6-filter-current').textContent,'ทหารทั้งหมด');
+    assert.equal(buttons[1].attributes['aria-pressed'],'true');
+    assert.equal(trigger.attributes['aria-expanded'],'false');
+    assert.equal(f.control.setRosterFilter('unknown'),false);
+    assert.equal(f.control.showAntDetail(ant.id),true);
+    assert.equal(f.dialog.open,false,'displaying ant details does not open a browser dialog');
+    assert.equal(f.dialog.querySelector('#u6-ant-detail').hidden,false);
+    assert.match(f.dialog.querySelector('#u6-ant-title').textContent,/มด #1/);
+    assert.match(f.dialog.querySelector('#u6-ant-role').textContent,/ทหาร/);
+    assert.match(f.dialog.querySelector('#u6-ant-extra').textContent,/HP 9\/16/);
+    assert.equal(f.control.inspectedAntId,'worker-1');
+    assert.ok(rendered>=2);
+    f.control.hideAntDetail();
+    assert.equal(f.control.inspectedAntId,null);
+    assert.equal(f.dialog.querySelector('#u6-ant-detail').hidden,true);
+  }finally{f.cleanup();}
+});
+
+test('troop CSS owns filter, ant view, progress, accessibility and responsive layout',()=>{
+  const css=readFileSync(new URL('../src/ui/combat.css',import.meta.url),'utf8');
+  const js=readFileSync(new URL('../src/ui/combat-controls.js',import.meta.url),'utf8');
+  for(const needle of [
+    '#u6-dialog .u6-filter-options[hidden]',
+    '#u6-dialog .u6-filter-options button[aria-pressed="true"]',
+    '#u6-dialog #u6-ant-detail[hidden]',
+    '#u6-dialog .u6-ant-detail',
+    '#u6-dialog .u6-unit.is-inspected',
+    '#u6-dialog .u6-unit-info progress::-webkit-progress-value',
+    '@media(max-width:350px)'
+  ])assert.ok(css.includes(needle),needle);
+  assert.doesNotMatch(js,/<select\b/i);
+  assert.doesNotMatch(js,/\b(?:alert|prompt|confirm)\s*\(/);
+  assert.match(js,/locate.textContent='ดูมด'/);
+  assert.match(js,/dialog.close\(\);this.follow\(ant\)/);
 });
