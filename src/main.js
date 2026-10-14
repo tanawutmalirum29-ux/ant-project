@@ -22,9 +22,22 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
-milestonesPanel = new MilestonesPanel(game, { onOpen: () => ui.select(null) });
-// Opening the map (inspect, dig, soldier orders) dismisses the small HUD card.
-renderer.canvas.addEventListener('pointerdown', () => milestonesPanel.setOpen(false));
+milestonesPanel = new MilestonesPanel(game, {
+  onOpen: () => {
+    // A report and an active drag/room picker must not compete for touch targets.
+    ui.setTool('inspect');
+    ui.select(null);
+  }
+});
+// Outside controls and map input dismiss the nonmodal report before a new
+// action (including a keyboard-activated button) displays its own controls.
+const dismissMilestonesForOutsideAction = event => {
+  if (!event.target?.closest?.('#milestones-panel, #milestones-toggle')) {
+    milestonesPanel.setOpen(false);
+  }
+};
+document.addEventListener('pointerdown', dismissMilestonesForOutsideAction, { capture: true });
+document.addEventListener('click', dismissMilestonesForOutsideAction, { capture: true });
 function createCameras(gameState) {
   const e = gameState.world.entrances[0];
   return { [SURFACE]: new Camera(SURFACE, e.surface), [UNDERGROUND]: new Camera(UNDERGROUND, e.underground) };
