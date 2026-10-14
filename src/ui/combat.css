@@ -176,6 +176,8 @@
   white-space:normal;
 }
 #u6-target-tip button{min-height:44px;min-width:60px;padding:5px 8px;}
+/* The portrait dock button width rule must not stretch the chip's Cancel action. */
+#u6-dock #u6-target-tip button{width:auto;white-space:nowrap;}
 @media(max-width:680px) and (min-height:501px){
   #u6-target-tip{inset:calc(100% + 7px) 0 auto auto;bottom:auto;max-width:min(210px,calc(100vw - 24px));}
 }
