@@ -4,6 +4,7 @@ import { formatGameTime } from '../core/time.js';
 import { LIFE } from '../core/lifecycle.js';
 import { ROOM_CATALOG, roomPlan, ROOM_LIMITS } from '../core/rooms.js';
 import { terrainName, resourceVisualState } from '../render/renderer.js';
+import { antAtPointer, antById, antsAtTile, renderAntInspector } from './ant-inspector.js';
 const $ = (id) => document.getElementById(id);
 const RESOURCE_NAMES = Object.freeze({
   carbs: 'อาหาร · เมล็ดและน้ำหวาน',
@@ -54,6 +55,7 @@ export class UI {
     this.renderer = renderer;
     this.onNewWorld = onNewWorld;
     this.selection = null;
+    this.selectedAntId = null;
     this.debug = false;
     this.toastTimer = null;
     this.lastSpeed = 1;
@@ -94,6 +96,12 @@ export class UI {
     $('recenter').addEventListener('click', () => this.recenter());
     $('debug-toggle').addEventListener('click', () => { this.debug = !this.debug; $('debug-panel').classList.toggle('hidden', !this.debug); });
     $('selection-close').addEventListener('click', () => this.select(null));
+    $('selection-ants-list').addEventListener('click', event => {
+      const button=event.target.closest('button[data-ant-id]');
+      if(!button || !antById(this.game,button.dataset.antId))return;
+      const ant=antById(this.game,button.dataset.antId);
+      this.select({layer:ant.layer,x:ant.x,y:ant.y},ant.id);
+    });
     $('tool-inspect').addEventListener('click', () => this.setTool('inspect'));
     // Re-clicking an active action tool exits to inspection (same as G/R keys).
     $('tool-dig').addEventListener('click', () => this.setTool(this.tool === 'dig' ? 'inspect' : 'dig'));
@@ -213,7 +221,8 @@ export class UI {
         }else if(dragDistance<7) {
           // Inspection only: tapping an already selected tile dismisses its info.
           // Digging, room placement and tactical targeting remain command actions.
-          this.toggleMapSelection({layer:this.game.layer,...cell});
+          const ant=this.tool==='inspect'?antAtPointer(this.game,this.camera,p,...this.dimensions()):null;
+          this.toggleMapSelection(ant?{layer:ant.layer,x:ant.x,y:ant.y}:{layer:this.game.layer,...cell},ant?.id??null);
         }
       }
       if(pointers.size===1){start=null;pinch=null;this.digPreview=null;}
@@ -281,28 +290,37 @@ export class UI {
     const [w, h] = this.dimensions();
     this.camera.zoomAt(factor, w / 2, h / 2, this.game.currentLayer, w, h);
   }
-  select(selection) {
+  select(selection,antId=null) {
     this.selection=selection;
+    this.selectedAntId=selection?antId:null;
     this.refreshSelection();
   }
-  toggleMapSelection(tile) {
+  toggleMapSelection(tile,antId=null) {
     const current=this.selection;
     const isSame=current && current.layer===tile.layer &&
-      current.x===tile.x && current.y===tile.y;
+      current.x===tile.x && current.y===tile.y &&
+      this.selectedAntId===antId;
     const valid=cellAt(this.game.currentLayer,tile.x,tile.y)!=null;
-    this.select(!valid || isSame ? null : tile);
+    this.select(!valid || isSame ? null : tile,isSame?null:antId);
   }
   refreshSelection() {
+    // Keep the inspect card attached to the selected ant as it moves.
+    const tracked=antById(this.game,this.selectedAntId);
+    if(this.selectedAntId && !tracked)this.selectedAntId=null;
+    if(tracked && tracked.layer===this.game.layer)
+      this.selection={layer:tracked.layer,x:tracked.x,y:tracked.y};
     const s=this.selection;
     const valid=s && s.layer===this.game.layer && cellAt(this.game.currentLayer,s.x,s.y)!=null;
     $('selection-card').classList.toggle('hidden',!valid);
-    if(!valid) return;
+    if(!valid){renderAntInspector(this.game,null,null);return;}
     const terrain=cellAt(this.game.currentLayer,s.x,s.y), job=this.game.colony.getOrder(s.x,s.y);
     const source=s.layer===SURFACE?this.game.foraging.getNode(s.x,s.y):null;
     const room=s.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
     const sourceText=source?resourceSelectionText(source):null;
     $('selection-terrain').textContent=sourceText?.title??(room?ROOM_CATALOG[room.type].name:terrainName(terrain));
     $('selection-coords').textContent=`X:${s.x} · Y:${s.y}`;
+    const occupants=antsAtTile(this.game,s.layer,s.x,s.y);
+    $('selection-card').dataset.inspecting=occupants.length?'ant':'tile';
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
@@ -330,6 +348,7 @@ export class UI {
       $('selection-brood').textContent=`${temporary?'พักชั่วคราว · ':''}${counts}`;
     }
     $('selection-note').textContent=sourceText?.note??(job?'มดงานจะขุดจากช่องอุโมงค์ที่เดินถึง':this.game.layer===SURFACE?'แตะจุดอาหารเพื่อดูประเภทและปริมาณ':'เครื่องมือขุด: แตะหรือลากเพื่อกำหนดพื้นที่ (ปุ่ม G)');
+    renderAntInspector(this.game,s,this.selectedAntId);
   }
   notice(message) {
     const toast = $('toast');
