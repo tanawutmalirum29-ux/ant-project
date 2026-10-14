@@ -76,7 +76,37 @@ jobs:
           diff -u qa-evidence/core-allowed.txt qa-evidence/core-paths.txt
           diff -u qa-evidence/ui-allowed.txt qa-evidence/ui-paths.txt
           test ! -s <(comm -12 qa-evidence/core-paths.txt qa-evidence/ui-paths.txt)
-          printf '%s\n' "baseline=$BASELINE_SHA" "integration=$GITHUB_SHA" "core=$CORE_SHA" "ui=$UI_SHA" > qa-evidence/pins.txt
+          # Mode determination is based on true git ancestry, never a manual
+          # override, GitHub run attempt, or a green run from another SHA.
+          if git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA" &&
+             git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"; then
+            QA_MODE=POST_MERGE
+          elif ! git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA" &&
+               ! git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"; then
+            QA_MODE=PRE_MERGE
+          else
+            QA_MODE=PARTIAL_INTEGRATION
+          fi
+          echo "QA_MODE=$QA_MODE" | tee qa-evidence/qa-mode.txt
+          echo "QA_MODE=$QA_MODE" >> "$GITHUB_ENV"
+          cat qa-evidence/core-allowed.txt qa-evidence/ui-allowed.txt | sort -u > qa-evidence/candidate-allowed.txt
+          printf '%s\n' .github/workflows/colony-milestones-v1-verify.yml > qa-evidence/ci-workflow-only.txt
+          cat qa-evidence/candidate-allowed.txt qa-evidence/ci-workflow-only.txt | sort -u > qa-evidence/integrated-allowed.txt
+          git diff --name-only "$BASELINE_SHA" "$GITHUB_SHA" | sort > qa-evidence/integration-paths.txt
+          if test "$QA_MODE" = PRE_MERGE; then
+            # No game source may be merged while testing the local candidate.
+            diff -u qa-evidence/ci-workflow-only.txt qa-evidence/integration-paths.txt
+          elif test "$QA_MODE" = POST_MERGE; then
+            # Both exact feature SHAs must be in the actual checkout history.
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+            diff -u qa-evidence/integrated-allowed.txt qa-evidence/integration-paths.txt
+          else
+            echo "FAIL_CLOSED: single-PR integration is not an accepted QA state."
+            diff -u qa-evidence/integrated-allowed.txt qa-evidence/integration-paths.txt || true
+            exit 1
+          fi
+          printf '%s\n' "baseline=$BASELINE_SHA" "integration=$GITHUB_SHA" "core=$CORE_SHA" "ui=$UI_SHA" "mode=$QA_MODE" > qa-evidence/pins.txt
 
       - name: Native npm test and build for exact Core UI and ephemeral merged candidate
         shell: bash
@@ -127,9 +157,27 @@ jobs:
             echo "merge_ui=$umerge" >> "$E/exit-codes.txt"
             if test "$cmerge" -eq 0 && test "$umerge" -eq 0; then
               git -C "$CANDIDATE" diff --name-only "$GITHUB_SHA" HEAD | sort > "$E/candidate-paths.txt"
-              cat "$E/core-allowed.txt" "$E/ui-allowed.txt" | sort -u > "$E/candidate-allowed.txt"
-              diff -u "$E/candidate-allowed.txt" "$E/candidate-paths.txt" > "$E/candidate-scope.log" 2>&1
-              echo "candidate_scope=$?" >> "$E/exit-codes.txt"
+              if test "$QA_MODE" = PRE_MERGE; then
+                # Local-only merge MUST add exactly eight authorized source files.
+                diff -u "$E/candidate-allowed.txt" "$E/candidate-paths.txt" > "$E/candidate-scope.log" 2>&1
+                scope_status=$?
+              elif test "$QA_MODE" = POST_MERGE; then
+                # Source already merged: no-op merges, and test/check the exact
+                # integration SHA rather than retesting a new ephemeral merge.
+                test "$(git -C "$CANDIDATE" rev-parse HEAD)" = "$GITHUB_SHA"
+                equality_status=$?
+                test ! -s "$E/candidate-paths.txt"
+                empty_diff_status=$?
+                git -C "$CANDIDATE" diff --name-only "$BASELINE_SHA" "$GITHUB_SHA" | sort > "$E/post-integrated-paths.txt"
+                diff -u "$E/integrated-allowed.txt" "$E/post-integrated-paths.txt" > "$E/candidate-scope.log" 2>&1
+                scope_status=$?
+                if test "$equality_status" -ne 0 || test "$empty_diff_status" -ne 0; then scope_status=1; fi
+              else
+                echo "PARTIAL_INTEGRATION never passes." > "$E/candidate-scope.log"
+                scope_status=1
+              fi
+              echo "candidate_scope=$scope_status" >> "$E/exit-codes.txt"
+              echo "qa_mode=$QA_MODE" >> "$E/native-manifest.txt"
               echo "candidate_commit=$(git -C "$CANDIDATE" rev-parse HEAD)" >> "$E/native-manifest.txt"
               echo "candidate_tree=$(git -C "$CANDIDATE" rev-parse HEAD^{tree})" >> "$E/native-manifest.txt"
               git -C "$CANDIDATE" log -3 --pretty=raw > "$E/candidate-parents.txt"
@@ -420,7 +468,8 @@ jobs:
                     'harness_adapter','existing_browser_u6','existing_browser_r2','live_milestones','post_sha_check']
           required=['00-preflight.log','pins.txt','core-test.log','core-build.log','ui-test.log','ui-build.log',
                     'combined-test.log','combined-build.log','native-manifest.txt',
-                    'candidate-parents.txt','candidate-paths.txt','ephemeral-browser-harness.patch',
+                    'candidate-parents.txt','candidate-paths.txt','qa-mode.txt',
+                    'integration-paths.txt','ephemeral-browser-harness.patch',
                     'browser/live-results.json',
                     'browser/portrait-320.png','browser/short-landscape.png',
                     'browser/live-stage-actions.json','browser/real-completed-stages.png','end-source-shas.txt']
