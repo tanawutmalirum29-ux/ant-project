@@ -65,14 +65,6 @@ jobs:
           run_case legacy_browser_five_viewports python tools/browser-phase1-ui-audit.py --artifacts "$root/five-viewports"
           run_case multi_squad_browser python tools/browser-multi-squad-v1.py --artifacts "$root/multi-squad"
           exit 0
-      - name: Upload logs screenshots and tested SHA
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: multi-squad-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/multi-squad-v1/
-          retention-days: 14
-          if-no-files-found: error
       - name: Strict fail-closed QA verdict
         if: always()
         run: |
@@ -108,3 +100,11 @@ jobs:
           print('\n'.join(lines))
           if not passed:raise SystemExit(1)
           PY
+      - name: Upload logs screenshots and tested SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-squad-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/multi-squad-v1/
+          retention-days: 14
+          if-no-files-found: error
