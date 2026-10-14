@@ -164,7 +164,7 @@ test('integration wiring stays on HUD cadence, retains scoped files and CSS cont
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../src/ui/visual/v3-compact.css', import.meta.url), 'utf8');
   const js = readFileSync(new URL('../src/ui/milestones-panel.js', import.meta.url), 'utf8');
-  assert.match(main, /milestonesPanel\.setGame\(game\)/);
+  assert.match(main, /milestonesPanel\?\.setGame\(game\)/);
   assert.match(main, /if \(now - lastHud > 150\).*milestonesPanel\.render\(\)/s);
   assert.match(html, /id="milestones-toggle"[^>]*aria-controls="milestones-panel"/);
   assert.match(html, /id="milestones-panel"[^>]*hidden/);
