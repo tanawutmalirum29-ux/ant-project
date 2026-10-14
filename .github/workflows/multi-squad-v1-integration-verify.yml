@@ -1,0 +1,110 @@
+name: MULTI-SQUAD-V1 Integration Native CI and Browser QA
+on:
+  push:
+    branches: [feat/multi-squad-v1-integration]
+    paths: ['src/**','tests/**','tools/browser-multi-squad-v1.py','.github/workflows/multi-squad-v1-integration-verify.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-and-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record exact HEAD
+        run: |
+          mkdir -p "$RUNNER_TEMP/multi-squad-v1"
+          {
+            echo "github_sha=$GITHUB_SHA"
+            echo "git_sha=$(git rev-parse HEAD)"
+            echo "ref=$GITHUB_REF"
+            node --version
+            python --version
+          } | tee "$RUNNER_TEMP/multi-squad-v1/environment.txt"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install Chromium and Playwright
+        continue-on-error: true
+        run: |
+          set +e
+          root="$RUNNER_TEMP/multi-squad-v1"
+          python -m pip install --disable-pip-version-check playwright==1.57.0 > "$root/playwright-install.log" 2>&1
+          code=$?
+          if [ "$code" -eq 0 ]; then
+            python -m playwright install --with-deps chromium >> "$root/playwright-install.log" 2>&1
+            code=$?
+          fi
+          echo "playwright_install=$code" >> "$root/results.env"
+          tail -n 25 "$root/playwright-install.log"
+          exit "$code"
+      - name: Run native Node/build and actual browser tests
+        if: always()
+        run: |
+          set +e
+          root="$RUNNER_TEMP/multi-squad-v1"
+          mkdir -p "$root"
+          run_case() {
+            key="$1"
+            shift
+            "$@" > "$root/$key.log" 2>&1
+            code=$?
+            printf '%s=%s\n' "$key" "$code" >> "$root/results.env"
+            echo "$key => $code"
+            tail -n 30 "$root/$key.log"
+          }
+          run_case npm_test npm test
+          run_case npm_build npm run build
+          run_case py_compile python -m py_compile tools/browser-multi-squad-v1.py
+          run_case legacy_browser_u6 python tools/browser-u6.py
+          run_case legacy_browser_five_viewports python tools/browser-phase1-ui-audit.py --artifacts "$root/five-viewports"
+          run_case multi_squad_browser python tools/browser-multi-squad-v1.py --artifacts "$root/multi-squad"
+          exit 0
+      - name: Upload logs screenshots and tested SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-squad-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/multi-squad-v1/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Strict fail-closed QA verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'multi-squad-v1'
+          codes={}
+          env=root/'results.env'
+          if env.exists():
+              for line in env.read_text().splitlines():
+                  if '=' in line:
+                      k,v=line.split('=',1)
+                      codes[k]=int(v)
+          required=['playwright_install','npm_test','npm_build','py_compile','legacy_browser_u6','legacy_browser_five_viewports','multi_squad_browser']
+          def report(path):
+              return json.loads(path.read_text()) if path.exists() else {}
+          legacy=report(root/'five-viewports'/'summary.json')
+          squad=report(root/'multi-squad'/'summary.json')
+          legacy_ok=len(legacy.get('viewports',[]))==5 and not legacy.get('blocked') and all(v.get('fail_count')==0 for v in legacy['viewports'])
+          squad_ok=len(squad.get('views',[]))==2 and not squad.get('fatal') and all(v.get('failed')==0 for v in squad['views'])
+          sha_ok=squad.get('tested_sha')==os.environ.get('GITHUB_SHA')
+          passed=all(codes.get(k)==0 for k in required) and legacy_ok and squad_ok and sha_ok
+          lines=['# MULTI-SQUAD-V1 independent native integration QA',
+                 '- Tested SHA: '+str(os.environ.get('GITHUB_SHA')),
+                 '- Legacy five viewports: '+str(legacy_ok),
+                 '- Real Squad A/B 320x568 and 390x844: '+str(squad_ok),
+                 '- Browser checkout matches commit: '+str(sha_ok)]
+          lines += ['- '+k+': '+str(codes.get(k,'NOT_RUN')) for k in required]
+          lines += ['- Verdict: '+('PASS' if passed else 'FAIL / NOT VERIFIED')]
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:out.write('\n'.join(lines)+'\n')
+          (root/'verdict.json').write_text(json.dumps({'sha':os.environ.get('GITHUB_SHA'),'codes':codes,'legacy_ok':legacy_ok,'squad_ok':squad_ok,'sha_ok':sha_ok,'passed':passed},indent=2))
+          print('\n'.join(lines))
+          if not passed:raise SystemExit(1)
+          PY
