@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import traceback
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
 ROOT=Path(__file__).resolve().parents[1]
 SIZES=[('small',320,568),('portrait',390,844)]
@@ -111,23 +111,95 @@ def run_view(browser,html,name,w,h,root):
             return {'soldiers':count,'hp':current_squad(page,'A')['hpCurrent']}
         check('real workforce recruits multiple soldiers',recruit)
         def transfer():
-            beforeA=current_squad(page,'A')
-            button=page.locator('#u6-roster button[data-action="transfer"][data-to-squad="B"]').first
-            button.scroll_into_view_if_needed()
-            button.click()
-            afterB=current_squad(page,'B')
-            assert afterB['count']==1,afterB
-            assert afterB['soldiers'][0]['id'] in [s['id'] for s in beforeA['soldiers']]
-            assert afterB['soldiers'][0]['hp']>0,afterB
-            back=page.locator('#u6-roster button[data-action="transfer"][data-to-squad="A"]').first
-            back.scroll_into_view_if_needed()
-            back.click()
-            assert current_squad(page,'B')['count']==0
-            button=page.locator('#u6-roster button[data-action="transfer"][data-to-squad="B"]').first
-            button.scroll_into_view_if_needed()
-            button.click()
-            assert current_squad(page,'B')['count']==1
-            return {'member':afterB['soldiers'][0]['id'],'hp':afterB['soldiers'][0]['hp'],'round_trip':True}
+            # A fixed soldier identity avoids the ambiguous .first locator when the
+            # roster is rebuilt by renderRoster() every time state changes.
+            before_a=current_squad(page,'A')
+            before_b=current_squad(page,'B')
+            soldier=before_a['soldiers'][0]
+            soldier_id=str(soldier['id'])
+            original_hp=soldier['hp']
+            total=before_a['count']+before_b['count']
+            population=page.evaluate('window.__ANT_DEBUG__.game.population')
+            assert before_a['count']>=1 and original_hp>0,(before_a,soldier)
+            diagnosis={'soldier_id':soldier_id,'original_hp':original_hp,
+                       'initial_counts':{'A':before_a['count'],'B':before_b['count']},
+                       'population':population,'steps':[],'detach_retries':[]}
+            evidence['roster_diagnostics']=diagnosis
+            page.evaluate("""() => {
+              const roster=document.querySelector('#u6-roster');
+              window.__qaRosterMutationLog=[];
+              window.__qaRosterObserver?.disconnect();
+              window.__qaRosterObserver=new MutationObserver(records=>{
+                for(const item of records)if(item.type==='childList')
+                  window.__qaRosterMutationLog.push({
+                    added:item.addedNodes.length,removed:item.removedNodes.length,
+                    time:Math.round(performance.now())
+                  });
+              });
+              window.__qaRosterObserver.observe(roster,{childList:true});
+            }""")
+            try:
+                for source,dest in [('A','B'),('B','A'),('A','B')]:
+                    source_before=current_squad(page,source)
+                    dest_before=current_squad(page,dest)
+                    assert any(str(m['id'])==soldier_id for m in source_before['soldiers']),(
+                        'soldier not in expected source',soldier_id,source,source_before)
+                    assert not any(str(m['id'])==soldier_id for m in dest_before['soldiers']),(
+                        'soldier already in destination',soldier_id,dest,dest_before)
+                    moved=False
+                    for attempt in range(1,4):  # bounded; no force-click or invisible action
+                        # Regenerate a new Playwright locator on EACH attempt.
+                        locator=page.locator(
+                            '#u6-roster button[data-action="transfer"]'
+                            f'[data-id={json.dumps(soldier_id)}][data-to-squad="{dest}"]'
+                        )
+                        try:
+                            locator.wait_for(state='visible',timeout=2500)
+                            locator.click(timeout=3500)  # real user event, auto-scroll
+                            moved=True
+                            break
+                        except PlaywrightError as err:
+                            if 'not attached to the dom' not in str(err).lower():
+                                raise  # no retries for timeouts, hidden buttons, other errors
+                            diagnosis['detach_retries'].append({
+                                'phase':source+'->'+dest,'attempt':attempt,
+                                'error':str(err),'button_selector':str(locator)
+                            })
+                            # Do not hide an uncertain already-processed click.
+                            if any(str(m['id'])==soldier_id for m in current_squad(page,dest)['soldiers']):
+                                raise AssertionError('state changed after detached click; investigate ambiguous DOM event')
+                            if attempt==3:
+                                raise
+                    assert moved,('no physical click completed',soldier_id,source,dest)
+                    page.wait_for_function("""({id,dest}) => {
+                      const r=window.__ANT_DEBUG__.game.combat.getSquad(dest);
+                      return r.ok===true && r.data.soldiers.some(s=>String(s.id)===id);
+                    }""",arg={'id':soldier_id,'dest':dest},timeout=3000)
+                    source_after=current_squad(page,source)
+                    dest_after=current_squad(page,dest)
+                    member=next((m for m in dest_after['soldiers'] if str(m['id'])==soldier_id),None)
+                    assert member is not None,(dest,dest_after,soldier_id)
+                    assert member['hp']==original_hp,('soldier HP was reset or modified',original_hp,member)
+                    assert source_after['count']==source_before['count']-1,(source,source_before,source_after)
+                    assert dest_after['count']==dest_before['count']+1,(dest,dest_before,dest_after)
+                    assert source_after['count']+dest_after['count']==total,'total soldiers changed during transfer'
+                    assert page.evaluate('window.__ANT_DEBUG__.game.population')==population,'population changed'
+                    diagnosis['steps'].append({
+                        'phase':source+'->'+dest,'id':soldier_id,'hp':member['hp'],
+                        'counts':{'source_before':source_before['count'],
+                                  'destination_before':dest_before['count'],
+                                  'source_after':source_after['count'],
+                                  'destination_after':dest_after['count']},
+                        'roster_mutations':page.evaluate('window.__qaRosterMutationLog.length')
+                    })
+            finally:
+                diagnosis['mutation_sample']=page.evaluate(
+                    'window.__qaRosterMutationLog.slice(-20)')
+                page.evaluate('window.__qaRosterObserver?.disconnect()')
+            assert current_squad(page,'B')['count']==before_b['count']+1
+            assert current_squad(page,'A')['count']==before_a['count']-1
+            assert len(diagnosis['steps'])==3,diagnosis
+            return diagnosis
         check('touch transfer live ant A to B to A and back to B',transfer)
         def commands():
             page.locator('[data-u6-squad="B"]').click()
@@ -197,17 +269,65 @@ def run_view(browser,html,name,w,h,root):
                 page.keyboard.press('Space')
                 assert page.locator('#multi-squad-keyboard-input-probe').input_value()==' '
                 assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+                # Real Chromium may serialize an inserted ASCII Space as U+00A0
+                # inside contenteditable. Prove the exact insertion and events,
+                # not merely presence of whitespace somewhere in the content.
                 page.evaluate("""() => {
                     const el=document.createElement('div');
                     el.id='multi-squad-keyboard-editable-probe';
                     el.setAttribute('contenteditable','true');
                     el.setAttribute('tabindex','0');
                     el.textContent='Editable';document.body.append(el);el.focus();
+                    const selection=window.getSelection(),range=document.createRange();
+                    range.setStart(el.firstChild,4);range.collapse(true);
+                    selection.removeAllRanges();selection.addRange(range);
+                    window.__qaEditableEvents=[];
+                    for(const type of ['keydown','beforeinput','input','keyup']){
+                        document.addEventListener(type,ev=>{
+                            if(ev.target!==el)return;
+                            window.__qaEditableEvents.push({
+                                type:ev.type,key:ev.key??null,code:ev.code??null,
+                                data:ev.data??null,inputType:ev.inputType??null,
+                                defaultPrevented:ev.defaultPrevented,
+                                focused:document.activeElement===el
+                            });
+                        });
+                    }
                 }""")
-                assert page.evaluate('document.activeElement?.id')=='multi-squad-keyboard-editable-probe'
+                before=page.evaluate("""() => {
+                    const el=document.querySelector('#multi-squad-keyboard-editable-probe');
+                    return {text:el.textContent,codepoints:[...el.textContent].map(x=>x.codePointAt(0)),
+                        focused:document.activeElement===el,
+                        caret:window.getSelection()?.anchorOffset,
+                        gameSpeed:window.__ANT_DEBUG__.game.clock.speed};
+                }""")
                 page.keyboard.press('Space')
-                assert ' ' in page.locator('#multi-squad-keyboard-editable-probe').evaluate('el=>el.textContent')
-                assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==initial
+                after=page.evaluate("""() => {
+                    const el=document.querySelector('#multi-squad-keyboard-editable-probe');
+                    return {text:el.textContent,codepoints:[...el.textContent].map(x=>x.codePointAt(0)),
+                        html:el.innerHTML,focused:document.activeElement===el,
+                        caret:window.getSelection()?.anchorOffset,
+                        gameSpeed:window.__ANT_DEBUG__.game.clock.speed,
+                        events:window.__qaEditableEvents.slice()};
+                }""")
+                evidence['editable_diagnostics']={'before':before,'after':after,
+                    'browser':browser.version,'viewport':{'width':w,'height':h}}
+                assert before['focused'] and after['focused'],(before,after)
+                assert before['text']=='Editable' and before['caret']==4,before
+                assert before['gameSpeed']==initial and after['gameSpeed']==initial,(before,after)
+                inserted=after['text'][4:5]
+                assert inserted and ord(inserted) in (0x0020,0x00A0),after
+                assert after['text']==before['text'][:4]+inserted+before['text'][4:],(
+                    'Space inserted at wrong position or altered other content',before,after)
+                events=after['events']
+                kinds=[ev['type'] for ev in events]
+                assert all(k in kinds for k in ('keydown','beforeinput','input','keyup')),events
+                assert kinds.index('keydown')<kinds.index('beforeinput')<kinds.index('input')<kinds.index('keyup'),events
+                assert any(ev['type']=='keydown' and ev['code']=='Space' and
+                    ev['key']==' ' and not ev['defaultPrevented'] for ev in events),events
+                assert any(ev['type']=='beforeinput' and ev['data']==' ' and
+                    ev['inputType']=='insertText' and not ev['defaultPrevented'] for ev in events),events
+                assert any(ev['type']=='input' and ev['data']==' ' for ev in events),events
             finally:
                 page.evaluate("""() => {
                     document.getElementById('multi-squad-keyboard-input-probe')?.remove();
