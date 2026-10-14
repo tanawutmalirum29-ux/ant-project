@@ -38,6 +38,7 @@ export class MilestonesPanel {
     this.tickLabel = byId('milestones-tick');
     this.list = byId('milestones-list');
     this.game = game;
+    this.onOpen = options.onOpen ?? null;
     this.lastSignature = null;
     this.toggle.addEventListener('click', () => this.setOpen(this.root.hidden));
     this.closeButton.addEventListener('click', () => this.setOpen(false, true));
@@ -55,6 +56,7 @@ export class MilestonesPanel {
     this.root.hidden = !open;
     this.toggle.setAttribute('aria-expanded', String(open));
     if (open) {
+      this.onOpen?.();
       this.render(true);
       this.closeButton.focus({ preventScroll: true });
     } else if (restoreFocus) {
