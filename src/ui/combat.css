@@ -314,3 +314,19 @@
 @media(prefers-reduced-motion:reduce){
   #u6-dialog .u6-chevron{transition:none;}
 }
+
+/* Expand custom choices within the sheet so no browser popup or clipped overlay exists. */
+#u6-dialog .u6-filter{
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;
+}
+#u6-dialog .u6-filter-options{
+  position:static;grid-column:1/-1;width:100%;margin:0;
+}
+#u6-dialog .u6-unit-info progress{
+  appearance:none;-webkit-appearance:none;
+  overflow:hidden;min-height:7px;height:7px;
+  border:0;border-radius:99px;background:#142720;
+}
+#u6-dialog .u6-unit-info progress::-webkit-progress-bar{background:#142720;}
+#u6-dialog .u6-unit-info progress::-webkit-progress-value{background:#c9de8e;border-radius:99px;}
+#u6-dialog .u6-unit-info progress::-moz-progress-bar{background:#c9de8e;border-radius:99px;}
