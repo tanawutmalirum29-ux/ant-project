@@ -1,0 +1,98 @@
+/* INSPECT-01 — One native HTML/CSS detail surface; no browser alert or prompt.
+   JavaScript only supplies current simulation data and selection state. */
+#selection-card.selection-card:not(.hidden){
+  scroll-padding:8px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--royal-gold) transparent;
+}
+#selection-card[data-inspecting="ant"].selection-card:not(.hidden){
+  max-height:min(48dvh,390px);
+  min-width:0;
+}
+#selection-card .selection-title{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-weight:800;
+}
+#selection-card #selection-close{
+  flex:none;min-width:40px;min-height:40px;
+  border-radius:8px;border:1px solid var(--hud-line);
+  background:var(--royal-wood);color:var(--royal-cream);
+  font:800 19px/1 system-ui,sans-serif;cursor:pointer;
+}
+#selection-card .selection-ants{
+  display:grid;gap:7px;
+  margin:9px 0 8px;padding:9px;
+  background:var(--royal-night);
+  border:1px solid var(--hud-line);
+  border-radius:9px;
+  min-width:0;
+}
+#selection-card .selection-ants.hidden,
+#selection-card .selection-ant-detail.hidden{display:none!important;}
+#selection-card .selection-ants-head{
+  display:flex;gap:6px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;
+}
+#selection-card .selection-ants-head strong{
+  color:var(--royal-gold-light);font-size:12px;
+}
+#selection-card .selection-ants-head span{
+  color:var(--royal-cream);font-size:10px;opacity:.78;
+}
+#selection-card .selection-ants-list{display:flex;flex-wrap:wrap;gap:5px;min-width:0;}
+#selection-card .selection-ant-button{
+  display:flex;flex:1 1 102px;flex-direction:column;align-items:flex-start;justify-content:center;
+  gap:3px;min-height:44px;min-width:0;max-width:100%;
+  padding:7px 9px;
+  border:1px solid var(--hud-line);
+  background:var(--royal-panel);color:var(--royal-cream);
+  border-radius:8px;
+  font:inherit;cursor:pointer;
+  text-align:left;
+}
+#selection-card .selection-ant-button strong{font-size:12px;}
+#selection-card .selection-ant-role{
+  font-size:10px;opacity:.87;
+  overflow-wrap:anywhere;
+}
+#selection-card .selection-ant-button[aria-pressed="true"]{
+  border-color:var(--royal-gold-light);
+  background:var(--royal-gold-light);
+  color:var(--royal-brown);
+}
+#selection-card .selection-ant-detail{
+  display:grid;gap:3px;
+  padding:8px 10px;
+  border-left:3px solid var(--royal-gold-light);
+  border-radius:5px;
+  background:var(--royal-panel);
+  color:var(--royal-cream);
+}
+#selection-card .selection-ant-detail strong{font-size:12px;color:var(--royal-gold-light);}
+#selection-card .selection-ant-detail p{margin:0;font-size:11px;line-height:1.55;overflow-wrap:anywhere;}
+#selection-card button:focus-visible{
+  outline:3px solid var(--royal-gold-light);
+  outline-offset:2px;
+}
+@media(max-width:680px) and (min-height:501px){
+  #selection-card[data-inspecting="ant"].selection-card:not(.hidden){
+    width:min(232px,calc(100vw - 96px));
+    max-height:min(40dvh,230px);
+  }
+}
+@media(max-width:360px) and (min-height:501px){
+  #selection-card[data-inspecting="ant"].selection-card:not(.hidden){
+    width:min(214px,calc(100vw - 90px));
+    max-height:min(34dvh,194px);
+  }
+}
+@media(max-height:500px) and (orientation:landscape){
+  #selection-card[data-inspecting="ant"].selection-card:not(.hidden){
+    width:min(228px,calc(100vw - 260px));
+    max-height:min(43dvh,170px);
+  }
+  #selection-card .selection-ants{padding:6px;gap:4px;}
+  #selection-card .selection-ant-button{min-height:40px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #selection-card .selection-ant-button{transition:none;}
+}
