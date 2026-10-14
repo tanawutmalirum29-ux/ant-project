@@ -74,7 +74,7 @@ export function renderAntInspector(game,selection,selectedAntId) {
   const ants=selection?antsAtTile(game,selection.layer,selection.x,selection.y):[];
   root.classList.toggle('hidden',ants.length===0);
   if(!ants.length){
-    list.replaceChildren();list.dataset.members='';detail.textContent='';
+    list.replaceChildren();list.dataset.members='';detail.replaceChildren();detail.dataset.signature='';
     detail.classList.add('hidden');return;
   }
   const membership=ants.map(a=>a.id).join('|');
