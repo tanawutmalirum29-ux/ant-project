@@ -660,7 +660,9 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
  .milestones-stage-status{font-size:9px}
 }
 @media (max-width:355px) and (min-height:501px){
- .milestones-panel{width:calc(100vw - 16px);max-height:min(34dvh,calc(100dvh - 318px))}
+ /* Leave room for the right-hand Squad A/B dock even at 320px.
+    The panel can scroll vertically; it never expands across the military hit targets. */
+ .milestones-panel{width:min(216px,calc(100vw - 112px));max-height:min(34dvh,calc(100dvh - 318px))}
  .milestones-progress li{font-size:10px}
 }
 @media (max-height:500px) and (orientation:landscape){
@@ -668,7 +670,10 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
  .milestones-panel{
   top:calc(122px + env(safe-area-inset-top));left:8px;
   width:min(220px,35vw);
-  max-height:max(60px,calc(100dvh - 185px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  /* At 844x390 the dig dock starts at y=300; keep the panel bottom at y<=291.
+     Use top+bottom instead of a min-height that could push into the tool row. */
+  bottom:calc(99px + env(safe-area-inset-bottom));
+  max-height:none;
   padding:7px;
  }
  .milestones-stage{padding:6px}
@@ -677,4 +682,15 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
 }
 @media (prefers-reduced-motion:reduce){
  .milestones-panel,.milestones-toggle{scroll-behavior:auto}
+}
+
+/* The inspector, dig selection, and room picker take precedence over the
+   Milestones report if they become visible through a keyboard shortcut.
+   The JavaScript panel controller also closes on new map interactions. */
+@media (max-width:680px) and (min-height:501px){
+ .milestones-panel{
+  /* Reserve 104px along the right edge for the soldier dock and its gap.
+     Do not allow the 320px fallback to restore the old 304px full width. */
+  width:min(280px,calc(100vw - 112px));
+ }
 }
