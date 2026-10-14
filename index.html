@@ -68,6 +68,14 @@
         <button type="button" class="tool-button" id="tool-dig" aria-pressed="false" title="เลือกแล้วลากเพื่อสั่งขุด">⚒ <span>สั่งขุด</span></button>
         <button type="button" class="tool-button" id="tool-room" aria-pressed="false" title="วางผังห้องบนอุโมงค์ที่ขุดแล้ว">▣ <span>สร้างห้อง</span></button>
       </div>
+      <div class="dig-actions hidden" id="dig-actions" role="group" aria-label="จัดการคำสั่งขุดในพื้นที่ที่เลือก">
+        <strong id="dig-action-summary">พื้นที่ขุดที่เลือก</strong>
+        <div class="dig-action-buttons">
+          <button type="button" id="dig-apply" class="dig-action-add">สั่งขุดเพิ่ม</button>
+          <button type="button" id="dig-remove" class="dig-action-remove">ยกเลิกขุด</button>
+          <button type="button" id="dig-dismiss" class="dig-action-dismiss" aria-label="ปิดการเลือกพื้นที่ขุด">×</button>
+        </div>
+      </div>
       <div class="room-palette hidden" id="room-palette"><label for="room-type">ประเภทห้อง</label><select id="room-type" aria-label="เลือกประเภทห้อง"><option value="food_store">คลังอาหาร</option><option value="water_store">คลังน้ำ</option><option value="nursery">ห้องเลี้ยงตัวอ่อน</option><option value="rest">ห้องพักมดงาน</option><option value="guard">ห้องเตรียมป้องกัน</option></select><span class="room-cost" id="room-cost">คลิกบนพื้นที่อุโมงค์ 2×2</span></div>
       <button type="button" id="workforce-open" class="workforce-open" aria-controls="colony-panel" aria-expanded="false" aria-label="เปิดหรือปิดหน้าจัดสรรกำลังมด">
         <span>⚙ กำลังมด</span>

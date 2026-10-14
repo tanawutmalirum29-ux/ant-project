@@ -61,6 +61,7 @@ export class UI {
     this.lastSpeed = 1;
     this.tool = 'inspect';
     this.digPreview = null;
+    this.digSelection = null;
     this.roomPreview = null;
     this.bind();
     this.updateWorld();
@@ -106,6 +107,9 @@ export class UI {
     // Re-clicking an active action tool exits to inspection (same as G/R keys).
     $('tool-dig').addEventListener('click', () => this.setTool(this.tool === 'dig' ? 'inspect' : 'dig'));
     $('tool-room').addEventListener('click', () => this.setTool(this.tool === 'room' ? 'inspect' : 'room'));
+    $('dig-apply').addEventListener('click', () => this.applyDigSelection(false));
+    $('dig-remove').addEventListener('click', () => this.applyDigSelection(true));
+    $('dig-dismiss').addEventListener('click', () => this.clearDigSelection());
     $('room-type').addEventListener('change', () => { this.roomPreview=null;this.updateRoomCost(); });
     $('cancel-room').addEventListener('click', () => {
       const s=this.selection, room=s?.layer===UNDERGROUND?this.game.rooms.getRoom(s.x,s.y):null;
@@ -127,7 +131,7 @@ export class UI {
       if (!seed) return;
       $('seed-dialog').close();
       this.onNewWorld(seed);
-      this.select(null);this.roomPreview=null;
+      this.select(null);this.roomPreview=null;this.clearDigSelection();
       this.updateWorld();
       this.notice('สร้างโลกใหม่สำเร็จ');
     });
@@ -165,7 +169,10 @@ export class UI {
       el.setPointerCapture(e.pointerId);
       if(pointers.size===1) {
         start=p;dragDistance=0;usedMultiTouch=false;pinch=null;
-        if(this.tool==='dig' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.digPreview={from:cell,to:cell};}
+        if(this.tool==='dig' && this.game.layer===UNDERGROUND){
+          this.clearDigSelection();
+          const cell=cellAtPointer(p);this.digPreview={from:cell,to:cell};
+        }
         if(this.tool==='room' && this.game.layer===UNDERGROUND){const cell=cellAtPointer(p);this.roomPreview={from:cell,to:cell,dragging:false};this.updateRoomCost();}
       }
       if(pointers.size>=2){usedMultiTouch=true;this.digPreview=null;this.roomPreview=null;this.updateRoomCost();start=null;pinch=pinchInfo();}
@@ -214,10 +221,19 @@ export class UI {
           if(result.ok)this.select({layer:this.game.layer,x,y});
           this.roomPreview=null;this.updateRoomCost();
         } else if(this.tool==='dig' && this.game.layer===UNDERGROUND && this.digPreview){
-          const result=this.game.colony.queueRectangle(this.digPreview.from,this.digPreview.to);
-          if(result.added) this.notice(`สั่งขุด ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`);
-          else this.notice(result.existing?'พื้นที่นี้อยู่ในคิวแล้ว':'พื้นที่นี้ขุดไม่ได้');
-          this.select({layer:this.game.layer,...cell});
+          const {from,to}=this.digPreview;
+          const info=this.game.colony.inspectRectangle(from,to);
+          if(info.existing){
+            this.digSelection={from:{...from},to:{...to}};
+            $('dig-action-summary').textContent=`ในคิว ${info.existing} · เพิ่มได้ ${info.available} ช่อง`;
+            $('dig-apply').disabled=info.available===0;
+            $('dig-actions').classList.remove('hidden');
+            this.notice('เลือกสั่งขุดเพิ่มหรือยกเลิกขุดในพื้นที่');
+          }else{
+            const result=this.game.colony.queueRectangle(from,to);
+            this.notice(result.added?`สั่งขุด ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`:'พื้นที่นี้ขุดไม่ได้');
+            this.select({layer:this.game.layer,...cell});
+          }
         }else if(dragDistance<7) {
           // Inspection only: tapping an already selected tile dismisses its info.
           // Digging, room placement and tactical targeting remain command actions.
@@ -226,7 +242,11 @@ export class UI {
         }
       }
       if(pointers.size===1){start=null;pinch=null;this.digPreview=null;}
-      if(pointers.size===0){pinch=null;start=null;usedMultiTouch=false;this.digPreview=null;this.roomPreview=null;this.updateRoomCost();}
+      if(pointers.size===0){
+        pinch=null;start=null;usedMultiTouch=false;
+        this.digPreview=this.digSelection?{...this.digSelection,mode:'choose'}:null;
+        this.roomPreview=null;this.updateRoomCost();
+      }
     };
     el.addEventListener('pointerup',e=>finish(e));
     el.addEventListener('pointercancel',e=>finish(e,true));
@@ -236,9 +256,27 @@ export class UI {
       this.camera.zoomAt(Math.exp(-Math.max(-100,Math.min(100,e.deltaY))*.0017),p.x,p.y,this.game.currentLayer,...this.dimensions());
     },{passive:false});
   }
+  clearDigSelection(){
+    this.digSelection=null;
+    this.digPreview=null;
+    $('dig-actions').classList.add('hidden');
+  }
+  applyDigSelection(cancel){
+    const area=this.digSelection;
+    if(!area)return;
+    const result=cancel
+      ?this.game.colony.cancelRectangle(area.from,area.to)
+      :this.game.colony.queueRectangle(area.from,area.to);
+    this.clearDigSelection();
+    this.notice(cancel?`ยกเลิกคำสั่งขุด ${result.cancelled} ช่อง`
+      :result.added?`สั่งขุดเพิ่ม ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`
+      :'ไม่มีพื้นที่ใหม่ให้สั่งขุด');
+    this.refreshSelection();this.updateMetrics();
+  }
   setTool(tool) {
     if((tool==='dig'||tool==='room') && this.game.layer!==UNDERGROUND){this.notice('สั่งขุดได้เฉพาะโลกใต้ดิน');return;}
-    this.tool=tool;this.digPreview=null;this.roomPreview=null;
+    this.clearDigSelection();
+    this.tool=tool;this.roomPreview=null;
     for(const btn of document.querySelectorAll('.tool-button')){
       const active=btn.id===`tool-${tool}`;
       btn.classList.toggle('active',active);
@@ -324,7 +362,7 @@ export class UI {
     $('portal-button').classList.toggle('hidden',!portalAt(this.game.world,s.layer,s.x,s.y));
     $('cancel-dig').classList.toggle('hidden',!job);
     $('selection-work').classList.toggle('hidden',!job);
-    if(job) $('selection-work').textContent=`ขุด · ${job.status==='digging'?'กำลังทำ':job.status==='assigned'?'กำลังมา':'รอ'} ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
+    if(job) $('selection-work').textContent=`${job.auto?'ขุดทางเชื่อม':'ขุด'} · ${job.status==='digging'?'กำลังทำ':job.status==='assigned'?'กำลังมา':this.game.colony.accessBlocked?'รอทางเชื่อม (หินกั้น)':'รอ'} ${Math.floor(job.progress/(job.terrain===TERRAINS.HARD_SOIL?30:12)*100)}%`;
     $('selection-room').classList.toggle('hidden',!room);
     $('cancel-room').classList.toggle('hidden',!room || !['planned','building'].includes(room.status));
     if(room) {

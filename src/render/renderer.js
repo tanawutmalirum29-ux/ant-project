@@ -533,10 +533,10 @@ export class Renderer {
     for(const job of game.colony.orders.values()) {
       if(job.x<bounds.x0||job.x>bounds.x1||job.y<bounds.y0||job.y>bounds.y1) continue;
       const x=job.x*TILE,y=job.y*TILE;
-      ctx.fillStyle=job.status==='digging'?'#e7a75a88':job.status==='assigned'?'#e0b17a5a':'#d2bd7740';
+      ctx.fillStyle=job.auto?'#72bddd70':job.status==='digging'?'#e7a75a88':job.status==='assigned'?'#e0b17a5a':'#d2bd7740';
       ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
       ctx.lineWidth=1/Math.max(camera.zoom,.5);
-      ctx.strokeStyle='#e4b973aa';ctx.strokeRect(x+2,y+2,TILE-4,TILE-4);
+      ctx.strokeStyle=job.auto?'#8de1f5bb':'#e4b973aa';ctx.strokeRect(x+2,y+2,TILE-4,TILE-4);
       if(job.progress){
         const total=job.terrain===TERRAINS.HARD_SOIL?30:12;
         ctx.fillStyle='#30291e';ctx.fillRect(x+3,y+TILE-7,TILE-6,4);
@@ -553,9 +553,10 @@ export class Renderer {
     ctx.lineWidth=1/Math.max(camera.zoom,.5);
     for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) {
       const t=cellAt(l,x,y),valid=t===TERRAINS.SOIL||t===TERRAINS.HARD_SOIL;
-      ctx.fillStyle=valid?'#a9df8277':'#ee777433';
+      const queued=game.colony.getOrder(x,y);
+      ctx.fillStyle=preview.mode==='choose'&&queued?'#ec816a99':valid?'#a9df8277':'#ee777433';
       ctx.fillRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
-      ctx.strokeStyle=valid?'#bfe998':'#eb989866';
+      ctx.strokeStyle=preview.mode==='choose'&&queued?'#ffc0a4':valid?'#bfe998':'#eb989866';
       ctx.strokeRect(x*TILE+1,y*TILE+1,TILE-2,TILE-2);
     }
   }

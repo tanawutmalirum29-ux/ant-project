@@ -1,5 +1,5 @@
 import { TERRAINS, UNDERGROUND, cellAt, writeCell } from '../world/generate.js';
-import { DIRECTIONS, isDiggable, isWalkable, reachablePaths } from '../world/navigation.js';
+import { DIRECTIONS, isDiggable, isWalkable, reachablePaths, findExcavationRoute } from '../world/navigation.js';
 
 export const WORKER_COUNT = 5;
 export const MAX_ORDERS = 600;
@@ -15,6 +15,7 @@ export class Colony {
     this.completed = 0;
     this.nextOrder = 1;
     this.tickCount = 0;
+    this.accessBlocked = false;
     this.forageSlots = 2;
     const layer = world.layers[UNDERGROUND];
     const entrance = world.entrances[0].underground;
@@ -49,13 +50,66 @@ export class Colony {
       this.orders.set(k,job);this.ordersById.set(job.id,job);
       result.added++;
     }
+    if(result.added)this.accessBlocked=false;
     return result;
   }
-  cancel(x,y) {
-    const k=key(x,y), job=this.orders.get(k);
-    if(!job) return false;
+  rectangleBounds(a,b){
+    const layer=this.world.layers[UNDERGROUND];
+    return {x0:Math.max(0,Math.min(a.x,b.x)),x1:Math.min(layer.width-1,Math.max(a.x,b.x)),
+      y0:Math.max(0,Math.min(a.y,b.y)),y1:Math.min(layer.height-1,Math.max(a.y,b.y))};
+  }
+  inspectRectangle(a,b){
+    const layer=this.world.layers[UNDERGROUND],bounds=this.rectangleBounds(a,b);
+    const result={existing:0,available:0,blocked:0};
+    for(let y=bounds.y0;y<=bounds.y1;y++)for(let x=bounds.x0;x<=bounds.x1;x++){
+      if(this.getOrder(x,y))result.existing++;
+      else if(isDiggable(layer,x,y))result.available++;
+      else result.blocked++;
+    }
+    return result;
+  }
+  removeOrder(x,y){
+    const k=key(x,y),job=this.orders.get(k);
+    if(!job)return false;
     this.orders.delete(k);this.ordersById.delete(job.id);
-    for(const ant of this.workers) if(ant.orderId===job.id) this.release(ant);
+    for(const ant of this.workers)if(ant.orderId===job.id)this.release(ant);
+    return true;
+  }
+  resetAccess(){
+    for(const job of [...this.orders.values()])if(job.auto)this.removeOrder(job.x,job.y);
+    this.accessBlocked=false;
+  }
+  cancel(x,y){
+    const job=this.getOrder(x,y);
+    if(!job)return false;
+    this.removeOrder(x,y);
+    if(!job.auto)this.resetAccess();
+    return true;
+  }
+  cancelRectangle(a,b){
+    const {x0,x1,y0,y1}=this.rectangleBounds(a,b);
+    let cancelled=0;
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)
+      if(this.removeOrder(x,y))cancelled++;
+    if(cancelled)this.resetAccess();
+    return {cancelled};
+  }
+  // Plan ONE extra frontier job at a time. New tunnels unlock the next step;
+  // no ant is ever assigned through uncleared soil or a rock tile.
+  queueAccessStep(){
+    const layer=this.world.layers[UNDERGROUND];
+    if(this.orders.size>=MAX_ORDERS||[...this.orders.values()].some(job=>job.auto))return false;
+    const targets=[...this.orders.values()].filter(job=>!job.auto);
+    const workers=this.workers.filter(ant=>ant.layer===UNDERGROUND&&!this.isForager(ant)&&ant.state==='idle');
+    if(!targets.length||!workers.length)return false;
+    const route=findExcavationRoute(layer,workers,targets);
+    if(!route){this.accessBlocked=true;return false;}
+    const next=route.path.find(p=>isDiggable(layer,p.x,p.y));
+    if(!next||this.getOrder(next.x,next.y))return false;
+    const job={id:this.nextOrder++,x:next.x,y:next.y,terrain:cellAt(layer,next.x,next.y),
+      progress:0,status:'queued',workerId:null,auto:true};
+    this.orders.set(key(next.x,next.y),job);this.ordersById.set(job.id,job);
+    this.accessBlocked=false;
     return true;
   }
   release(ant) { ant.orderId=null;ant.state='idle';ant.path=[];ant.next=null;ant.motion=0; }
@@ -205,5 +259,6 @@ export class Colony {
         this.release(ant);
       }
     }
+    if(this.orders.size && !this.busyCount && this.tickCount%5===1)this.queueAccessStep();
   }
 }

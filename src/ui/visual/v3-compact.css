@@ -565,3 +565,27 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
   outline-offset:1px;
   box-shadow:inset 0 0 0 2px var(--royal-night),0 0 0 1px var(--royal-night);
 }
+
+/* Dig-area actions appear above the dock only when a dragged area overlaps
+   queued work. Keep the canvas free and preserve mobile touch targets. */
+.dig-tools > .dig-actions{
+ position:absolute;left:0;bottom:calc(100% + 7px);z-index:35;
+ width:min(290px,calc(100vw - 24px));padding:9px;display:grid;gap:7px;
+ color:#f7e5c6;background:#142821f7;border:1px solid #e6c58d8c;
+ border-radius:11px;box-shadow:var(--hud-shadow);pointer-events:auto;
+}
+.dig-actions strong{font:700 11px/1.4 system-ui,sans-serif;}
+.dig-action-buttons{display:flex;align-items:center;gap:5px;}
+.dig-action-buttons button{
+ min-height:39px;border-radius:8px;border:1px solid #e9c58b70;
+ padding:6px 8px;font:700 11px system-ui,sans-serif;
+ touch-action:manipulation;cursor:pointer;
+}
+.dig-action-add{flex:1;background:#274b35;color:#f0e8cc;}
+.dig-action-remove{flex:1;background:#763a33;color:#ffe6d3;}
+.dig-action-buttons .dig-action-dismiss{
+ flex:0 0 32px;width:32px;padding:4px;background:#253830;color:#e5d6b7;
+}
+.dig-action-buttons button:disabled{opacity:.35;cursor:not-allowed;}
+.dig-action-buttons button:focus-visible{outline:2px solid #ffe2a1;outline-offset:2px;}
+@media(max-width:680px){.dig-tools>.dig-actions{width:min(290px,calc(100vw - 16px));}}
