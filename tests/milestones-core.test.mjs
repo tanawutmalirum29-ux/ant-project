@@ -193,7 +193,6 @@ test('MILESTONE-CORE-07 equal executed ticks at x1/x2/x4 yield identical live sn
   const cases = [1, 2, 4].map(speed => {
     const game = new Game('milestone-speed-determinism');
     game.setSpeed(speed);
-    for (let i = 0; i < 45 / speed; i++) { /* fractional handled separately */ }
     for (let tick = 0; tick < 60 / speed; tick++) assert.equal(game.update(100), speed);
     assert.equal(game.clock.ticks, 60);
     return game.milestones.getSnapshot();
@@ -252,7 +251,7 @@ test('MILESTONE-CORE-09 live gathering and completed excavation contribute real 
 });
 
 test('MILESTONE-CORE-10 real battlefield kill is observed, without spawning rewards', () => {
-  const game = new Game('milestone-real-battle');
+  const game = new Game('combat');
   game.colony.setForageSlots(0);
   game.lifecycle.setNurseSlots(0);
   game.combat.setSoldierSlots(2);
