@@ -133,3 +133,33 @@
     display:none;
   }
 }
+
+/* MULTI-SQUAD-V1: independent, keyboard accessible A/B management.
+   Keep new components inside the existing scrollable military dialog. */
+#u6-dialog .u6-squad-panel{display:grid;gap:8px;padding:9px;border:1px solid #6d8b6f;border-radius:12px;background:#1c3027;min-width:0;}
+#u6-dialog .u6-squad-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0;}
+#u6-dialog .u6-squad-tabs button{width:100%;min-width:0;min-height:44px;}
+#u6-dialog .u6-squad-tabs button[aria-pressed="true"]{background:#b88f4b;color:#13251b;border-color:#e3ca8b;font-weight:800;}
+#u6-dialog .u6-squad-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;}
+#u6-dialog .u6-squad-overview p{margin:0;padding:8px;border:1px solid #526e5c;border-radius:8px;font-size:11px;line-height:1.5;overflow-wrap:anywhere;min-width:0;}
+#u6-dialog .u6-squad-detail{display:grid;gap:4px;padding:8px;border-radius:8px;background:#274035;min-width:0;}
+#u6-dialog .u6-squad-detail p{margin:0;font-size:11px;line-height:1.5;overflow-wrap:anywhere;}
+#u6-dialog #u6-squad-emergency:not(:empty){font-weight:800;color:#ffd09c;}
+#u6-dialog .u6-unit{flex-wrap:wrap;}
+#u6-dialog .u6-unit-info{flex:1 1 120px;}
+#u6-dialog .u6-unit-buttons{flex-wrap:wrap;justify-content:flex-end;min-width:0;}
+#u6-dialog .u6-unit-buttons button{min-height:44px;white-space:normal;overflow-wrap:anywhere;}
+#u6-dialog .u6-squad-tabs button:focus-visible,
+#u6-dialog .u6-unit-buttons button:focus-visible,
+#u6-dialog #u6-percent:focus-visible{outline:3px solid #f5cb83;outline-offset:2px;}
+@media(max-width:390px){
+  #u6-dialog .u6-squad-panel{padding:7px;}
+  #u6-dialog .u6-squad-overview{gap:5px;}
+  #u6-dialog .u6-squad-overview p{padding:6px;font-size:10px;}
+  #u6-dialog .u6-unit-buttons button{font-size:11px;padding:5px 7px;}
+}
+@media(max-width:320px){
+  #u6-dialog .u6-sheet{gap:9px;}
+  #u6-dialog .u6-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #u6-dialog .u6-unit-buttons{width:100%;justify-content:flex-start;}
+}

@@ -3,6 +3,7 @@ import { TILE } from '../world/generate.js';
 export class CombatControls {
   constructor(ui){
     this.ui=ui;ui.combatControls=this;this.targeting=false;this.rosterSignature='';
+    this.selectedSquad='A';this.armedSquad=null;this.lastGame=ui.game;
     const sheet=document.createElement('link');
     sheet.rel='stylesheet';sheet.href=new URL('./combat.css',import.meta.url).href;
     document.head.append(sheet);
@@ -17,14 +18,30 @@ export class CombatControls {
     const defend=document.createElement('button');defend.id='u6-quick-defend';defend.type='button';
     defend.textContent='ป้องกัน';dock.append(rally,defend);document.body.append(dock);
     const tip=document.createElement('div');tip.id='u6-target-tip';tip.hidden=true;
-    const tipText=document.createElement('span');tipText.textContent='แตะช่องบนแผนที่เพื่อรวมพล · ลากเลื่อนได้';
+    const tipText=document.createElement('span');tipText.textContent='กอง A · แตะช่องบนแผนที่เพื่อรวมพล · ลากเลื่อนได้';
     const cancel=document.createElement('button');cancel.id='u6-cancel-target';cancel.textContent='ยกเลิก';
-    tip.append(tipText,cancel);document.body.append(tip);this.tip=tip;
+    tip.append(tipText,cancel);document.body.append(tip);this.tip=tip;this.tipText=tipText;
     const dialog=document.createElement('dialog');dialog.id='u6-dialog';
     dialog.setAttribute('aria-labelledby','u6-title');
     dialog.innerHTML=`<section class="u6-sheet">
       <header><h2 id="u6-title">กองทัพมด · ศูนย์บัญชาการ</h2><button type="button" id="u6-close" aria-label="ปิด">×</button></header>
       <div class="u6-stats"><span>มดทหาร <b id="u6-soldiers">1/1</b></span><span>ศัตรู <b id="u6-enemies">0</b></span><span>ปกป้องสำเร็จ <b id="u6-kills">0</b></span><span>นางพญา <b id="u6-queen">48/48</b></span></div>
+      <section class="u6-squad-panel" aria-label="จัดการกองทหาร">
+        <div class="u6-squad-tabs" role="group" aria-label="เลือกกองทหาร">
+          <button type="button" data-u6-squad="A" aria-pressed="true">กอง A</button>
+          <button type="button" data-u6-squad="B" aria-pressed="false">กอง B</button>
+        </div>
+        <div class="u6-squad-overview" aria-label="ภาพรวมทั้งสองกอง">
+          <p id="u6-overview-a"></p><p id="u6-overview-b"></p>
+        </div>
+        <div class="u6-squad-detail" aria-label="รายละเอียดกองที่เลือก">
+          <strong id="u6-selected-squad">กอง A</strong>
+          <p id="u6-squad-count"></p>
+          <p id="u6-squad-order"></p>
+          <p id="u6-squad-formation"></p>
+          <p id="u6-squad-emergency"></p>
+        </div>
+      </section>
       <div class="u6-percent-control"><label for="u6-percent"><span>สัดส่วนมดทหารอัตโนมัติ</span><strong id="u6-target">20%</strong></label>
         <input id="u6-percent" type="range" min="0" max="40" step="5" value="20" aria-label="เปอร์เซ็นต์มดทหาร" />
         <small>คำนวณใหม่เมื่อมดเกิดหรือตาย · เปลี่ยนสัดส่วนกลุ่มอื่นได้ที่รายงานประชากร</small>
@@ -54,13 +71,14 @@ export class CombatControls {
       this.report('อัปเดตสัดส่วนทหารแล้ว ระบบจะเกณฑ์มดว่างตามเป้าหมายโดยอัตโนมัติ');
       this.ui.updateMetrics();this.update(true);
     });
+    for(const button of dialog.querySelectorAll('[data-u6-squad]')){
+      button.addEventListener('click',()=>this.selectSquad(button.dataset.u6Squad));
+    }
     for(const button of dialog.querySelectorAll('[data-u6-mode]')){
       button.addEventListener('click',()=>{
         const mode=button.dataset.u6Mode;
         if(mode==='rally'){this.armRally();return;}
-        this.cancelRally();this.combat.setMode(mode);
-        this.report(mode==='defend'?'ทหารเข้าประจำที่ป้องกันรัง':'ทหารเดินไปพักฟื้น');
-        this.update(true);
+        this.order(mode);
       });
     }
     dialog.querySelector('#u6-rally').addEventListener('click',()=>this.armRally());
@@ -71,6 +89,9 @@ export class CombatControls {
     });
     dialog.querySelector('#u6-roster').addEventListener('click',e=>{
       const btn=e.target.closest('button[data-action]');if(!btn)return;
+      if(btn.dataset.action==='transfer'){
+        this.transfer(btn.dataset.id,btn.dataset.toSquad);return;
+      }
       const ant=this.ui.game.colony.workers.find(a=>a.id===btn.dataset.id);if(!ant)return;
       if(btn.dataset.action==='focus'){dialog.close();this.follow(ant);return;}
       this.update(true);
@@ -79,70 +100,143 @@ export class CombatControls {
   }
   get combat(){return this.ui.game.combat;}
   report(message){this.dialog.querySelector('#u6-notice').textContent=message;}
+  resultError(result,fallback='คำสั่งไม่สำเร็จ'){
+    const code=result?.error?.code;
+    const messages={
+      INVALID_SQUAD:'ไม่พบกองทหารที่เลือก',INVALID_SOLDIER:'ไม่พบมดทหารนี้',
+      NOT_ACTIVE_SOLDIER:'มดตัวนี้ไม่ได้ประจำการ',SAME_SQUAD:'มดประจำการอยู่ในกองนี้แล้ว',
+      INVALID_ORDER:'คำสั่งไม่ถูกต้อง',INVALID_RALLY:'ตำแหน่งรวมพลไม่ถูกต้อง',
+      UNREACHABLE_RALLY:'ตำแหน่งรวมพลเดินทางไปไม่ได้'
+    };
+    const message=messages[code]??result?.error?.message??fallback;
+    this.report(message);this.ui.notice(message);
+    return message;
+  }
+  readSquad(id=this.selectedSquad){
+    return this.combat.getSquad?.(id)??{ok:false,error:{code:'INVALID_SQUAD',message:'ยังไม่พร้อมใช้งานระบบแยกกอง'}};
+  }
+  selectSquad(id){
+    if(id!=='A'&&id!=='B')return false;
+    const result=this.readSquad(id);
+    if(result.ok!==true){this.resultError(result);return false;}
+    this.selectedSquad=id;
+    this.update(true);return true;
+  }
+  order(mode){
+    const squad=this.selectedSquad;
+    const result=this.combat.setSquadMode?.(squad,mode);
+    if(result?.ok!==true){this.resultError(result,'ไม่สามารถเปลี่ยนคำสั่งได้');this.update(true);return false;}
+    this.cancelRally();
+    const message=mode==='defend'?'กอง '+squad+' กลับป้องกันรัง':'กอง '+squad+' ถอยและพักฟื้น';
+    this.report(message);this.ui.notice(message);this.update(true);
+    return true;
+  }
+  transfer(soldierId,toSquad){
+    const result=this.combat.transferSoldier(soldierId,toSquad);
+    if(result?.ok===true){
+      this.report(`ย้าย ${result.data.soldierId} จากกอง ${result.data.fromSquad} ไปกอง ${result.data.toSquad} แล้ว`);
+      this.rosterSignature='';
+    }else this.resultError(result,'ไม่สามารถย้ายทหารได้');
+    this.update(true);return result?.ok===true;
+  }
   armRally(){
-    if(!this.combat.soldiers.length){this.report('กรุณาเกณฑ์ทหารก่อน');return false;}
-    this.targeting=true;this.ui.setTool('inspect');this.dialog.close();
+    const squad=this.selectedSquad;
+    const result=this.readSquad(squad);
+    if(result.ok!==true){this.resultError(result);return false;}
+    // Empty squads may receive a standing rally order under Contract v1.0.
+    this.armedSquad=squad;this.targeting=true;this.ui.setTool('inspect');this.dialog.close();
     this.tip.hidden=false;
+    this.tipText.textContent=`กอง ${squad} · แตะช่องเดินได้เพื่อรวมพล · ลากเลื่อนได้`;
     document.getElementById('u6-quick-rally').setAttribute('aria-pressed','true');
-    this.ui.notice('แตะช่องเดินได้บนแผนที่เพื่อรวมพล · ลากเลื่อนแผนที่ได้');
+    this.ui.notice(`เลือกจุดรวมพลกอง ${squad} บนแผนที่ · ยกเลิกได้ด้วย Escape`);
     return true;
   }
   cancelRally(){
-    this.targeting=false;this.tip.hidden=true;
+    this.targeting=false;this.armedSquad=null;this.tip.hidden=true;
     document.getElementById('u6-quick-rally').setAttribute('aria-pressed','false');
   }
   placeRally(tile){
     if(!this.targeting)return false;
-    if(this.combat.setRally(tile.layer,tile.x,tile.y)){
+    const squad=this.armedSquad;
+    const result=this.combat.setSquadRally?.(squad,tile.layer,tile.x,tile.y);
+    if(result?.ok===true){
       this.ui.renderer.showRallyPing(this.ui.game,tile.layer,tile.x,tile.y);
-      this.cancelRally();this.ui.notice(`กำลังรวมพลที่ ${tile.x}, ${tile.y}`);
-      this.report('รวมพลสำเร็จ: มดทหารกำลังเดินทาง');
-    }else this.ui.notice('ช่องนี้เป็นสิ่งกีดขวางหรือเดินทางไปไม่ได้');
+      this.cancelRally();
+      const message=`กอง ${squad} รวมพลที่ ${tile.x}, ${tile.y} แล้ว`;
+      this.ui.notice(message);this.report(message);
+    }else this.resultError(result,'ไม่สามารถตั้งจุดรวมพลได้');
     this.update(true);return true;
   }
-  defend(){
-    this.cancelRally();this.combat.setMode('defend');
-    this.ui.notice('ทหารกลับสู่แนวป้องกัน');this.update(true);
-  }
+  defend(){return this.order('defend');}
   follow(ant){
     if(this.ui.game.layer!==ant.layer)this.ui.switchLayer(ant.layer);
     const cam=this.ui.cameras[ant.layer];cam.x=(ant.x+.5)*TILE;cam.y=(ant.y+.5)*TILE;
     cam.clamp(this.ui.game.currentLayer,...this.ui.dimensions());
     this.ui.select({layer:ant.layer,x:ant.x,y:ant.y});this.ui.notice(`ติดตาม ${ant.id}`);
   }
-  renderRoster(force=false){
+  renderRoster(force=false,squads=[]){
     const c=this.combat,workers=this.ui.game.colony.workers;
-    const signature=workers.map(a=>[a.id,a.state,a.combatRole,a.combatHP,a.x,a.y,a.layer,c.canRecruit(a)].join(':')).join('|');
+    const members=new Map();
+    for(const squad of squads)for(const member of squad.soldiers)members.set(String(member.id),{squadId:squad.id,member});
+    const signature=workers.map(a=>[a.id,a.state,a.combatRole,a.combatHP,a.x,a.y,a.layer,c.canRecruit(a)].join(':')).join('|')+
+      '|'+squads.map(s=>s.id+':'+s.soldiers.map(a=>[a.id,a.hp,a.maxHP,a.formationStatus,a.arrived].join(':')).join(';')).join('|');
     if(!force&&signature===this.rosterSignature)return;
     this.rosterSignature=signature;
     const list=this.dialog.querySelector('#u6-roster'),scroll=list.scrollTop;
     const body=document.createDocumentFragment();
     for(const ant of workers){
-      const soldier=ant.combatRole==='soldier';
+      const membership=members.get(String(ant.id));
+      const soldier=ant.combatRole==='soldier',squadId=membership?.squadId;
       const row=document.createElement('div');row.className='u6-unit'+(soldier?' is-soldier':'');
       const info=document.createElement('div');info.className='u6-unit-info';
-      const name=document.createElement('strong');name.textContent=ant.id.replace('worker-','มด #')+(soldier?' · ทหาร':' · มดงาน');
+      const name=document.createElement('strong');name.textContent=ant.id.replace('worker-','มด #')+(soldier?` · ทหารกอง ${squadId??'?'}`:' · มดงาน');
       const status=document.createElement('small');
       const states={'combat-guard':'ประจำจุดป้องกัน','combat-rally':'กำลังรวมพล','combat-intercept':'สกัดศัตรู',
         'combat-retreat':'พักฟื้น','combat-attack':'ต่อสู้','combat-queen-defense':'ปกป้องราชินี','idle':'ว่าง','room-rest':'พัก','room-guard':'ลาดตระเวน'};
       status.textContent=(states[ant.state]||(ant.state?.startsWith('forage-')?'หาอาหาร':ant.state||'ว่าง'))+
-        ` · ${ant.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${ant.x},${ant.y})`;
+        ` · ${ant.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${ant.x},${ant.y})`+
+        (membership?` · ${membership.member.formationStatus??'ไม่มี Formation'}${membership.member.arrived?' · ถึงจุดรวมพลแล้ว':''}`:'');
       info.append(name,status);
       if(soldier){
-        const hp=document.createElement('progress');hp.max=16;hp.value=Math.max(0,ant.combatHP??16);
-        hp.setAttribute('aria-label',`HP ${ant.id} ${hp.value}/16`);info.append(hp);
+        const hp=document.createElement('progress');
+        hp.max=membership?.member.maxHP??16;hp.value=Math.max(0,membership?.member.hp??ant.combatHP??16);
+        hp.setAttribute('aria-label',`HP ${ant.id} ${hp.value}/${hp.max}`);info.append(hp);
       }
       const actions=document.createElement('div');actions.className='u6-unit-buttons';
       const locate=document.createElement('button');locate.type='button';locate.dataset.action='focus';
       locate.dataset.id=ant.id;locate.textContent='ดู';locate.setAttribute('aria-label',`ติดตาม ${ant.id}`);
-      actions.append(locate);row.append(info,actions);body.append(row);
+      actions.append(locate);
+      if(soldier&&squadId){
+        const toSquad=squadId==='A'?'B':'A';
+        const transfer=document.createElement('button');transfer.type='button';
+        transfer.dataset.action='transfer';transfer.dataset.id=String(ant.id);transfer.dataset.toSquad=toSquad;
+        transfer.textContent=`ไปกอง ${toSquad}`;
+        transfer.setAttribute('aria-label',`ย้าย ${ant.id} จากกอง ${squadId} ไปกอง ${toSquad}`);
+        actions.append(transfer);
+      }
+      row.append(info,actions);body.append(row);
     }
+    const focused=list.contains(document.activeElement)&&document.activeElement?.dataset?
+      {id:document.activeElement.dataset.id,action:document.activeElement.dataset.action}:null;
     list.replaceChildren(body);list.scrollTop=scroll;
+    if(focused){
+      const replacement=[...list.querySelectorAll('button[data-action]')].find(
+        button=>button.dataset.id===focused.id&&button.dataset.action===focused.action);
+      replacement?.focus();
+    }
   }
   update(force=false){
-    const c=this.combat,ready=c.soldiers.length;
+    if(this.lastGame!==this.ui.game){
+      this.lastGame=this.ui.game;this.selectedSquad='A';this.rosterSignature='';
+      this.cancelRally();
+    }
+    const c=this.combat,read=c.getSquads?.();
+    const squads=read?.ok===true?read.data:[];
+    const selected=this.readSquad();
+    const active=selected.ok===true?selected.data:null;
+    const ready=c.soldiers.length;
     document.getElementById('u6-badge').textContent=`${ready}/${c.soldierSlots}${c.threatCount?' !'+c.threatCount:''}`;
-    document.getElementById('u6-quick-defend').setAttribute('aria-pressed',String(c.mode==='defend'));
+    document.getElementById('u6-quick-defend').setAttribute('aria-pressed',String(active?.mode==='defend'));
     if(!this.dialog.open)return;
     const set=(id,value)=>{this.dialog.querySelector(id).textContent=String(value)};
     set('#u6-soldiers',`${ready}/${c.soldierSlots}`);set('#u6-enemies',c.threatCount);
@@ -153,8 +247,19 @@ export class CombatControls {
     slider.max=String(100-workforce.shares.forage-workforce.shares.nurse);
     slider.value=String(share);
     set('#u6-workforce',`มดงาน ${this.ui.game.colony.workers.length} ตัว · ทหารเป้าหมาย ${c.soldierSlots} · ประจำการ ${ready} · พร้อมเข้าเกณฑ์ ${c.availableRecruits.length}`);
-    set('#u6-rally-status',c.rally?`จุดรวมพล ${c.rally.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${c.rally.x},${c.rally.y}) · ถึงแล้ว ${c.ralliedCount}/${ready}`:'ยังไม่มีจุดรวมพล');
-    for(const btn of this.dialog.querySelectorAll('[data-u6-mode]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Mode===c.mode));
-    this.renderRoster(force);
+    for(const squad of squads){
+      const rally=squad.rally?`${squad.rally.layer} (${squad.rally.x},${squad.rally.y})`:'ไม่มีจุดรวมพล';
+      set('#u6-overview-'+squad.id.toLowerCase(),
+        `กอง ${squad.id} · ${squad.count} ตัว · HP ${squad.hpCurrent}/${squad.hpMax} · ${squad.mode} · ${rally} · ถึงแล้ว ${squad.ralliedCount}`);
+    }
+    set('#u6-selected-squad',`กอง ${this.selectedSquad}`);
+    set('#u6-squad-count',active?`กำลังพล ${active.count} ตัว · HP ${active.hpCurrent}/${active.hpMax}`:'ไม่มีข้อมูลกอง');
+    set('#u6-squad-order',active?`คำสั่ง ${active.mode} · จุดรวมพล ${active.rally?`${active.rally.layer} (${active.rally.x},${active.rally.y})`:'ยังไม่กำหนด'}`:'');
+    set('#u6-squad-formation',active?`Formation: Assigned ${active.formation.assigned} · Standby ${active.formation.standby} · Unreachable ${active.formation.unreachable} · ถึงแล้ว ${active.ralliedCount}/${active.count}`:'');
+    set('#u6-squad-emergency',active?.queenEmergency?'ฉุกเฉิน: ปกป้องนางพญา (ทุกกอง)':'');
+    set('#u6-rally-status',active?.rally?`กอง ${active.id} · จุดรวมพล ${active.rally.layer} (${active.rally.x},${active.rally.y}) · ถึงแล้ว ${active.ralliedCount}/${active.count}`:'ยังไม่มีจุดรวมพล');
+    for(const btn of this.dialog.querySelectorAll('[data-u6-mode]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Mode===active?.mode));
+    for(const btn of this.dialog.querySelectorAll('[data-u6-squad]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Squad===this.selectedSquad));
+    this.renderRoster(force,squads);
   }
 }
