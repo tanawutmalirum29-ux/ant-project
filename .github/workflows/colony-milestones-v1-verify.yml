@@ -172,6 +172,31 @@ jobs:
             for key in existing_browser_u6 existing_browser_r2 live_milestones; do echo "$key=98" >> "$E/exit-codes.txt"; done
             exit 0
           fi
+          # Legacy browser-smoke.py contains a static inline-module list from
+          # before Milestones V1. Adapt ONLY the ephemeral candidate worktree;
+          # never write or commit source/tests/tools on any GitHub branch.
+          python - "$C" "$E" <<'PY'
+          import pathlib,sys,subprocess
+          work=pathlib.Path(sys.argv[1]); evidence=pathlib.Path(sys.argv[2])
+          harness=work/'tools/browser-smoke.py'
+          old=harness.read_text()
+          assert old.count("'core/combat.js','core/game.js'")==1, 'legacy Core anchor changed'
+          assert old.count("'ui/combat-controls.js','main.js'")==1, 'legacy UI anchor changed'
+          new=old.replace("'core/combat.js','core/game.js'",
+                          "'core/combat.js','core/milestones.js','core/game.js'")
+          new=new.replace("'ui/combat-controls.js','main.js'",
+                          "'ui/combat-controls.js','ui/milestones-panel.js','main.js'")
+          assert new!=old and 'core/milestones.js' in new and 'ui/milestones-panel.js' in new
+          harness.write_text(new)
+          patch=subprocess.run(['git','diff','--','tools/browser-smoke.py'],
+                               cwd=work,text=True,capture_output=True,check=True).stdout
+          assert patch and 'core/milestones.js' in patch and 'ui/milestones-panel.js' in patch
+          (evidence/'ephemeral-browser-harness.patch').write_text(patch)
+          (evidence/'ephemeral-browser-harness.txt').write_text(
+            'Temporary browser inline-module adapter only. No remote tool/source commits.\n'
+            'Core module loaded before core/game.js, UI module before main.js.\n')
+          PY
+          echo "harness_adapter=$?" >> "$E/exit-codes.txt"
           (cd "$C" && python tools/browser-u6.py) > "$E/browser-u6.log" 2>&1
           echo "existing_browser_u6=$?" >> "$E/exit-codes.txt"
           (cd "$C" && python tools/browser-phase1-ui-audit.py --artifacts "$E/browser/legacy") > "$E/browser-r2.log" 2>&1
@@ -314,10 +339,11 @@ jobs:
           expected=['core_worktree','ui_worktree','candidate_worktree','core_test','core_build',
                     'ui_test','ui_build','merge_core','merge_ui','candidate_scope',
                     'combined_test','combined_build','playwright_install',
-                    'existing_browser_u6','existing_browser_r2','live_milestones','post_sha_check']
+                    'harness_adapter','existing_browser_u6','existing_browser_r2','live_milestones','post_sha_check']
           required=['00-preflight.log','pins.txt','core-test.log','core-build.log','ui-test.log','ui-build.log',
                     'combined-test.log','combined-build.log','native-manifest.txt',
-                    'candidate-parents.txt','candidate-paths.txt','browser/live-results.json',
+                    'candidate-parents.txt','candidate-paths.txt','ephemeral-browser-harness.patch',
+                    'browser/live-results.json',
                     'browser/portrait-320.png','browser/short-landscape.png','end-source-shas.txt']
           missing=[x for x in expected if codes.get(x)!=0]
           absent=[x for x in required if not (root/x).exists() or (root/x).stat().st_size==0]
