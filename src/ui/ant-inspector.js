@@ -13,22 +13,23 @@ const CARGO = Object.freeze({ carbs:'อาหาร', protein:'โปรตี�
 
 export function antById(game,id) {
   if(!id) return null;
-  const queen=game.colony.queen;
-  if(queen.alive && queen.id===id) return queen;
-  return game.colony.workers.find(ant=>ant.id===id) ?? null;
+  const queen=game.colony?.queen;
+  if(queen?.alive && queen.id===id) return queen;
+  return game.colony?.workers?.find(ant=>ant.id===id) ?? null;
 }
 export function antsAtTile(game,layer,x,y) {
-  const queen=game.colony.queen;
-  const ants=game.colony.workers.filter(ant=>ant.layer===layer && ant.x===x && ant.y===y);
-  if(queen.alive && queen.layer===layer && queen.x===x && queen.y===y) ants.unshift(queen);
+  const queen=game.colony?.queen;
+  const ants=(game.colony?.workers??[]).filter(ant=>ant.layer===layer && ant.x===x && ant.y===y);
+  if(queen?.alive && queen.layer===layer && queen.x===x && queen.y===y) ants.unshift(queen);
   return ants;
 }
 
 /** Hit-test the actual interpolated sprite, not just the logical tile under it. */
 export function antAtPointer(game,camera,p,width,height) {
   let nearest=null,nearestScore=Infinity;
-  const queen=game.colony.queen;
-  const ants=[...(queen.alive?[queen]:[]),...game.colony.workers];
+  const queen=game.colony?.queen;
+  const ants=[...(queen?.alive?[queen]:[]),...(game.colony?.workers??[])];
+  if(!ants.length||typeof camera.worldToScreen!=='function')return null;
   for(const ant of ants) {
     if(ant.layer!==game.layer)continue;
     const pos=displayedPosition(game,ant);
@@ -70,7 +71,7 @@ export function renderAntInspector(game,selection,selectedAntId) {
   const root=document.getElementById('selection-ants');
   const list=document.getElementById('selection-ants-list');
   const detail=document.getElementById('selection-ant-detail');
-  if(!root || !list || !detail)return;
+  if(!root || !list || !detail || typeof list.replaceChildren!=='function')return;
   const ants=selection?antsAtTile(game,selection.layer,selection.x,selection.y):[];
   root.classList.toggle('hidden',ants.length===0);
   if(!ants.length){
