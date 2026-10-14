@@ -586,7 +586,63 @@ def audit_view(browser,html,spec,artifacts):
                 if dialog.evaluate('(el)=>el.open'):
                     page.locator('#u6-close').click()
                 assert dialog.is_hidden() and not dialog.evaluate('(el)=>el.open')
+
         test('combat roster auto allocation and military modal bounds',army)
+
+        def styled_army_inspector():
+            dialog=page.locator('#u6-dialog')
+            page.locator('#u6-open').click()
+            try:
+                assert dialog.is_visible() and dialog.evaluate('(el)=>el.open')
+                trigger=page.locator('#u6-roster-filter')
+                assert trigger.evaluate('(el)=>el.tagName')=='BUTTON'
+                assert page.locator('#u6-dialog select#u6-roster-filter').count()==0
+                assert trigger.get_attribute('aria-expanded')=='false'
+                trigger.click()
+                menu=page.locator('#u6-filter-options')
+                assert menu.is_visible() and trigger.get_attribute('aria-expanded')=='true'
+                choice=page.locator('[data-u6-filter="workers"]')
+                assert choice.is_visible() and choice.evaluate(
+                    '(el)=>getComputedStyle(el).minHeight')=='44px'
+                choice.click()
+                assert menu.is_hidden() and trigger.get_attribute('aria-expanded')=='false'
+                assert page.locator('#u6-filter-current').inner_text()=='มดงาน'
+                expected=page.evaluate("""() => __ANT_DEBUG__.game.colony.workers.filter(
+                  ant=>ant.combatRole!=='soldier').length""")
+                assert page.locator('#u6-roster .u6-unit').count()==expected
+                trigger.click()
+                page.locator('[data-u6-filter="all"]').click()
+                total=inspect(page)['workers']
+                assert page.locator('#u6-roster .u6-unit').count()==total
+                assert dialog.evaluate('(el)=>el.open'), 'filter must not close squad dialog'
+                detail=page.locator('#u6-ant-detail')
+                locate=page.locator('#u6-roster button[data-action="focus"]').first
+                ant_id=locate.get_attribute('data-id')
+                locate.click()
+                assert detail.is_visible()
+                assert dialog.evaluate('(el)=>el.open'),'view ant must stay within styled UI'
+                assert page.locator('#u6-ant-title').inner_text().startswith('มด #')
+                assert ant_id.replace('worker-','') in page.locator('#u6-ant-title').inner_text()
+                assert page.locator('#u6-ant-state').inner_text()
+                assert page.locator('#u6-ant-position').inner_text()
+                page.locator('#u6-ant-detail-close').click()
+                assert detail.is_hidden()
+                page.locator('#u6-roster button[data-action="focus"]').first.click()
+                assert detail.is_visible()
+                page.locator('#u6-ant-follow').click()
+                assert not dialog.evaluate('(el)=>el.open')
+                selection=page.evaluate("""() => ({
+                  ant:__ANT_DEBUG__.ui.selectedAntId,
+                  card:!document.querySelector('#selection-card').classList.contains('hidden')
+                })""")
+                assert selection['ant']==ant_id and selection['card'],selection
+                page.locator('#selection-close').click()
+                return {'filter':'custom CSS','total_ants':total,
+                        'worker_filter':expected,'selected_ant':ant_id}
+            finally:
+                if dialog.evaluate('(el)=>el.open'):
+                    page.locator('#u6-close').click()
+        test('CSS military filter and inline ant details, actual touch',styled_army_inspector)
 
         def rally():
             # Only the tablet/desktop expose Recenter; on phones/landscape
