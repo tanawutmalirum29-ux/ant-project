@@ -355,10 +355,10 @@ jobs:
                   assert s['stages'][0]['complete'] and all(s['stages'][0]['progress'][k] for k in
                       ('carbsSeen','proteinSeen','waterSeen','digCompleted')),stage_proof
                   assert stage_proof['queuedRoom'] and stage_proof['maxWorkers']>=8,stage_proof
-                  assert s['stages'][1]['complete'] and s['stages'][1]['progress']['nurseryReadyConnected'] and
-                      s['stages'][1]['progress']['livingWorkers']>=8,stage_proof
-                  assert stage_proof['spawnedEnemy'] and stage_proof['defeated']>=1 and
-                      stage_proof['queenAlive'] and s['stages'][2]['complete'] and s['allComplete'],stage_proof
+                  assert (s['stages'][1]['complete'] and s['stages'][1]['progress']['nurseryReadyConnected'] and
+                          s['stages'][1]['progress']['livingWorkers']>=8),stage_proof
+                  assert (stage_proof['spawnedEnemy'] and stage_proof['defeated']>=1 and
+                          stage_proof['queenAlive'] and s['stages'][2]['complete'] and s['allComplete']),stage_proof
                   stage_page.screenshot(path=str(evidence/'real-completed-stages.png'),full_page=True)
                   stage_page.close()
                   browser.close()
