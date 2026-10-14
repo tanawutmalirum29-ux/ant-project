@@ -184,7 +184,10 @@ export class CombatControls {
     if(!ant)return false;
     this.inspectedAntId=ant.id;this.closeRosterFilter();
     this.renderAntDetail();
-    this.dialog.querySelector('#u6-ant-detail').scrollIntoView?.({block:'nearest',behavior:'instant'});
+    this.rosterSignature='';
+    const read=this.combat.getSquads?.();
+    this.renderRoster(true,read?.ok===true?read.data:[]);
+    this.dialog.querySelector('#u6-ant-detail').scrollIntoView?.({block:'nearest',behavior:'auto'});
     return true;
   }
   hideAntDetail(){
