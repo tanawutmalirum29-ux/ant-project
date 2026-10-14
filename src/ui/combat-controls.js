@@ -190,7 +190,7 @@ export class CombatControls {
     if(this.ui.game.layer!==ant.layer)this.ui.switchLayer(ant.layer);
     const cam=this.ui.cameras[ant.layer];cam.x=(ant.x+.5)*TILE;cam.y=(ant.y+.5)*TILE;
     cam.clamp(this.ui.game.currentLayer,...this.ui.dimensions());
-    this.ui.select({layer:ant.layer,x:ant.x,y:ant.y});this.ui.notice(`ติดตาม ${ant.id}`);
+    this.ui.select({layer:ant.layer,x:ant.x,y:ant.y},ant.id);this.ui.notice(`ติดตาม ${ant.id}`);
   }
   renderRoster(force=false,squads=[]){
     const c=this.combat,workers=this.ui.game.colony.workers;

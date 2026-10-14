@@ -179,6 +179,48 @@ def audit_view(browser,html,spec,artifacts):
             return dims
         test('production canvas renders live game',canvas)
 
+        def ant_inspection():
+            # Real touch/mouse action on the rendered queen; CSS owns the details card.
+            page.locator('#tool-inspect').click()
+            if page.locator('#selection-card').is_visible():
+                page.locator('#selection-close').click()
+            pos=page.evaluate("""() => {
+              const {game,cameras,renderer}=__ANT_DEBUG__,q=game.colony.queen;
+              const c=cameras[game.layer],w=renderer.width,h=renderer.height;
+              const origin={x:c.x,y:c.y};
+              c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;
+              c.clamp(game.currentLayer,w,h);
+              const point=c.worldToScreen((q.x+.5)*28,(q.y+.5)*28,w,h);
+              const element=document.elementFromPoint(point.x,point.y);
+              return {origin,point,hit:element?.id,antId:q.id};
+            }""")
+            try:
+                assert pos['hit']=='game-canvas',('queen not touch accessible',pos)
+                tap(page,pos['point'],mobile)
+                assert page.locator('#selection-card').is_visible()
+                assert page.locator('#selection-ants').is_visible()
+                assert page.locator('#selection-ant-detail').is_visible()
+                state=page.evaluate("""() => ({
+                  id:__ANT_DEBUG__.ui.selectedAntId,
+                  card:document.querySelector('#selection-card').dataset.inspecting,
+                  display:getComputedStyle(document.querySelector('#selection-ants')).display,
+                  text:document.querySelector('#selection-ant-detail').textContent
+                })""")
+                assert state['id']==pos['antId'],state
+                assert state['card']=='ant' and state['display']=='grid',state
+                assert 'นางพญา' in state['text'],state
+                screenshot('ant-inspector-css')
+                page.locator('#selection-close').click()
+                assert page.locator('#selection-card').is_hidden()
+                return {'ant':state['id'],'card_style':state['display'],'close':'PASS'}
+            finally:
+                page.evaluate("""origin => {
+                  const {game,cameras,renderer}=__ANT_DEBUG__,c=cameras[game.layer];
+                  c.x=origin.x;c.y=origin.y;
+                  c.clamp(game.currentLayer,renderer.width,renderer.height);
+                }""",pos['origin'])
+        test('styled ant inspection by real canvas touch and close',ant_inspection)
+
         def navigation():
             page.locator('#tool-inspect').click()
             visible_controls=name in ('tablet','desktop')
