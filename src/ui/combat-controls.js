@@ -352,8 +352,41 @@ export class CombatControls {
     }
     const focused=list.contains(document.activeElement)&&document.activeElement?.dataset?
       {id:document.activeElement.dataset.id,action:document.activeElement.dataset.action}:null;
-    list.replaceChildren(body);list.scrollTop=scroll;
-    if(focused){
+    // Live positions and states change every simulation tick. Replacing the
+    // entire roster detached buttons during a real pointer click on "ดูมด".
+    // Reconcile rows by ant ID so their original buttons remain stable.
+    const existing=new Map([...list.querySelectorAll('.u6-unit')].map(row=>[row.dataset.antId,row]));
+    const rows=[...body.children];
+    for(let i=0;i<rows.length;i++){
+      const incoming=rows[i];
+      let desired=incoming;
+      const previous=incoming.classList.contains('u6-unit')?existing.get(incoming.dataset.antId):null;
+      if(previous){
+        const a=[...previous.querySelectorAll('button[data-action]')];
+        const b=[...incoming.querySelectorAll('button[data-action]')];
+        const compatible=a.length===b.length&&a.every((button,j)=>button.dataset.action===b[j].dataset.action);
+        if(compatible){
+          previous.className=incoming.className;
+          for(const tag of ['strong','small']){
+            const prior=previous.querySelector('.u6-unit-info '+tag);
+            const fresh=incoming.querySelector('.u6-unit-info '+tag);
+            if(prior&&fresh&&prior.textContent!==fresh.textContent)prior.textContent=fresh.textContent;
+          }
+          const oldHp=previous.querySelector('progress'),newHp=incoming.querySelector('progress');
+          if(oldHp&&newHp){oldHp.max=newHp.max;oldHp.value=newHp.value;oldHp.setAttribute('aria-label',newHp.getAttribute('aria-label'));}
+          for(let j=0;j<a.length;j++){
+            a[j].textContent=b[j].textContent;
+            a[j].dataset.toSquad=b[j].dataset.toSquad??'';
+            a[j].setAttribute('aria-label',b[j].getAttribute('aria-label'));
+          }
+          desired=previous;
+        }
+      }
+      if(list.children[i]!==desired)list.insertBefore(desired,list.children[i]??null);
+    }
+    while(list.children.length>rows.length)list.lastElementChild.remove();
+    list.scrollTop=scroll;
+    if(focused&&!list.contains(document.activeElement)){
       const replacement=[...list.querySelectorAll('button[data-action]')].find(
         button=>button.dataset.id===focused.id&&button.dataset.action===focused.action);
       replacement?.focus();
