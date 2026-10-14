@@ -497,12 +497,25 @@ jobs:
                     'harness_adapter','existing_browser_u6','existing_browser_r2','live_milestones','post_sha_check']
           required=['00-preflight.log','pins.txt','core-test.log','core-build.log','ui-test.log','ui-build.log',
                     'combined-test.log','combined-build.log','native-manifest.txt',
-                    'candidate-parents.txt','candidate-paths.txt','qa-mode.txt',
+                    'candidate-parents.txt','qa-mode.txt',
                     'integration-paths.txt','ephemeral-browser-harness.patch',
                     'browser/live-results.json',
                     'browser/portrait-320.png','browser/short-landscape.png',
                     'browser/live-stage-actions.json','browser/real-completed-stages.png','end-source-shas.txt']
           missing=[x for x in expected if codes.get(x)!=0]
+          mode=(root/'qa-mode.txt').read_text().strip() if (root/'qa-mode.txt').exists() else 'MISSING'
+          if mode=='PRE_MERGE':
+              # Local candidate must add exactly 8 source files.
+              required.append('candidate-paths.txt')
+          elif mode=='POST_MERGE':
+              # Both feature SHAs are ancestors: local merges MUST be no-ops.
+              # A nonempty candidate-paths file would indicate untested changes.
+              required.append('post-integrated-paths.txt')
+              empty_path=root/'candidate-paths.txt'
+              if not empty_path.is_file() or empty_path.stat().st_size!=0:
+                  missing.append('post_merge_candidate_diff_must_exist_and_be_empty')
+          else:
+              missing.append('unknown_or_partial_integration_mode')
           absent=[x for x in required if not (root/x).exists() or (root/x).stat().st_size==0]
           print('Executed exit codes:',codes)
           print('Nonzero/missing cases:',missing)
@@ -511,5 +524,5 @@ jobs:
           if missing or absent:
               print('FAIL / NOT_VERIFIED: integration and release remain HOLD')
               sys.exit(1)
-          print('Candidate evidence complete; DIR-A independent QA and CEO release remain separate gates')
+          print('Exact-mode native/browser QA evidence complete; independent DIR-A QA, governance and CEO release remain separate gates')
           PY
