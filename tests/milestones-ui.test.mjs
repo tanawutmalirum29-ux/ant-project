@@ -177,3 +177,31 @@ test('integration wiring stays on HUD cadence, retains scoped files and CSS cont
   assert.doesNotMatch(js, /\b(?:setInterval|setTimeout|requestAnimationFrame|alert|prompt|confirm)\s*\(/);
   assert.doesNotMatch(js, /\.update\s*\(/);
 });
+
+test('320px portrait reserves horizontal military dock clearance and landscape reserves dig-row clearance', () => {
+  const css = readFileSync(new URL('../src/ui/visual/v3-compact.css', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  // Previous 320px full-width rule expanded the panel to x8..312 and covered
+  // #u6-dock at x240.48..313 (independent browser QA M000073).
+  assert.match(css, /width:min\(216px,calc\(100vw - 112px\)\)/);
+  assert.match(css, /width:min\(280px,calc\(100vw - 112px\)\)/);
+  const portraitPanelRight = 8 + Math.min(216, 320 - 112);
+  const reportedDockLeft = 240.484375;
+  assert.ok(portraitPanelRight < reportedDockLeft,
+    'portrait panel must end strictly before military dock at 320px');
+
+  // At 844x390 the .dig-tools row begins at y300 (49px above viewport
+  // bottom plus 41px height). Panel top=122 and bottom=99 => ends y291.
+  assert.match(css, /bottom:calc\(99px \+ env\(safe-area-inset-bottom\)\)/);
+  const landscapePanelBottom = 390 - 99;
+  const landscapeDigTop = 390 - 49 - 41;
+  assert.ok(landscapePanelBottom < landscapeDigTop,
+    'landscape report must stop above dig tool row');
+
+  // Outside-pointer/click dismissal also protects contextual dig, selection,
+  // room and soldier controls opened while the report is visible.
+  assert.match(main, /ui\.setTool\('inspect'\)/);
+  assert.match(main, /document\.addEventListener\('pointerdown', dismissMilestonesForOutsideAction/);
+  assert.match(main, /document\.addEventListener\('click', dismissMilestonesForOutsideAction/);
+  assert.doesNotMatch(main, /milestonesPanel\.game\.update\(/);
+});
