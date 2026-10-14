@@ -439,7 +439,9 @@ body #u6-dock #u6-open{color:#f6d5a5}
  .layer-btn{height:33px;min-width:91px;font-size:10px}
  body #u6-dock{
   left:auto;right:8px;top:auto;
-  bottom:calc(49px + env(safe-area-inset-bottom));transform:none;gap:2px;
+  /* Right side of the bottom row is clear of the centrally aligned
+     layer switch; place military controls beneath the inspector card. */
+  bottom:calc(6px + env(safe-area-inset-bottom));transform:none;gap:2px;
   max-width:300px;
  }
  body #u6-dock button,body #u6-dock #u6-open{
