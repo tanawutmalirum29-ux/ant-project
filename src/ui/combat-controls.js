@@ -90,12 +90,7 @@ export class CombatControls {
     dialog.querySelector('#u6-roster').addEventListener('click',e=>{
       const btn=e.target.closest('button[data-action]');if(!btn)return;
       if(btn.dataset.action==='transfer'){
-        const result=this.combat.transferSoldier(btn.dataset.id,btn.dataset.toSquad);
-        if(result?.ok===true){
-          this.report(`ย้าย ${result.data.soldierId} จากกอง ${result.data.fromSquad} ไปกอง ${result.data.toSquad} แล้ว`);
-          this.rosterSignature='';
-        }else this.resultError(result,'ไม่สามารถย้ายทหารได้');
-        this.update(true);return;
+        this.transfer(btn.dataset.id,btn.dataset.toSquad);return;
       }
       const ant=this.ui.game.colony.workers.find(a=>a.id===btn.dataset.id);if(!ant)return;
       if(btn.dataset.action==='focus'){dialog.close();this.follow(ant);return;}
@@ -135,6 +130,14 @@ export class CombatControls {
     const message=mode==='defend'?'กอง '+squad+' กลับป้องกันรัง':'กอง '+squad+' ถอยและพักฟื้น';
     this.report(message);this.ui.notice(message);this.update(true);
     return true;
+  }
+  transfer(soldierId,toSquad){
+    const result=this.combat.transferSoldier(soldierId,toSquad);
+    if(result?.ok===true){
+      this.report(`ย้าย ${result.data.soldierId} จากกอง ${result.data.fromSquad} ไปกอง ${result.data.toSquad} แล้ว`);
+      this.rosterSignature='';
+    }else this.resultError(result,'ไม่สามารถย้ายทหารได้');
+    this.update(true);return result?.ok===true;
   }
   armRally(){
     const squad=this.selectedSquad;
@@ -213,7 +216,14 @@ export class CombatControls {
       }
       row.append(info,actions);body.append(row);
     }
+    const focused=list.contains(document.activeElement)&&document.activeElement?.dataset?
+      {id:document.activeElement.dataset.id,action:document.activeElement.dataset.action}:null;
     list.replaceChildren(body);list.scrollTop=scroll;
+    if(focused){
+      const replacement=[...list.querySelectorAll('button[data-action]')].find(
+        button=>button.dataset.id===focused.id&&button.dataset.action===focused.action);
+      replacement?.focus();
+    }
   }
   update(force=false){
     if(this.lastGame!==this.ui.game){
