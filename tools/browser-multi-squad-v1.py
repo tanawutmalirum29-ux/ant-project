@@ -90,7 +90,7 @@ def run_view(browser,html,name,w,h,root):
             print(w,h,'FAIL',name,str(exc),flush=True)
             try:picture('fail-'+str(len(evidence['cases'])))
             except Exception:pass
-            raise
+            return None  # Keep collecting independent QA cases; final verdict still fails.
     try:
         page.set_content(html,wait_until='domcontentloaded')
         page.wait_for_function('Boolean(window.__ANT_DEBUG__?.game?.combat?.getSquads && document.querySelector("#u6-open"))',timeout=13000)
@@ -186,7 +186,7 @@ def run_view(browser,html,name,w,h,root):
             first=arm_and_tap('A')
             return first
         check('real touchscreen map rally for Squad A',rallyA)
-        check('real touchscreen distinct map rally for Squad B',lambda:arm_and_tap('B',first['tile']))
+        check('real touchscreen distinct map rally for Squad B',lambda:arm_and_tap('B',first['tile'] if first else None))
         def cancel_and_invalid():
             page.locator('[data-u6-squad="B"]').click()
             page.locator('#u6-rally').click()
