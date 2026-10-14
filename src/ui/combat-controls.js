@@ -1,9 +1,10 @@
 import { TILE } from '../world/generate.js';
+import { antRole, antState } from './ant-inspector.js';
 /** Non-invasive U6 gameplay controls. No edits to V1/V2 styles or DOM IDs. */
 export class CombatControls {
   constructor(ui){
     this.ui=ui;ui.combatControls=this;this.targeting=false;this.rosterSignature='';
-    this.selectedSquad='A';this.armedSquad=null;this.rosterFilter='all';this.lastGame=ui.game;
+    this.selectedSquad='A';this.armedSquad=null;this.rosterFilter='all';this.inspectedAntId=null;this.lastGame=ui.game;
     const sheet=document.createElement('link');
     sheet.rel='stylesheet';sheet.href=new URL('./combat.css',import.meta.url).href;
     document.head.append(sheet);
@@ -56,12 +57,31 @@ export class CombatControls {
       <section class="u6-roster-panel" aria-label="รายชื่อและการย้ายกอง">
         <div class="u6-roster-head">
           <h3>จัดกำลังพล <small>แตะดูตำแหน่งหรือย้ายกอง</small></h3>
-          <label for="u6-roster-filter">แสดง <select id="u6-roster-filter" aria-label="กรองรายชื่อมด">
-            <option value="all">มดทั้งหมด</option><option value="soldiers">ทหารทั้งหมด</option>
-            <option value="selected">ทหารกองที่เลือก</option><option value="workers">มดงาน</option>
-          </select></label>
+          <div class="u6-filter" aria-label="ตัวกรองรายชื่อมด">
+            <span id="u6-filter-label">แสดง</span>
+            <button id="u6-roster-filter" type="button" aria-labelledby="u6-filter-label u6-filter-current" aria-controls="u6-filter-options" aria-expanded="false" aria-haspopup="true">
+              <span id="u6-filter-current">มดทั้งหมด</span><span class="u6-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div id="u6-filter-options" class="u6-filter-options" role="group" aria-label="เลือกรายชื่อมด" hidden>
+              <button type="button" data-u6-filter="all" aria-pressed="true">มดทั้งหมด</button>
+              <button type="button" data-u6-filter="soldiers" aria-pressed="false">ทหารทั้งหมด</button>
+              <button type="button" data-u6-filter="selected" aria-pressed="false">ทหารกองที่เลือก</button>
+              <button type="button" data-u6-filter="workers" aria-pressed="false">มดงาน</button>
+            </div>
+          </div>
         </div>
         <p id="u6-workforce" class="u6-subnote"></p>
+        <section id="u6-ant-detail" class="u6-ant-detail" aria-label="ข้อมูลมดที่เลือก" hidden>
+          <header class="u6-ant-detail-head">
+            <div><small>ข้อมูลมด</small><strong id="u6-ant-title">—</strong></div>
+            <button id="u6-ant-detail-close" type="button" aria-label="ปิดข้อมูลมด">×</button>
+          </header>
+          <p id="u6-ant-role" class="u6-ant-role"></p>
+          <p id="u6-ant-state"></p>
+          <p id="u6-ant-position"></p>
+          <p id="u6-ant-extra"></p>
+          <button id="u6-ant-follow" type="button">⌖ ดูมดบนแผนที่</button>
+        </section>
         <div id="u6-roster" class="u6-roster" aria-label="กำลังพลและมดงาน"></div>
       </section></div>
       <details class="u6-advanced"><summary>เครื่องมือทดสอบการบุกรุก</summary>
@@ -96,9 +116,33 @@ export class CombatControls {
       });
     }
     dialog.querySelector('#u6-rally').addEventListener('click',()=>this.armRally());
-    dialog.querySelector('#u6-roster-filter').addEventListener('change',event=>{
-      this.rosterFilter=event.target.value;this.rosterSignature='';
-      this.renderRoster(true,this.combat.getSquads?.().data??[]);
+    const filterTrigger=dialog.querySelector('#u6-roster-filter');
+    const filterOptions=dialog.querySelector('#u6-filter-options');
+    filterTrigger.addEventListener('click',()=>{
+      const opening=filterOptions.hidden;
+      filterOptions.hidden=!opening;
+      filterTrigger.setAttribute('aria-expanded',String(opening));
+    });
+    filterOptions.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-u6-filter]');
+      if(!button)return;
+      this.setRosterFilter(button.dataset.u6Filter);
+      filterTrigger.focus();
+    });
+    dialog.addEventListener('click',event=>{
+      if(!event.target.closest('.u6-filter'))this.closeRosterFilter();
+    });
+    dialog.addEventListener('keydown',event=>{
+      if(event.key==='Escape'&&!filterOptions.hidden){
+        event.preventDefault();event.stopPropagation();
+        this.closeRosterFilter();filterTrigger.focus();
+      }
+    });
+    dialog.querySelector('#u6-ant-detail-close').addEventListener('click',()=>this.hideAntDetail());
+    dialog.querySelector('#u6-ant-follow').addEventListener('click',()=>{
+      const ant=this.ui.game.colony.workers.find(a=>a.id===this.inspectedAntId);
+      if(!ant){this.hideAntDetail();return;}
+      dialog.close();this.follow(ant);
     });
     dialog.querySelector('#u6-alarm').addEventListener('click',()=>{
       const result=this.combat.raiseAlarm();
@@ -111,12 +155,63 @@ export class CombatControls {
         this.transfer(btn.dataset.id,btn.dataset.toSquad);return;
       }
       const ant=this.ui.game.colony.workers.find(a=>a.id===btn.dataset.id);if(!ant)return;
-      if(btn.dataset.action==='focus'){dialog.close();this.follow(ant);return;}
+      if(btn.dataset.action==='focus'){this.showAntDetail(ant.id);return;}
       this.update(true);
     });
     this.update(true);
   }
   get combat(){return this.ui.game.combat;}
+  closeRosterFilter(){
+    const options=this.dialog.querySelector('#u6-filter-options');
+    const trigger=this.dialog.querySelector('#u6-roster-filter');
+    if(!options||!trigger)return;
+    options.hidden=true;trigger.setAttribute('aria-expanded','false');
+  }
+  setRosterFilter(value){
+    const labels={all:'มดทั้งหมด',soldiers:'ทหารทั้งหมด',selected:'ทหารกองที่เลือก',workers:'มดงาน'};
+    if(!Object.hasOwn(labels,value))return false;
+    this.rosterFilter=value;this.rosterSignature='';
+    this.dialog.querySelector('#u6-filter-current').textContent=labels[value];
+    for(const button of this.dialog.querySelectorAll('[data-u6-filter]'))
+      button.setAttribute('aria-pressed',String(button.dataset.u6Filter===value));
+    this.closeRosterFilter();
+    const squads=this.combat.getSquads?.();
+    this.renderRoster(true,squads?.ok===true?squads.data:[]);
+    return true;
+  }
+  showAntDetail(id){
+    const ant=this.ui.game.colony.workers.find(a=>a.id===id);
+    if(!ant)return false;
+    this.inspectedAntId=ant.id;this.closeRosterFilter();
+    this.renderAntDetail();
+    this.dialog.querySelector('#u6-ant-detail').scrollIntoView?.({block:'nearest',behavior:'instant'});
+    return true;
+  }
+  hideAntDetail(){
+    this.inspectedAntId=null;
+    const panel=this.dialog.querySelector('#u6-ant-detail');
+    if(panel)panel.hidden=true;
+  }
+  renderAntDetail(){
+    const panel=this.dialog.querySelector('#u6-ant-detail');
+    if(!panel||!this.inspectedAntId)return;
+    const game=this.ui.game;
+    const ant=game.colony.workers.find(a=>a.id===this.inspectedAntId);
+    if(!ant){this.hideAntDetail();return;}
+    panel.hidden=false;
+    const name=ant.id.replace(/^worker-/,'มด #');
+    this.dialog.querySelector('#u6-ant-title').textContent=name;
+    this.dialog.querySelector('#u6-ant-role').textContent=antRole(ant);
+    this.dialog.querySelector('#u6-ant-state').textContent='สถานะ: '+antState(ant);
+    this.dialog.querySelector('#u6-ant-position').textContent=
+      `ตำแหน่ง: ${ant.layer==='surface'?'พื้นผิว':'ใต้ดิน'} (${ant.x}, ${ant.y})`;
+    const cargo=ant.cargo?.amount?
+      ` · ขน${{carbs:'อาหาร',protein:'โปรตีน',water:'น้ำ'}[ant.cargo.type]??'ทรัพยากร'} ${ant.cargo.amount}`:'';
+    const hp=ant.combatRole==='soldier'?
+      `HP ${Math.max(0,ant.combatHP??16)}/16`: 'มดงาน';
+    this.dialog.querySelector('#u6-ant-extra').textContent=hp+cargo+
+      (ant.broodCargo?' · กำลังขนตัวอ่อน':'');
+  }
   report(message){this.dialog.querySelector('#u6-notice').textContent=message;}
   resultError(result,fallback='คำสั่งไม่สำเร็จ'){
     const code=result?.error?.code;
@@ -222,6 +317,8 @@ export class CombatControls {
       const membership=members.get(String(ant.id));
       const soldier=ant.combatRole==='soldier',squadId=membership?.squadId;
       const row=document.createElement('div');row.className='u6-unit'+(soldier?' is-soldier':'');
+      row.dataset.antId=ant.id;
+      if(this.inspectedAntId===ant.id)row.classList.add('is-inspected');
       const info=document.createElement('div');info.className='u6-unit-info';
       const name=document.createElement('strong');name.textContent=ant.id.replace('worker-','มด #')+(soldier?` · ทหารกอง ${squadId??'?'}`:' · มดงาน');
       const status=document.createElement('small');
@@ -238,7 +335,7 @@ export class CombatControls {
       }
       const actions=document.createElement('div');actions.className='u6-unit-buttons';
       const locate=document.createElement('button');locate.type='button';locate.dataset.action='focus';
-      locate.dataset.id=ant.id;locate.textContent='ดู';locate.setAttribute('aria-label',`ติดตาม ${ant.id}`);
+      locate.dataset.id=ant.id;locate.textContent='ดูมด';locate.setAttribute('aria-label',`ดูข้อมูล ${ant.id} ในหน้าจัดกำลังพล`);
       actions.append(locate);
       if(soldier&&squadId){
         const toSquad=squadId==='A'?'B':'A';
@@ -262,7 +359,7 @@ export class CombatControls {
   update(force=false){
     if(this.lastGame!==this.ui.game){
       this.lastGame=this.ui.game;this.selectedSquad='A';this.rosterFilter='all';this.rosterSignature='';
-      this.cancelRally();
+      this.hideAntDetail();this.setRosterFilter('all');this.cancelRally();
     }
     const c=this.combat,read=c.getSquads?.();
     const squads=read?.ok===true?read.data:[];
@@ -296,6 +393,7 @@ export class CombatControls {
     set('#u6-rally-status',active?.rally?`กอง ${active.id} · จุดรวมพล ${active.rally.layer} (${active.rally.x},${active.rally.y}) · ถึงแล้ว ${active.ralliedCount}/${active.count}`:'ยังไม่มีจุดรวมพล');
     for(const btn of this.dialog.querySelectorAll('[data-u6-mode]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Mode===active?.mode));
     for(const btn of this.dialog.querySelectorAll('[data-u6-squad]'))btn.setAttribute('aria-pressed',String(btn.dataset.u6Squad===this.selectedSquad));
+    this.renderAntDetail();
     this.renderRoster(force,squads);
   }
 }
