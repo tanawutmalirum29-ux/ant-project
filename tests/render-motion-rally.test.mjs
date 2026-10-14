@@ -128,7 +128,7 @@ function rallyHarness({ squad='A', accepted=true }={}) {
   };
   const controls=Object.create(CombatControls.prototype);
   Object.assign(controls,{ui,targeting:false,selectedSquad:squad,
-    dialog:{close(){}},tip:{hidden:true},
+    dialog:{close(){}},tip:{hidden:true},tipText:{textContent:''},
     report(message){reports.push(message);},update(){}});
   return {controls,game,pings,commands,notices,reports,attributes};
 }
