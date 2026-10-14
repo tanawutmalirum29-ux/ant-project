@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./src/ui/visual/v2.css" />
   <link rel="stylesheet" href="./src/ui/visual/v2-fixes.css" />
   <link rel="stylesheet" href="./src/ui/visual/v3-compact.css" />
+  <link rel="stylesheet" href="./src/ui/visual/inspector.css" />
 </head>
 <body>
   <div id="app">
@@ -107,6 +108,11 @@
     <aside class="selection-card hidden" id="selection-card" aria-live="polite">
       <div class="selection-title"><span id="selection-terrain">พื้นดิน</span><button id="selection-close" aria-label="ปิดข้อมูลช่อง">×</button></div>
       <p id="selection-coords">ตำแหน่ง —</p>
+      <section id="selection-ants" class="selection-ants hidden" aria-label="ข้อมูลมดในช่อง">
+        <div class="selection-ants-head"><strong id="selection-ants-count">มดในช่องนี้ 0 ตัว</strong><span>แตะชื่อเพื่อดู</span></div>
+        <div id="selection-ants-list" class="selection-ants-list" role="group" aria-label="เลือกมดในช่อง"></div>
+        <div id="selection-ant-detail" class="selection-ant-detail hidden" aria-live="off"></div>
+      </section>
       <button id="portal-button" class="portal-action hidden">เปลี่ยนไปอีกชั้น ↗</button>
       <p id="selection-work" class="selection-work hidden"></p>
       <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
