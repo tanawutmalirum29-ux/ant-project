@@ -28,7 +28,7 @@ export class MilestoneTracker {
       { ...STAGE_INFO[0], complete: false, completedTick: null,
         progress: { carbsSeen: false, proteinSeen: false, waterSeen: false, digCompleted: false } },
       { ...STAGE_INFO[1], complete: false, completedTick: null,
-        progress: { nurseryReadyConnected: false, livingWorkers: 0, requiredWorkers: 8 } },
+        progress: { nurseryReadyConnected: false, livingWorkers: game.colony.workers.length, requiredWorkers: 8 } },
       { ...STAGE_INFO[2], complete: false, completedTick: null,
         progress: { enemyDefeated: false, queenAlive: true } }
     ];
