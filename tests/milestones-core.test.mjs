@@ -80,8 +80,14 @@ test('MILESTONE-CORE-11 tick-zero workers mirror the new colony and same-seed re
   }
   assert.equal(original.clock.ticks, 0, 'reading progress never executes a tick');
 
-  // A fixture-side loss is observed only on an executed simulation tick.
-  original.colony.workers.pop();
+  // A fixture-side loss changes the live indicator only when observed.
+  const live = fixture();
+  live.game.colony.workers.pop();
+  live.tracker.observe();
+  assert.equal(live.tracker.getSnapshot().stages[1].progress.livingWorkers, 4);
+  assert.equal(live.tracker.getSnapshot().tick, 1);
+
+  // Real Game observes the worker roster without modifying gameplay rules.
   step(original);
   assert.equal(original.milestones.getSnapshot().stages[1].progress.livingWorkers,
     original.colony.workers.length);
