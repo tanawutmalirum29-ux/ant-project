@@ -452,7 +452,7 @@ export class UI {
     const roomName={ready:'พร้อมใช้งาน',planned:'รอก่อสร้าง',building:'กำลังก่อสร้าง',disabled:'ขาดทางเข้า'}[room.status]||'ยังไม่พร้อม';
     $('nursery-heading').textContent='ห้องฟักไข่ · '+room.width+'×'+room.height;
     $('nursery-capacity').textContent=status
-      ? 'ช่องฟัก '+status.used+'/'+status.slots+' · ว่าง '+status.free+' · '+(ready?'พร้อมใช้งาน':roomName)
+      ? 'ช่องฟัก '+status.used+'/'+status.slots+' · ว่าง '+status.free+' · '+(ready?'พร้อมใช้งาน':(room.status==='ready'?'ขาดทางเชื่อม':roomName))
       : 'กำลังเชื่อมต่อข้อมูลช่องฟัก · '+roomName;
     const profession=$('nursery-profession').value,level=Number($('nursery-level').value);
     const cost=life?.eggCost?.(profession,level)??null;
