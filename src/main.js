@@ -6,6 +6,18 @@ import { CombatControls } from './ui/combat-controls.js';
 import { MilestonesPanel } from './ui/milestones-panel.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
 
+// Suppress browser context menus and selection handles on game UI only.
+// Do not cancel touchstart/pointerdown: the map, scrolling panels and buttons
+// still need native taps, drags, gestures and keyboard focus.
+const gameLongPressGuard = event => {
+  const target = event.target;
+  const editable = target?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable="plaintext-only"]');
+  if (!editable) event.preventDefault();
+};
+const gameRoot = document.getElementById('app');
+gameRoot.addEventListener('contextmenu', gameLongPressGuard);
+gameRoot.addEventListener('selectstart', gameLongPressGuard);
+
 const query = new URLSearchParams(location.search);
 const initialSeed = (query.get('seed') || 'ANT-001').slice(0, 40);
 let game = new Game(initialSeed);
