@@ -31,6 +31,8 @@ export function mount(container,{view,actions,overlay,subscribe}) {
   if(!container || !actions || !overlay || typeof subscribe!=='function')
     throw new TypeError('UI-04 requires the frozen G1 feature interface');
   const doc=container.ownerDocument;
+  const priorPointerEvents=container.style.pointerEvents;
+  container.style.pointerEvents='none';
   const instance='ui04-nursery';
   const selected={profession:'miner',level:1,roomId:null,seedRoomId:null};
   const shell=make(doc,'div','ui04-root');
@@ -263,6 +265,6 @@ export function mount(container,{view,actions,overlay,subscribe}) {
   return ()=>{
     disposed=true;unsubscribe();closePickers();
     for(const release of unregisterPickers)release();
-    unregisterSheet();container.replaceChildren();
+    unregisterSheet();container.style.pointerEvents=priorPointerEvents;container.replaceChildren();
   };
 }
