@@ -163,6 +163,12 @@ def run(page,engine,w,h):
     page.locator('.ui05-type-option').filter(has_text='คลังอาหาร').first.click()
     point=page.evaluate("""() => {
        const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen,c=d.cameras[g.layer];
+       // The initial camera is centered on the portal (y15), not the
+       // queen-room worksite (y24). Pan the real camera to the site first;
+       // tapping a world tile hidden *under* the bottom command row is not
+       // an appropriate map-gesture test.
+       c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;
+       c.clamp(g.currentLayer,d.renderer.width,d.renderer.height);
        const x=q.x+2,y=q.y;
        const p=c.worldToScreen((x+.5)*28,(y+.5)*28,d.renderer.width,d.renderer.height);
        return {x,y,sx:p.x,sy:p.y,valid:g.rooms.validate('food_store',x,y,2,2)};
