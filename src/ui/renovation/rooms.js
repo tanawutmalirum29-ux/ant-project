@@ -10,7 +10,10 @@ const ERRORS={
  'queue-full':'คิวก่อสร้างเต็ม','insufficient-resources':'ทรัพยากรไม่เพียงพอ',
  'ROOM_NOT_CANCELLABLE':'ห้องนี้ยกเลิกการก่อสร้างไม่ได้',
  'UNDERGROUND_ONLY':'สร้างห้องหรือขุดได้เฉพาะใต้ดิน',
- 'INVALID_DIG_RECT':'พื้นที่ขุดไม่ถูกต้อง'
+ 'INVALID_DIG_RECT':'พื้นที่ขุดไม่ถูกต้อง',
+ 'NO_DIG_SELECTION':'ยังไม่ได้ลากเลือกพื้นที่ขุด',
+ 'ROOM_PICKER_UNAVAILABLE':'ยังเชื่อมตัวเลือกประเภทห้องกับแผนที่ไม่ได้',
+ 'INVALID_ROOM_TYPE':'ประเภทห้องไม่ถูกต้อง'
 };
 const STATUS={planned:'รอก่อสร้าง',building:'กำลังก่อสร้าง',ready:'พร้อมใช้',disabled:'ขาดทางเชื่อม'};
 const errorFor=v=>ERRORS[v?.reason??v?.error?.code]||v?.error?.message||'คำสั่งไม่สำเร็จ';
@@ -53,10 +56,10 @@ export function mount(container,{view,actions,overlay,subscribe}){
  const plan=make(d,'p','ui05-plan');
  const verdict=make(d,'p','ui05-verdict');verdict.setAttribute('role','status');
  const buildAction=make(d,'button','ui05-primary','สั่งสร้างที่ช่องเลือก');buildAction.type='button';
- const buildHint=make(d,'small','ui05-hint','แตะห้อง 2×2 บนแผนที่ได้ตามระบบเดิม หรือใช้ปุ่มนี้กับช่องที่เลือกไว้');
+ const buildHint=make(d,'small','ui05-hint','แตะบนแผนที่เพื่อสร้าง 2×2 หรือใช้ลากเลือกพื้นที่; ปุ่มนี้ใช้พิกัดช่องที่เลือกไว้เท่านั้น');
  build.append(roomTypeLine,shape,plan,verdict,buildAction,buildHint);
  const dig=make(d,'div','ui05-dig');
- const digHelp=make(d,'p','ui05-hint','เลือกช่องเริ่มต้นในโหมดสำรวจ แล้วเปลี่ยนเป็นโหมดขุดเพื่อจัดการพื้นที่');
+ const digHelp=make(d,'p','ui05-hint','ลากบนแผนที่เพื่อเลือกพื้นที่ขุด แล้วกดสั่งขุดเพิ่มหรือยกเลิกงานเดิม');
  const digSummary=make(d,'p','ui05-dig-summary');
  const digControls=make(d,'div','ui05-actions');
  const digAdd=make(d,'button','ui05-primary','สั่งขุดเพิ่ม');digAdd.type='button';
@@ -77,7 +80,7 @@ export function mount(container,{view,actions,overlay,subscribe}){
    hide:()=>{picker.hidden=true;typeTrigger.setAttribute('aria-expanded','false');}
  });
  let latest=view,roomType='nursery',width=2,height=2,collapsed=false,disposed=false;
- let anchor=null;let selectedRoomId=null;
+ // The Coordinator's G3 canvas selection is the sole dig state source.
  const report=(response,success)=>{
    const ok=!!response?.ok;
    txt(feedback,ok?success:errorFor(response));
@@ -141,14 +144,11 @@ export function mount(container,{view,actions,overlay,subscribe}){
    const response=actions.cancelRoom(item.id);
    report(response,'ยกเลิกโครงการก่อสร้างและคืนทรัพยากรแล้ว');render();
  });
- function rectangle(){
-   const p=anchor || currentAnchor();
-   if(!p)return null;
-   return {from:p,to:{x:p.x+width-1,y:p.y+height-1}};
- }
+ function digRectangle(){return latest?.rooms?.canvas?.digSelection??null;}
  function doDig(cancel){
-   const area=rectangle();if(!area)return;
-   const response=cancel?actions.cancelDig(area.from,area.to):actions.queueDig(area.from,area.to);
+   if(!digRectangle())return;
+   // One Coordinator-owned canvas commit, not a duplicate colony mutation.
+   const response=actions.applySelectedDig(cancel);
    const info=response?.data;
    const message=cancel?`ยกเลิกคำสั่งขุด ${info?.cancelled??0} ช่อง`:
      `เพิ่มคำสั่งขุด ${info?.added??0} ช่อง · มีอยู่แล้ว ${info?.existing??0} · ขุดไม่ได้ ${info?.blocked??0}${info?.limit?' · คิวเต็ม':''}`;
@@ -156,7 +156,11 @@ export function mount(container,{view,actions,overlay,subscribe}){
  }
  digAdd.addEventListener('click',()=>doDig(false));
  digRemove.addEventListener('click',()=>doDig(true));
- digClear.addEventListener('click',()=>{anchor=null;txt(feedback,'ล้างเฉพาะการเลือก ไม่ยกเลิกคำสั่งขุดจริง');render();});
+ digClear.addEventListener('click',()=>{
+   if(!digRectangle())return;
+   const response=actions.clearDigSelection();
+   report(response,'ล้างการเลือกบนแผนที่แล้ว (ยังไม่ยกเลิกคำสั่งขุดจริง)');render();
+ });
  function renderPicker(catalog){
    const sig=catalog.map(x=>x.type).join('|');
    if(picker.dataset.catalog!==sig){
@@ -164,7 +168,9 @@ export function mount(container,{view,actions,overlay,subscribe}){
      for(const r of catalog){
        const btn=make(d,'button','ui05-type-option',r.name);btn.type='button';btn.dataset.roomType=r.type;btn.setAttribute('role','option');
        btn.addEventListener('click',()=>{
-         roomType=r.type;width=r.width;height=r.height;
+         // Match the authoritative legacy picker before any tap/drag.
+         const response=actions.selectRoomType?.(r.type)??{ok:false,error:{code:'ROOM_PICKER_UNAVAILABLE'}};
+         if(report(response,`เลือกห้อง ${r.name} แล้ว`)){roomType=r.type;width=r.width;height=r.height;}
          overlay.closePanel(popoverId);render();
        });picker.append(btn);
      }
@@ -190,6 +196,11 @@ export function mount(container,{view,actions,overlay,subscribe}){
    if(root.hidden)overlay.closePanel(popoverId,'replaced');
    txt(title,isBuild?'สร้างห้อง':isDig?'จัดการพื้นที่ขุด':'สถานะการก่อสร้าง');
    const catalog=latest?.rooms?.catalog||[];
+   const canvasType=latest?.rooms?.canvas?.roomType;
+   if(canvasType && canvasType!==roomType && catalog.some(c=>c.type===canvasType)){
+     roomType=canvasType;
+     const entry=catalog.find(c=>c.type===canvasType);width=entry.width;height=entry.height;
+   }
    if(!catalog.some(c=>c.type===roomType)){
      const first=catalog[0];if(first){roomType=first.type;width=first.width;height=first.height;}
    }
@@ -198,25 +209,41 @@ export function mount(container,{view,actions,overlay,subscribe}){
    wMinus.disabled=width<=1;hMinus.disabled=height<=1;
    wPlus.disabled=width>=getLimits().maxWidth;hPlus.disabled=height>=getLimits().maxHeight;
    const selection=currentAnchor();
+   const drag=latest?.rooms?.canvas?.roomPreview;
+   const liveDrag=drag?.dragging && drag.from && drag.to;
+   const dragX=liveDrag?Math.min(drag.from.x,drag.to.x):null;
+   const dragY=liveDrag?Math.min(drag.from.y,drag.to.y):null;
+   const dragW=liveDrag?Math.abs(drag.to.x-drag.from.x)+1:0;
+   const dragH=liveDrag?Math.abs(drag.to.y-drag.from.y)+1:0;
    const area=width*height;
    const shapeValid=area>=getLimits().minArea && width<=getLimits().maxWidth && height<=getLimits().maxHeight;
    const preview=shapeValid?actions.roomPlan(roomType,width,height):null;
-   txt(plan,preview?`พื้นที่ ${area} ช่อง · อาหาร ${preview.cost?.carbs??0} · โปรตีน ${preview.cost?.protein??0} · ใช้เวลา ${preview.ticks} ติ๊ก`:
-     `พื้นที่ ${area} ช่อง · ต้องมีพื้นที่อย่างน้อย ${getLimits().minArea} ช่อง`);
+   const dragValid=liveDrag && dragW*dragH>=getLimits().minArea
+     && dragW<=getLimits().maxWidth && dragH<=getLimits().maxHeight;
+   const livePlan=dragValid?actions.roomPlan(roomType,dragW,dragH):null;
+   txt(plan,liveDrag
+     ?`กำลังลาก ${dragW}×${dragH} (${dragW*dragH} ช่อง) · ${livePlan?`อาหาร ${livePlan.cost?.carbs??0} · โปรตีน ${livePlan.cost?.protein??0}`:'ขนาดไม่ผ่านเงื่อนไข'}`
+     :preview?`พื้นที่ ${area} ช่อง · อาหาร ${preview.cost?.carbs??0} · โปรตีน ${preview.cost?.protein??0} · ใช้เวลา ${preview.ticks} ติ๊ก`:
+      `พื้นที่ ${area} ช่อง · ต้องมีพื้นที่อย่างน้อย ${getLimits().minArea} ช่อง`);
    const check=isBuild && preview && selection
      ?actions.validateRoom(roomType,selection.x,selection.y,width,height):null;
    verdict.dataset.state=check?.ok?'valid':'invalid';
-   txt(verdict,!selection?'ต้องเลือกช่องบนแผนที่ก่อน':
+   txt(verdict,liveDrag?(dragValid?`ลากพื้นที่บนแผนที่ ณ ${dragX},${dragY} (ระบบแผนที่จะสั่งครั้งเดียวเมื่อปล่อย)`:'พื้นที่ลากไม่ถูกต้อง'):
+     !selection?'ต้องเลือกช่องบนแผนที่ก่อน':
      !shapeValid?'พื้นที่น้อยเกินไป':check?.ok?`พร้อมสั่งสร้าง ณ ${selection.x},${selection.y}`:
      isBuild?errorFor(check):'');
-   buildAction.disabled=!isBuild||!preview||!selection||!check?.ok;
-   const rect=rectangle();
+   buildAction.disabled=!isBuild||!preview||!selection||!check?.ok||!!liveDrag;
+   const rect=digRectangle();
+   const pending=latest?.rooms?.canvas?.digPreview;
    let info=null;
    if(isDig&&rect){info=actions.inspectDig(rect.from,rect.to);}
-   txt(digSummary,!rect?'ไม่มีช่องที่เลือก':`พื้นที่ ${width}×${height} · มีคิว ${info?.existing??0} · เพิ่มได้ ${info?.available??0} · ขุดไม่ได้ ${info?.blocked??0}`);
-   digAdd.disabled=!isDig||!info?.available;
-   digRemove.disabled=!isDig||!info?.existing;
-   digClear.disabled=!rect;
+   const xsize=rect?Math.abs(rect.to.x-rect.from.x)+1:0;
+   const ysize=rect?Math.abs(rect.to.y-rect.from.y)+1:0;
+   txt(digSummary,rect?`เลือกจากแผนที่ ${xsize}×${ysize} · มีคิว ${info?.existing??0} · เพิ่มได้ ${info?.available??0} · ขุดไม่ได้ ${info?.blocked??0}`:
+     pending?'กำลังเลือกพื้นที่ขุดบนแผนที่':'ยังไม่ได้ลากเลือกพื้นที่ขุดบนแผนที่');
+   digAdd.disabled=!isDig||!rect||!info?.available;
+   digRemove.disabled=!isDig||!rect||!info?.existing;
+   digClear.disabled=!isDig||!rect;
    if(hasWork){
      txt(inspectLabel,`ห้อง ${catalog.find(c=>c.type===item.type)?.name||item.type} ${item.width}×${item.height}`);
      const complete=item.ticks>0?Math.max(0,Math.min(100,Math.floor(item.progress/item.ticks*100))):0;
@@ -226,10 +253,7 @@ export function mount(container,{view,actions,overlay,subscribe}){
  }
  const unsubscribe=subscribe(next=>{
    latest=next;
-   // The live legacy canvas owns tap/drag. Do not read its private preview or add pointer listeners.
-   // The selected tile is a reliable G1 anchor for explicit actions; canvas drag wiring is G3-owned.
-   if(latest?.home?.tool==='dig' && currentAnchor())anchor=currentAnchor();
-   if(latest?.home?.tool!=='dig')anchor=null;
+   // G3 snapshot provides authentic canvas selection and room type.
    render();
  });
  render();
