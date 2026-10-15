@@ -24,7 +24,7 @@ def bundle_html():
     g1='<link rel="stylesheet" href="./src/ui/renovation/shell.css" />'
     if g1 in html:
         html=html.replace(g1,'<style>'+(root/'src/ui/renovation/shell.css').read_text()+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','ui/renovation/shell.js','ui/renovation/ui-adapter.js','main.js']
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','ui/renovation/shell.js','ui/renovation/ui-adapter.js','ui/renovation/home.js','ui/renovation/settings.js','ui/renovation/integrate-a.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()
@@ -40,6 +40,15 @@ def bundle_html():
             # resolve() normalizes absolute paths
             return 'const {'+names+'} = __mods['+json.dumps(import_path)+'];'
         source=re.sub(r"import\s+\{([^}]+)\}\s+from\s+['\"]([^'\"]+)['\"];?",resolve_import,source)
+        # G3 coordinator composition imports feature namespaces; map ESM namespace
+        # imports to existing inlined module table for sandbox page.set_content QA.
+        def resolve_namespace_import(match):
+            name, imported=match.group(1),match.group(2)
+            module_ref=str(Path(module_path).parent.joinpath(imported).resolve())
+            return 'const '+name+' = __mods['+json.dumps(module_ref)+'];'
+        source=re.sub(r"import\s+\*\s+as\s+(\w+)\s+from\s+['\"]([^'\"]+)['\"];?",
+                      resolve_namespace_import,source)
+
         names=re.findall(r'export\s+(?:const|class|function)\s+(\w+)',source)
         source=re.sub(r'\bexport\s+(?=(?:const|class|function)\b)','',source)
         out.append('__mods['+json.dumps(module_path)+'] = (() => {\n'+source+'\nreturn {'+','.join(names)+'};\n})();')
