@@ -40,6 +40,8 @@
 .nursery-orders button{flex:none;min-width:65px;}
 .nursery-reopen{min-height:44px;padding:8px 12px;border:1px solid #bb9f75;background:#345341;color:#f5ebdb;border-radius:8px;}
 .nursery-reopen.hidden{display:none!important;}
+/* Permanent soldier professions replace the obsolete percentage control. */
+#u6-dialog .u6-percent-control{display:none!important;}
 /* The selected tile remains valid; its inspector is shown again after closing. */
 body:has(.nursery-panel:not(.hidden)) #selection-card:not(.hidden){visibility:hidden;pointer-events:none;}
 /* A/B command dialog and population report always win over a non-modal drawer. */
@@ -48,7 +50,7 @@ body:has(.colony-panel:not(.hidden)) .nursery-panel:not(.hidden){visibility:hidd
 @media(max-width:600px){
  .nursery-panel{left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));
   top:auto;bottom:calc(188px + env(safe-area-inset-bottom,0px));transform:none;width:auto;
-  max-height:min(45dvh,calc(100dvh - 215px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
+  max-height:min(45dvh,calc(100dvh - 365px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
   padding:10px 11px;border-radius:10px;}
  .nursery-orders{max-height:148px;}
 }

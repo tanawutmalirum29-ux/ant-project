@@ -47,6 +47,15 @@ try:
             dock=page.locator('#u6-dock')
             assert dock.is_visible(),(width,'military dock missing')
             assert not intersects(box,dock.bounding_box()),(width,'nursery obscures squad A/B dock')
+            speed=page.locator('.right-controls').bounding_box()
+            dig=page.locator('.dig-tools').bounding_box()
+            assert not intersects(box,speed),(width,'nursery obscures speed buttons',box,speed)
+            assert not intersects(box,dig),(width,'nursery obscures digging tools',box,dig)
+            assert page.evaluate('''() => {
+              const p=document.querySelector('#nursery-panel'),r=p.getBoundingClientRect();
+              const el=document.elementFromPoint(r.left+r.width/2,r.top+Math.min(35,r.height/2));
+              return el===p||p.contains(el);
+            }'''),(width,'tap on nursery drawer would fall through to map')
             assert page.locator('#selection-card').evaluate("(e)=>getComputedStyle(e).visibility==='hidden'"),(width,'selection card overlap')
             assert page.locator('#nursery-blocked').text_content().strip()=='พร้อมรับคำสั่งฟักไข่',(width,'unexpected block reason')
             page.locator('#u6-open').click()
@@ -74,8 +83,19 @@ try:
             page.locator('#colony-button').click()
             assert page.locator('#caste-report').is_visible(),width
             assert page.locator('#caste-report table tbody tr').count()==6
+            assert '5' in page.locator('#caste-report .starter-row').inner_text(),(width,'missing five starters')
             assert page.locator('#caste-report .starter-row').is_visible()
             assert page.locator('#caste-report').locator('th').all_text_contents()[:2]==['อาชีพ','รวม']
+            page.locator('#close-colony').click()
+            assert page.evaluate('''() => {
+              const {game,ui}=__ANT_DEBUG__,ant=game.colony.workers[0];
+              ui.select({layer:ant.layer,x:ant.x,y:ant.y},ant.id);
+              return document.querySelector('#selection-ant-detail').textContent.includes('Lv.1');
+            }'''),(width,'real ant inspector failed')
+            page.locator('#tool-dig').click()
+            assert page.evaluate('__ANT_DEBUG__.ui.tool')=='dig',(width,'dig tool regressed')
+            page.locator('#tool-inspect').click()
+            assert page.evaluate('__ANT_DEBUG__.ui.tool')=='inspect',(width,'inspect tool regressed')
             assert not errors,(width,errors)
             print(f'Nursery browser {width}x{height}: PASS')
             page.close()
