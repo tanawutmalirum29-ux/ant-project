@@ -14,7 +14,7 @@ function feedback(result){
     || result?.error?.message || 'ไม่สามารถสร้างโลกใหม่ได้';
 }
 export function mount(container,{view,actions,overlay,subscribe}={}){
-  if(!container||!actions||!overlay||typeof subscribe!=='function)
+  if(!container||!actions||!overlay||typeof subscribe!=='function')
     throw new TypeError('UI-06 requires G1 mount dependencies');
   if(container.parentElement?.dataset?.uiRegion!=='PRIMARY_SHEET')
     throw new Error('UI-06 settings must mount in PRIMARY_SHEET');
