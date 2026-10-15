@@ -37,12 +37,12 @@ Read actual main repo:
 ### Device-specific map and control arrangement
 | Mode | Expected strategy |
 |---|---|
-| Phone narrow 320–359 portrait | Compact 1-line HUD + expandable resource details; anchored primary action tray, bottom layer navigation; tactical controls collapse to an accessible single trigger. One active scrollable bottom sheet above safe area, never 3 floating panels simultaneously. Map touch remains available when no blocking sheet. |
+| Phone narrow 320–359 portrait | Compact 1-line HUD + expandable resource details; ONE primary tool row with inspect, dig, build, **single layer-toggle button**, and menu (each usable ≥44×44 px). **No second bottom row for surface/underground**. Tactical controls collapse inside discoverable menu/status. One active scrollable bottom sheet above safe area. Map touch remains available when no blocking sheet. |
 | Phone 360–430 portrait | Similar, 2-line HUD only if measurement permits; choose concise names and tooltip/help. Medium sheet (snap compact/expanded) with capped height and visible dismiss. |
 | Large phone/foldable 431–680 | Floating/collapsible inspector and bottom command rail using measured width; do not infer handset simply from width. |
 | Short landscape (any width, especially 568×320 / 667×375 / 844×390) | Low-height top status, left compact tool rail, right compact status; heavy panel uses scrollable inset side sheet or maximally available sheet. No horizontal toolbar spreading across canvas center. Virtual keyboard must not trap primary actions. |
 | Tablet 681–1199 | Top HUD, left actions, right contextual inspector (reserved safe zone), expandable heavy sheet with constrained width; tap canvas outside closes only dismissible overlays. |
-| Desktop ≥1200 | Top HUD, left command rail, right contextual inspector, bottom minimal layer/speed controls; heavy management via centered game-styled modal or side dock, keyboard/ESC/focus management; no unused giant overlays. |
+| Desktop ≥1200 | Top HUD, left command rail with ONE layer-toggle action (not two persistent scene tabs), right contextual inspector; speed remains in compact HUD. Heavy management uses centered game-styled modal or side dock with keyboard/ESC/focus management; no unused giant overlays. |
 
 **Implement responsive layout via CSS Grid/Flex/container-aware rules, `minmax(0,1fr)`, `clamp()`, safe-area env, `dvh` fallbacks and actual measured collisions, NOT just dozens of arbitrary `left/top/bottom` pixel exceptions.** Avoid hover-only navigation, noninteractive text and hard-coded reserved lane width. The landscape rule depends on **available height**, not width alone.
 
@@ -58,11 +58,11 @@ Read actual main repo:
 
 ### UI-01 — Main game screen / HUD
 **Responsible:** Engineer 1, first stream.
-- Consolidate title, resources, population, clock/speed, milestone access, debug entry, layer switch, map tools & tactical trigger in a clear visual hierarchy. A single visual vocabulary (spacing, typography/Thai overflow, icon treatment, button states, loading state).
+- Consolidate title, resources, population, clock/speed, milestone access, debug entry, **single layer toggle**, map tools & tactical trigger in a clear visual hierarchy. The map layer is a two-state action, so do **not** render separate permanent 'พื้นผิว'/'ใต้ดิน' tabs or reserve an additional bottom row: on portrait phones it joins the primary action row; on landscape/tablet/desktop it joins the compact tool rail. The button shows its **current layer** (icon and/or concise text), has an accessible label naming current and destination, and switches to the other layer in ONE tap. A single visual vocabulary (spacing, typography/Thai overflow, icon treatment, button states, loading state).
 - Map must be visually primary; visible resources are never replaced by decorative chrome. Add compact/expanded HUD states as responsive adaptations with discoverable secondary data.
 - Distinguish pause/speed x1/x2/x4, selected surface/underground, disabled actions aboveground, dig/inspect/build mode. Make active/disabled/focus states unmistakable.
 - Improve toast lane, progress hints, camera recenter and zoom availability on touch/keyboard. Milestone/debug overlays follow shell panel policy; high contrast and large hit targets.
-- **Acceptance:** no clipping at narrow/large/landscape; all existing controls available through at most two deliberate actions; no inadvertent map interception, page-level scrolling or zoom breaks; game speed/tile interactions preserved.
+- **Acceptance:** no clipping at narrow/large/landscape; one tap to switch map layer, both current-layer states visually discernible at 320px; five primary actions remain ≥44×44px and fit without horizontal scrolling; **no second layer tab row**; all existing controls available through at most two deliberate actions; no inadvertent map interception, page-level scrolling or zoom breaks; game speed/tile interactions preserved.
 
 ### UI-02 — Military management
 **Responsible:** Engineer 2, first stream.
