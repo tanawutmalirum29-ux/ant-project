@@ -37,7 +37,7 @@ def evidence(page,engine,w,h,name,before,details=None):
       'before':before,'after':state(page),'details':details,
       'screenshot':engine+'-'+str(w)+'x'+str(h)+'-'+shot})
 def actual_tap(page,locator,touch):
-    el=page.locator(locator)
+    el=page.locator(locator).first
     box=el.bounding_box()
     assert box and box['width']>0 and box['height']>0,(locator,box)
     x=box['x']+box['width']/2;y=box['y']+box['height']/2
