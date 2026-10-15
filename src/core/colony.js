@@ -29,6 +29,20 @@ export class Colony {
       return { id:`worker-${i+1}`, caste:'worker',profession:'starter',level:1, layer:UNDERGROUND, x,y, facing:i%4, next:null, motion:0, path:[], orderId:null, state:'idle' };
     });
   }
+  // At most one emergency substitute per missing civilian profession.
+  // Prefer surplus castes and never change the ant's permanent profession.
+  emergencyWorker(job) {
+    if(!['miner','forager','builder','nurse'].includes(job))return null;
+    if(this.workers.some(a=>a.profession===job||a.profession==='starter'||!a.profession))return null;
+    const eligible=this.workers.filter(a=>a.profession!=='soldier'&&a.combatRole!=='soldier');
+    const counts=new Map();
+    for(const ant of eligible)counts.set(ant.profession,(counts.get(ant.profession)||0)+1);
+    return eligible.reduce((best,ant)=>{
+      if(!best)return ant;
+      const a=counts.get(ant.profession),b=counts.get(best.profession);
+      return a>b||(a===b&&String(ant.id)>String(best.id))?ant:best;
+    },null);
+  }
   isForager(ant) {
     if(!this.workers.includes(ant)||ant.combatRole==='soldier'||ant.profession==='soldier')return false;
     if(ant.profession==='forager')return true;
@@ -37,25 +51,20 @@ export class Colony {
       const general=this.workers.filter(a=>!a.combatRole&&(!a.profession||a.profession==='starter'));
       return this.forageSlots>0&&general.indexOf(ant)>=Math.max(0,general.length-this.forageSlots);
     }
-    // In a colony with no forage specialists or generalists, preserve a
-    // single emergency food courier rather than reassign every craft worker.
-    const civilians=this.workers.filter(a=>a.profession!=='soldier'&&!a.combatRole);
-    return !this.workers.some(a=>!a.profession||a.profession==='starter')&&civilians[0]===ant;
+    return this.emergencyWorker('forager')===ant;
   }
   canWork(ant,job){
-    if(!this.workers.includes(ant))return false;
+    if(!this.workers.includes(ant)||!['miner','forager','builder','nurse','soldier'].includes(job))return false;
     if(job==='soldier')return ant.profession==='soldier';
     if(ant.profession==='soldier'||ant.combatRole==='soldier')return false;
-    if(!ant.profession||ant.profession==='starter')return true;
+    if(ant.profession==='starter'||!ant.profession)return true;
     if(ant.profession===job)return true;
-    // Last-resort civilian fallback only if no permanent specialist or starter
-    // remains in the colony for this function.
-    return !this.workers.some(a=>a.profession===job||a.profession==='starter'||!a.profession);
+    return this.emergencyWorker(job)===ant;
   }
   workRate(ant,job){
     const level=Math.max(1,Math.min(5,ant.level||1));
     const main=ant.profession===job;
-    if(!main&&ant.profession!=='starter')return 0.5;
+    if(!main&&ant.profession!=='starter')return this.canWork(ant,job)?0.5:0;
     if(job==='miner')return 1+0.2*(level-1);
     if(job==='builder')return 1+0.25*(level-1);
     return 1;
@@ -251,7 +260,7 @@ export class Colony {
         if(ant.orderId==null) continue;
       }
       const job=this.ordersById.get(ant.orderId);
-      if(!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.abandonOrder(ant,job);continue;}
+      if(ant.profession==='soldier'||ant.combatRole==='soldier'||!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.abandonOrder(ant,job);continue;}
       if(ant.path.length || ant.next) {
         ant.state='walking';
         if(!ant.next) {
