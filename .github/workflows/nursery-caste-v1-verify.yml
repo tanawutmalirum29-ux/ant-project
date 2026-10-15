@@ -21,6 +21,20 @@ jobs:
         run: node --test tests/nursery-caste.test.mjs
       - name: Production build
         run: npm run build
+  full-native-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Full game regression tests
+        run: npm test
+      - name: Production build after regressions
+        run: npm run build
   browser-nursery:
     runs-on: ubuntu-latest
     timeout-minutes: 15
