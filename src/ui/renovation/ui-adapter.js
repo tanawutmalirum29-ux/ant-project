@@ -145,17 +145,28 @@ export class UIRenovationAdapter {
   }
   selectSquad(id){
     if(!['A','B'].includes(id))return fail('INVALID_SQUAD');
-    this.combatControls?.selectSquad(id);return this._after({ok:true,id});
+    if(!this.combatControls)return fail('NO_TACTICAL_CONTROLLER');
+    if(!this.combatControls.selectSquad(id))return fail('SQUAD_SELECTION_REJECTED');
+    return this._after({ok:true,id});
   }
-  squadMode(id,mode){return this._after(this.ui.game.combat.setSquadMode(id,mode));}
+  squadMode(id,mode){
+    const r=this.ui.game.combat.setSquadMode(id,mode);
+    if(r.ok){this.combatControls?.cancelRally();this.combatControls?.update(true);
+      this.overlay.setWorldMode(this.ui.tool);}
+    return this._after(r);
+  }
   squadRally(id,tile){
     if(!tile)return fail('INVALID_RALLY');
-    return this._after(this.ui.game.combat.setSquadRally(id,tile.layer,tile.x,tile.y));
+    const r=this.ui.game.combat.setSquadRally(id,tile.layer,tile.x,tile.y);
+    if(r.ok){this.combatControls?.cancelRally();this.combatControls?.update(true);
+      this.overlay.setWorldMode(this.ui.tool);}
+    return this._after(r);
   }
   transferSoldier(id,to){return this._after(this.ui.game.combat.transferSoldier(id,to));}
   startRally(){
     if(!this.combatControls)return fail('NO_TACTICAL_CONTROLLER');
-    this.combatControls.armRally();this.overlay.setWorldMode('rally');
+    if(!this.combatControls.armRally())return fail('RALLY_START_REJECTED');
+    this.overlay.setWorldMode('rally');
     return this._after({ok:true});
   }
   cancelTargeting(){
