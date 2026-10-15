@@ -29,7 +29,7 @@ export class Combat {
     this.world=world;this.colony=colony;this.foraging=foraging;
     this.lifecycle=lifecycle;this.rooms=rooms;
     this.enemies=[];this.nextEnemyId=1;this.tickCount=0;
-    this.soldierSlots=1;this.mode='defend';this.rally=null;
+    this.soldierSlots=0;this.mode='defend';this.rally=null;
     this._squadB={mode:'defend',rally:null,formation:null,dirty:true};
     this._formation=null;this._formationDirty=true;this._allocating=false;
     this.spawned=0;this.defeated=0;this.casualties=0;this.portalCrossings=0;
@@ -38,7 +38,9 @@ export class Combat {
     this.lastEvent='มดทหารประจำการพร้อม';
     this.allocate();
   }
-  get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier');}
+  get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier'&&a.profession==='soldier');}
+  maxHP(ant){return COMBAT.soldierHP+3*Math.max(0,(ant.level||1)-1);}
+  damage(ant){return COMBAT.soldierDamage+Math.floor(Math.max(0,(ant.level||1)-1)/2);}
 
   /** Unspecified IDs on legacy soldier fixtures belong to the default A squad. */
   _squadOf(ant){return ant?.squadId==='B'?'B':'A';}
@@ -75,7 +77,7 @@ export class Combat {
       const formationStatus=formation?.statuses.get(ant)??null;
       if(formationStatus)counts[formationStatus.toLowerCase()]++;
       const goal=formation?.goals.get(ant)??null;
-      return {id:String(ant.id),hp:ant.combatHP??COMBAT.soldierHP,maxHP:COMBAT.soldierHP,
+      return {id:String(ant.id),hp:ant.combatHP??COMBAT.soldierHP,maxHP:this.maxHP(ant),
         layer:ant.layer,x:ant.x,y:ant.y,state:stateOf(ant),formationStatus,
         arrived:mode==='rally'&&this._arrived(ant,goal)};
     });
@@ -150,7 +152,7 @@ export class Combat {
   }
   get threatCount(){return this.enemies.length;}
   get availableRecruits(){return this.colony.workers.filter(a=>this.canRecruit(a));}
-  canRecruit(a){return this.colony.workers.includes(a)&&!a.combatRole&&a.layer===UNDERGROUND&&!this.colony.isForager(a)&&a.orderId==null&&['idle','room-rest','room-guard'].includes(stateOf(a));}
+  canRecruit(a){return this.colony.workers.includes(a)&&a.profession==='soldier'&&!a.combatRole;}
   recruit(a){
     if(!this.canRecruit(a))return false;
     if(a.state==='room-rest')this.rooms?.releaseRestWorker(a);
@@ -163,7 +165,7 @@ export class Combat {
     return true;
   }
   demobilize(a){
-    if(!this.soldiers.includes(a))return false;
+    if(!this.soldiers.includes(a)||a.profession==='soldier')return false;
     this.workforce?.disableAuto('soldier');
     this.soldierSlots=Math.max(0,this.soldiers.length-1);
     this.releaseSoldier(a);this.ensureFormation();return true;
@@ -177,7 +179,7 @@ export class Combat {
   setSoldierSlots(amount,fromPolicy=false){
     if(!Number.isInteger(amount)||amount<0||amount>this.colony.workers.length)throw new RangeError('Invalid soldier count');
     if(!fromPolicy)this.workforce?.disableAuto('soldier');
-    this.soldierSlots=amount;
+    this.soldierSlots=this.soldiers.length;
     this.allocate();
     return this.soldiers.length;
   }
@@ -320,18 +322,12 @@ export class Combat {
     if(!this._allocating)this.ensureFormation(squadId);
   }
   allocate(){
-    this._allocating=true;
-    try{
-      const soldiers=this.soldiers;
-      // Never steal existing workers in a dig, forage, nursery or construction job.
-      // Queen rescue remains above normal workforce downsizing.
-      if(!this.queenThreat())for(const ant of soldiers.slice(this.soldierSlots))this.releaseSoldier(ant);
-      let missing=this.soldierSlots-this.soldiers.length;
-      if(missing>0)for(const ant of this.colony.workers){
-        if(missing===0)break;
-        if(this.recruit(ant))missing--;
-      }
-    }finally{this._allocating=false;}
+    // A permanent Soldier is enlisted at hatch; never recruit or demobilize
+    // unrelated workers in response to a percentage quota.
+    this.soldierSlots=this.soldiers.length;
+    for(const ant of this.soldiers){
+      ant.squadId??='A';ant.combatHP??=this.maxHP(ant);ant.combatCooldown??=0;
+    }
     this.ensureFormation();
   }
   /** Testable manual spawn and deterministic scheduled spawn. Never create an enemy on solid terrain. */
@@ -429,7 +425,7 @@ export class Combat {
     // Both nest guards and troops on the surface return immediately when a
     // hostile unit reaches the queen's own tile or an adjacent tile.
     const queenEmergency=this.queenThreat();
-    const wounded=(ant.combatHP||0)<=Math.ceil(COMBAT.soldierHP*.3);
+    const wounded=(ant.combatHP||0)<=Math.ceil(this.maxHP(ant)*.3);
     const withdrawing=!queenEmergency&&(mode==='retreat'||wounded);
     ant.retreating=withdrawing;
     let destination=null;
@@ -439,7 +435,7 @@ export class Combat {
       if(threat.layer===ant.layer&&distance(threat,ant)<=1){
         ant.state='combat-attack';this.clearMotion(ant);
         if(ant.combatCooldown===0){
-          threat.hp-=COMBAT.soldierDamage;ant.combatCooldown=COMBAT.soldierCooldown;
+          threat.hp-=this.damage(ant);ant.combatCooldown=COMBAT.soldierCooldown;
           if(threat.hp<=0){this.enemies.splice(this.enemies.indexOf(threat),1);this.defeated++;this.lastEvent='มดทหารกำจัดผู้บุกรุกแล้ว';}
         }
         return;
@@ -466,7 +462,7 @@ export class Combat {
     }
     this.walk(ant,ant.layer,destination,WORKER_SPEED*1.15);
     if(withdrawing&&ant.layer===UNDERGROUND&&same(ant,destination)&&this.tickCount%COMBAT.healInterval===0){
-      ant.combatHP=Math.min(COMBAT.soldierHP,ant.combatHP+2);
+      ant.combatHP=Math.min(this.maxHP(ant),ant.combatHP+2);
     }
   }
   enemyTick(enemy){
