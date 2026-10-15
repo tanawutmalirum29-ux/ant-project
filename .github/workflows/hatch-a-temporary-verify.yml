@@ -1,0 +1,33 @@
+name: Hatch-A temporary scoped QA
+on:
+  push:
+    branches: [fix/nursery-v1-hatch-a]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hatch-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Hatch and legacy core regression tests
+        run: node --test tests/nursery-caste.test.mjs tests/lifecycle.test.mjs tests/brood-staging.test.mjs tests/rooms.test.mjs tests/room-logistics.test.mjs
+      - name: Production build
+        run: npm run build
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Full native regression tests
+        run: npm test
+      - name: Production build after native suite
+        if: always()
+        run: npm run build
