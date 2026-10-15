@@ -55,6 +55,13 @@ const renovationC = mountEngineerC(renovationShell,renovationAdapter);
 const renovationQaActive = query.get('ui') === 'renovation';
 if (renovationQaActive) {
   gameRoot.dataset.uiRenovationQa = 'true';
+  // The authoritative U6 controller owns gameplay state and map targeting.
+  // Its legacy dock is a BODY child, not a child of #app; scope the new UI
+  // mode at the actual dock parent without affecting the regular game URL.
+  document.body.dataset.uiRenovationQa = 'true';
+  // Preserve the *same* live cancel handler while hiding the duplicate dock.
+  // The existing targeting tip must remain reachable during a rally request.
+  document.body.append(combatControls.tip);
   renovationShell.preview(true);
 }
 

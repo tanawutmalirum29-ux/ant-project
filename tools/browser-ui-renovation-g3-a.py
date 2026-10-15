@@ -49,6 +49,25 @@ def tap_close_no_scroll(page,selector,mobile):
     if mobile:page.touchscreen.tap(x,y)
     else:page.mouse.click(x,y)
 
+def assert_legacy_military_suppressed(page,engine,w,h,state):
+    """A BODY-owned legacy command dock must have no rendered hit targets."""
+    result=page.evaluate("""() => {
+      const dock=document.querySelector('body > #u6-dock');
+      const tip=document.querySelector('body > #u6-target-tip');
+      const oldDialog=document.querySelector('body > #u6-dialog');
+      return {bodyMode:document.body.dataset.uiRenovationQa,
+        dockFound:!!dock,dockDisplay:dock?getComputedStyle(dock).display:null,
+        dockRects:dock?.getClientRects().length ?? -1,
+        dockVisibleButtons:!dock?[]:[...dock.querySelectorAll('button')]
+          .filter(b=>!!b.getClientRects().length).map(b=>b.id),
+        tipReparented:!!tip,tipHidden:tip?.hidden,
+        dialogOpen:oldDialog?.open===true};
+    }""")
+    assert result['bodyMode']=='true' and result['dockFound'],(engine,w,h,state,result)
+    assert result['dockDisplay']=='none' and result['dockRects']==0,(engine,w,h,state,'old dock painted',result)
+    assert not result['dockVisibleButtons'] and result['tipReparented'],(engine,w,h,state,'old command surface still active',result)
+    assert not result['dialogOpen'],(engine,w,h,state,'old military modal unexpectedly open',result)
+
 ROOT=Path(__file__).resolve().parents[1]
 SHOTS=ROOT/'artifacts'/'g3-engineer-a'
 SHOTS.mkdir(parents=True,exist_ok=True)
@@ -84,6 +103,7 @@ try:
                 assert page.locator('#game-canvas').is_visible()
                 assert page.locator('#app').get_attribute('data-ui-renovation-qa')=='true'
                 assert page.locator('.topbar').is_hidden(),(engine.name,w,'legacy HUD must be hidden in QA opt-in')
+                assert_legacy_military_suppressed(page,engine.name,w,h,'initial')
                 assert page.evaluate('''() => {
                     const d=window.__ANT_DEBUG__;
                     return d.renovationA.mounted.length===4 &&
@@ -134,6 +154,7 @@ try:
                 assert_sheet_geometry(page,'.ui-home-menu','.ui-home-menu-close',engine.name,w,h)
                 assert page.locator('.ui-renovation-backdrop').is_visible()
                 assert menu.get_attribute('aria-expanded')=='true'
+                assert_legacy_military_suppressed(page,engine.name,w,h,'home menu')
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-menu.png'))
                 # Actual outside click goes to shell-owned blocker, not map.
                 pbox=page.locator('.ui-renovation-backdrop').bounding_box()
@@ -151,6 +172,7 @@ try:
                 page.evaluate("document.querySelector('.ui-settings-sheet').scrollTop=100000")
                 assert_sheet_geometry(page,'.ui-settings-sheet','.ui-settings-close',engine.name,w,h)
                 page.evaluate("document.querySelector('.ui-settings-sheet').scrollTop=0")
+                assert_legacy_military_suppressed(page,engine.name,w,h,'settings')
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-settings.png'))
 
                 seed_input=page.locator('#ui-settings-seed-input')
@@ -204,6 +226,7 @@ try:
                 assert_sheet_geometry(page,'.uiv1-a','.uiv1-a-head button',engine.name,w,h)
                 assert page.locator('.uiv1-a-unit').count()>=5,(engine.name,w,'ant roster empty')
                 assert page.locator('.ui-home-menu').is_hidden()
+                assert_legacy_military_suppressed(page,engine.name,w,h,'ant roster')
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-ants.png'))
                 tap_close_no_scroll(page,'.uiv1-a-head button',mobile)
                 assert page.locator('.uiv1-a').is_hidden()
@@ -213,9 +236,23 @@ try:
                 assert_sheet_geometry(page,'.uiv1-b','.uiv1-b-head button',engine.name,w,h)
                 assert page.locator('.uiv1-b-tabs button').count()==2
                 assert page.locator('.ui-home-menu').is_hidden()
+                assert_legacy_military_suppressed(page,engine.name,w,h,'new military')
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-military.png'))
-                tap_close_no_scroll(page,'.uiv1-b-head button',mobile)
+                # Preserve the single existing tactical controller. An actual
+                # renovated rally button must expose its original cancel tip
+                # while the old three-button dock stays entirely absent.
+                page.locator('.uiv1-b [data-b-action="rally"]').click()
                 assert page.locator('.uiv1-b').is_hidden()
+                assert page.evaluate('__ANT_DEBUG__.renovationAdapter.view.military.targeting')
+                assert page.locator('#u6-target-tip').is_visible(),(engine.name,w,h,'no rally cancel affordance')
+                assert_legacy_military_suppressed(page,engine.name,w,h,'targeting')
+                tip_cancel=page.locator('#u6-cancel-target')
+                tip_box=tip_cancel.bounding_box()
+                assert tip_box and tip_box['y']>=0 and tip_box['y']+tip_box['height']<=h+1,(engine.name,w,h,'rally cancel offscreen',tip_box)
+                tap_close_no_scroll(page,'#u6-cancel-target',mobile)
+                assert not page.evaluate('__ANT_DEBUG__.renovationAdapter.view.military.targeting')
+                assert page.locator('#u6-target-tip').is_hidden()
+                assert_legacy_military_suppressed(page,engine.name,w,h,'target cancelled')
                 # All six actual G3 modules must be mounted.  C is sourced
                 # from real G1 snapshots and still protected by dormant shell.
                 assert page.evaluate('''() => {
@@ -239,6 +276,7 @@ try:
                     return d.ui.tool==='room' && picker &&
                         d.renovationAdapter.view.rooms.canvas.roomType===picker.value;
                 }'''),(engine.name,w,'room type source desynchronized')
+                assert_legacy_military_suppressed(page,engine.name,w,h,'room picker')
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-room.png'))
                 layer.click()
                 assert page.locator('.ui05-root').is_hidden(),(engine.name,w,'map action did not dismiss')
@@ -246,6 +284,18 @@ try:
                 layer.click()
                 assert page.evaluate('__ANT_DEBUG__.game.layer')=='underground'
                 assert not errs,(engine.name,w,h,errs)
+                # Standard bare URL must keep the original BODY-owned dock and
+                # its real open/close behavior until full release cutover.
+                page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                page.wait_for_function('Boolean(window.__ANT_DEBUG__?.game)',timeout=25000)
+                assert page.locator('#u6-dock').is_visible(),(engine.name,w,h,'legacy dock lost on default URL')
+                assert page.evaluate('document.body.dataset.uiRenovationQa') is None
+                assert page.evaluate("document.querySelector('#u6-target-tip').parentElement.id")=='u6-dock'
+                page.locator('#u6-open').click()
+                assert page.locator('#u6-dialog').evaluate('(d)=>d.open')
+                page.locator('#u6-close').click()
+                assert not page.locator('#u6-dialog').evaluate('(d)=>d.open')
+                assert not errs,(engine.name,w,h,'legacy reload',errs)
                 print(f'G3-A PASS {engine.name} {w}x{h}: 5 true hit targets, layer 20x, sheets, outside click, Seed cancel+confirm, no JS errors')
                 ctx.close()
             browser.close()

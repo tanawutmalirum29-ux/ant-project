@@ -127,8 +127,19 @@
 #app[data-ui-renovation-qa="true"] > .nursery-panel,
 #app[data-ui-renovation-qa="true"] > .milestones-toggle,
 #app[data-ui-renovation-qa="true"] > .milestones-panel,
-#app[data-ui-renovation-qa="true"] > #u6-dock,
 #app[data-ui-renovation-qa="true"] > .debug-panel { display:none!important; }
 /* Map command wrapper must never intercept taps outside its real controls. */
 #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] {pointer-events:none;}
 #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]) {pointer-events:auto;}
+
+/* G4 P0: CombatControls appends its dock directly under BODY. The #app
+   selector could never hide it; block duplicate commands in QA preview ONLY. */
+body[data-ui-renovation-qa="true"] > #u6-dock{display:none!important;pointer-events:none!important;}
+/* Keep the authoritative cancel-target handler reachable after its original
+   tip is moved from the hidden dock to BODY. Never clone the action listener. */
+body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
+  z-index:120;pointer-events:none;
+}
+body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-target{
+  pointer-events:auto;min-width:64px;min-height:44px;
+}
