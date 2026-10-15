@@ -21,3 +21,6 @@
 .uiv1-b-empty{padding:12px;text-align:center}
 @media(max-width:430px){.uiv1-b{width:100%;padding:9px;gap:7px}.uiv1-b-unit{flex-wrap:wrap}.uiv1-b-actions{display:flex;flex:1 1 100%}.uiv1-b-actions>*{flex:1}}
 @media(max-height:500px) and (orientation:landscape){.uiv1-b{gap:6px;padding:8px}.uiv1-b-list{max-height:30dvh}}
+
+/* Keep Close reachable while the roster or short-landscape sheet scrolls. */
+.uiv1-b-head{position:sticky;top:0;z-index:1;padding-block:4px;background:var(--ui-panel-bg,#13251c)}
