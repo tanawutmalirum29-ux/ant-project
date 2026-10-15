@@ -171,3 +171,24 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
 #app[data-ui-renovation-qa="true"]:has(.ui05-root:not([hidden])) .ui04-reopen{
   display:none!important;
 }
+
+/* G4 direct map-pointer P0 (Chromium 320x568): after choosing a room type,
+   the room planner occupied x8..312,y189..506; the real valid worksite
+   map tile x216,y284 landed on its CSS type button. Keep a usable map band
+   even with the planner open; panel contents remain vertically scrollable. */
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-header{
+  position:sticky;top:0;z-index:3;background:var(--ui-panel-bg,#13251c);
+}
+@media(max-width:680px) and (min-height:501px){
+  #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]){
+    max-height:min(36dvh,210px);
+  }
+}
+/* Short landscape: keep the canvas midline free by docking the compact
+   planner at the right edge rather than across the center of the map. */
+@media(max-height:500px) and (orientation:landscape){
+  #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]){
+    max-width:min(210px,38vw);margin-left:auto;
+    max-height:calc(100dvh - 75px);
+  }
+}
