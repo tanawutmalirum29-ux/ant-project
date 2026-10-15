@@ -10,7 +10,10 @@
 
 Completely renovate presentation and player interaction **for six areas**: (1) main gameplay HUD/map, (2) military command center, (3) ant population and inspector, (4) Nursery/egg management, (5) room construction/excavation flow, and (6) settings + seed/world generation. Include adjacent milestone panel, debug, toasts, layer/time/zoom/navigation and overlays as cross-cutting interaction participants. Objective: a cohesive *game* on 320px phones to 1920px desktops, zero unintended overlap/hit interception, clear information priority, consistent cross-platform native-*free* selectors, complete accessibility and no simulation behavior changes.
 
-**Do not rewrite or relax** lifecycle costs/caps, fixed professions Lv1–5, starter workers, 2×2 Nursery/4 slots, physical egg pickup, A/B squad behavior, dig/room resources, seed determinism, camera behavior, or existing public UI IDs/event semantics without an explicit migration test. No save/load work; no new game mechanics. Scope includes seed confirmation safety and the currently present experimental/debug UI.
+**Do not rewrite or relax** lifecycle costs/caps, fixed professions Lv1–5, starter workers, default 2×2 Nursery/4 slots and resizable rooms up to 8×8 (Nursery capacity min(area,16)), physical egg pickup, A/B squad behavior, dig/room resources, seed determinism, camera behavior, or existing public UI IDs/event semantics without an explicit migration test. No save/load work; no new game mechanics. Scope includes seed confirmation safety and the currently present experimental/debug UI.
+
+
+**2026-10-16 ENGINEER A/B/C design audit intake:** B identified actual military individual HP display hardcoded `/16` while `combat.maxHP(ant)=16+3*(level-1)`; this must use real snapshot in renovation. C confirmed variable footprint rooms with `minArea:4,maxWidth:8,maxHeight:8` and Nursery `broodSlots=min(area,16)`, so all static four-slot assumptions are superseded. A requires one-layer-toggle ownership, no duplicated `[data-layer]` event, and safe Seed confirmation/World Reset. These are verified source facts vs unproven overlap risks; G1 shell/adapter must address both. See Issue #138 and ENGINEER report comments in #139/#140/#142. All feature implementation remains on hold until G1_FROZEN with actual QA evidence.
 
 ## 1. Evidence-based audit of current code
 
@@ -81,14 +84,14 @@ Read actual main repo:
 
 ### UI-04 — Nursery and egg orders
 **Responsible:** Engineer 3, first stream.
-- Redesigned context sheet for Nursery with 4-slot capacity, occupancy, room connected/blocked state, queen status, population cap 150, profession/level selectors (reuse game CSS picker), real cost/stock availability and queue states.
+- Redesigned context sheet for Nursery with **real dynamic capacity** (default 2×2/4 slots, expanded max 16), occupancy, room connected/blocked state, queen status, population cap 150, profession/level selectors (reuse game CSS picker), real cost/stock availability and queue states.
 - Readable timeline: queued → laid → awaiting pickup → carrying / waiting route → incubating → hatched. ETA must distinguish waiting from true incubation; never invent countdown. Show per-order cancel **only while cancellation is legal**, with clear refund semantics and disabled explanation.
 - If room not built, unconnected, queen dead, no resources, max population, occupied capacity, invalid data, show explicit reason and safe action. Changing selection while sheet open cannot silently queue into stale room.
 - **Acceptance:** real queue/cancel/progress integration, scroll/focus preservation while game ticks, no sheet overlap with map inspector or military, all forms 320×568 and 844×390.
 
 ### UI-05 — Room construction / excavation tools
 **Responsible:** Engineer 3, second stream, separate PR.
-- Rework inspect/dig/build as a consistent tool mode switch. In Build: game CSS room-choice menu, footprint preview 2×2, accessibility of build cost, target tile and connected-path requirements; show errors before committing when source game APIs permit.
+- Rework inspect/dig/build as a consistent tool mode switch. In Build: game CSS room-choice menu, footprint preview (default 2×2; custom rectangle area ≥4 up to 8×8), accessibility of size-scaled build cost, target tile and connected-path requirements; show errors before committing when source game APIs permit.
 - Clearly differentiate room planned/building/ready/disabled, resource reservation, cancel/refund and construction progress; avoid showing impossible 'success'.
 - In Dig: keep drag selection, apply vs cancel, overlap draw-to-cancel and inaccessible corridor/route handling, preserve camera pan and accidental drag safety. Tool banner must not hide map tiles or squad actions.
 - **Acceptance:** no input regression in room builds or dig drag (both touch and mouse); overlays and room palette cannot escape viewport or cover Cancel/Apply.
@@ -102,7 +105,7 @@ Read actual main repo:
 
 ## 4. Staffing and ownership — 3 developers + coordinator + independent QA
 
-Use only **3 independent Engineer chats** if staffing is useful; OWNER relays orders; no synthetic inter-agent messages:
+Use only **3 independent Engineer chats** if staffing is useful; **GitHub Issues are the single task/command/report channel**, while OWNER relays only `MN #issue`/Issue URLs to each distinct chat; no synthetic inter-agent messages:
 | Role | Sequence | Exclusive new paths |
 |---|---|---|
 | **COORDINATOR (this chat)** | Design contract → shell → adapter integration → final merge | `src/ui/renovation/shell.js`, `shell.css`, `ui-adapter.js`, `index.html`, `src/ui/app.js`, `src/ui/combat-controls.js`, legacy CSS edits, workflow configuration, integration checks |
@@ -128,6 +131,6 @@ Each work package has its **own issue and branch/PR targeted at integration**, n
 
 ## 6. Owner and relay protocol
 
-This is the **single task overview**. Coordinator gives the OWNER concise copyable orders for Engineer 1/2/3 after the shell contract is implemented/frozen. Each Engineer must return: role, issue/PR, head SHA, edited paths, functionality, tests run, full failing list, known risks, screenshots/evidence. Owner only relays; technical sign-off rests with coordinator plus an independent QA reviewer for this large visual refactor.
+This is the **single task overview**. Coordinator publishes G1 Freeze + exact SHA/API in Issue #138, then posts START in each Engineer's Issue. OWNER relays only `MN #139`, `MN #140`, `MN #142` with Issue links; Engineers read GitHub and post role, PR, head SHA, files, functionality, tests, failures and screenshots **in their task Issues**, not multi-page chat scripts or M00000. Technical sign-off remains with coordinator and independent QA reviewer.
 
 **Current authorization is planning and work-breakdown only.** No one may report the 6 redesigned UIs as implemented yet; the integration branch currently contains a design plan, not completed renovation.
