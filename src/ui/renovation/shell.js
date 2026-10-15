@@ -51,6 +51,8 @@ export class UIOverlayController {
     if(panel.kind==='popover' && this.stack.some(x=>this.registry.get(x.id)?.kind==='modal'))
       return {ok:false,error:{code:'MODAL_ACTIVE'}};
     panel.show?.(context);
+    if(panel.kind==='modal' && panel.element.tagName==='DIALOG' && !panel.element.open)
+      panel.element.showModal();
     if(panel.element.hidden) panel.element.hidden=false;
     this.stack.push({id,opener,context});
     panel.element.setAttribute?.('data-ui-overlay-open','true');
@@ -65,6 +67,8 @@ export class UIOverlayController {
     for(const child of [...this.stack.slice(at+1)].reverse())this.closePanel(child.id,reason);
     this.stack.splice(at,1);
     panel?.hide?.(reason);
+    if(panel?.kind==='modal' && panel?.element?.tagName==='DIALOG' && panel.element.open)
+      panel.element.close();
     if(panel?.element) {
       panel.element.removeAttribute?.('data-ui-overlay-open');
       if(!panel.hide) panel.element.hidden=true;
@@ -116,6 +120,24 @@ export function createRenovationShell({document:doc=globalThis.document}={}) {
   return Object.freeze({
     root,regions,overlay,
     getRegion(name){return regions[name]??null;},
+    mountFeature(name,feature,{adapter,region}={}) {
+      const host=regions[region];
+      if(!host || !feature || typeof feature.mount!=='function' || !adapter)
+        throw new TypeError('Feature module / known region / adapter required');
+      const container=doc.createElement('section');
+      container.className='ui-feature-panel';
+      container.dataset.uiFeature=name;
+      host.append(container);
+      let dispose;
+      try {
+        dispose=feature.mount(container,{
+          view:adapter.view,actions:adapter.actions,overlay,
+          subscribe:callback=>adapter.subscribe(callback)
+        });
+        if(typeof dispose!=='function')throw new TypeError('Feature.mount must return cleanup()');
+      } catch(error) { container.remove();throw error; }
+      return () => { dispose();container.remove(); };
+    },
     preview(enabled=false) {
       // Only test harness / coordinator; never enable partial HUD for users.
       root.hidden=!enabled;
