@@ -58,7 +58,7 @@ test('ROYAL-01 theme, favicon, DOM bindings and loading order remain stable', ()
   const scripts = ['./src/main.js', './src/ui/visual/page-zoom-guard.js', './src/ui/visual/room-picker.js', './src/ui/visual/game-choice.js'];
   const actualScripts = [...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(actualScripts, scripts);
-  const css = ['./src/styles.css', './src/ui/visual/v1.css', './src/ui/visual/v2.css', './src/ui/visual/v2-fixes.css', './src/ui/visual/v3-compact.css', './src/ui/visual/inspector.css', './src/ui/visual/nursery.css', './src/ui/visual/game-choice.css', './src/ui/renovation/shell.css'];
+  const css = ['./src/styles.css', './src/ui/visual/v1.css', './src/ui/visual/v2.css', './src/ui/visual/v2-fixes.css', './src/ui/visual/v3-compact.css', './src/ui/visual/inspector.css', './src/ui/visual/nursery.css', './src/ui/visual/game-choice.css', './src/ui/renovation/shell.css', './src/ui/renovation/home.css', './src/ui/renovation/settings.css'];
   const actualCss = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(actualCss, css);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
