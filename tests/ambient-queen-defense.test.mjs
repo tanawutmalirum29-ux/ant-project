@@ -13,6 +13,11 @@ function quiet(seed='ambient-queen-regression') {
   g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);g.combat.setSoldierSlots(0);
   return g;
 }
+function hatchSoldier(g){
+  const q=g.colony.queen;
+  g.lifecycle.promote({profession:'soldier',level:1,x:q.x,y:q.y});
+  return g.combat.soldiers.at(-1);
+}
 function adjacentQueen(g) {
   const q=g.colony.queen,layer=g.world.layers[UNDERGROUND];
   for(const [dx,dy] of DIRECTIONS){
@@ -89,7 +94,7 @@ test('IDLE-03 | real excavation and foraging preempt idle walking',()=>{
 
 test('QUEEN-01 | emergency overrides surface rally, redirects a distant nest defender',()=>{
   const g=quiet('queen-emergency-rally');
-  g.combat.setSoldierSlots(1);
+  hatchSoldier(g);
   const ant=g.combat.soldiers[0],q=g.colony.queen;
   const entry=g.world.entrances[0],map=g.world.layers[UNDERGROUND];
   // Soldier is stationed inside the nest, farther than the queen's guard ring.
@@ -115,7 +120,7 @@ test('QUEEN-01 | emergency overrides surface rally, redirects a distant nest def
 
 test('QUEEN-02 | retreat orders and low HP cannot send nest soldiers away during attack',()=>{
   const g=quiet('queen-emergency-retreat');
-  g.combat.setSoldierSlots(1);
+  hatchSoldier(g);
   const ant=g.combat.soldiers[0],entry=g.world.entrances[0].underground;
   ant.x=entry.x;ant.y=entry.y;g.combat.clearMotion(ant);
   ant.combatHP=1;
@@ -131,7 +136,7 @@ test('QUEEN-02 | retreat orders and low HP cannot send nest soldiers away during
 
 test('QUEEN-03 | real queen attack raises priority and defenders can run from elsewhere in nest',()=>{
   const g=quiet('queen-hit-rescue');
-  g.combat.setSoldierSlots(1);
+  hatchSoldier(g);
   const q=g.colony.queen,where=adjacentQueen(g),entry=g.world.entrances[0].underground;
   for(const a of g.colony.workers){a.x=entry.x;a.y=entry.y;g.combat.clearMotion(a);}
   const enemy=g.combat.spawn('raider',UNDERGROUND,where.x,where.y);
@@ -150,7 +155,7 @@ test('QUEEN-03 | real queen attack raises priority and defenders can run from el
 
 test('QUEEN-04 | attacks outside queen range and paused simulation preserve existing commands',()=>{
   const g=quiet('queen-no-false-alarm');
-  g.combat.setSoldierSlots(1);
+  hatchSoldier(g);
   const q=g.colony.queen,entry=g.world.entrances[0];
   assert.equal(g.combat.setRally(SURFACE,entry.surface.x,entry.surface.y),true);
   const enemy=g.combat.spawn('beetle',SURFACE,entry.surface.x,entry.surface.y);
