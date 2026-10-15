@@ -1,0 +1,39 @@
+/* UI-03 component-local layout. Shell controls fixed positions, panel stack and focus. */
+.uiv1-a[hidden],.uiv1-a [hidden]{display:none!important}
+.uiv1-a{box-sizing:border-box;width:min(100%,600px);max-height:100%;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:9px;padding:clamp(9px,2vw,18px);margin-inline:auto;background:var(--ui-panel-bg,#13251c);color:var(--ui-panel-text,#f5e9cf);border:1px solid var(--ui-panel-border,#ba9b6b);border-radius:12px;box-shadow:0 10px 28px #0008;font-size:14px;line-height:1.4}
+.uiv1-a *{box-sizing:border-box;min-width:0}
+.uiv1-a h2,.uiv1-a h3,.uiv1-a p{margin:0}.uiv1-a h2{font-size:1.2rem}.uiv1-a h3{font-size:1rem}
+.uiv1-a-head,.uiv1-a-queen,.uiv1-a-detail-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.uiv1-a-queen{border:1px solid #76917c;padding:8px;border-radius:8px}
+.uiv1-a-search{display:grid;gap:5px}.uiv1-a-search>span{font-weight:600}
+.uiv1-a-input{min-height:44px;width:100%;font:inherit;padding:9px 11px;border:1px solid #8aab92;border-radius:8px;background:#f4f0e6;color:#1a281e}
+.uiv1-a-choices,.uiv1-a-options{display:flex;flex-wrap:wrap;gap:6px}
+.uiv1-a-btn{min-width:44px;min-height:44px;padding:8px 10px;border:1px solid #a89373;background:#2b4636;color:inherit;border-radius:8px;font:inherit;cursor:pointer;touch-action:manipulation}
+.uiv1-a-btn[aria-pressed=true]{background:#715838;border-color:#ffe0a2}
+.uiv1-a-btn:focus-visible,.uiv1-a-input:focus-visible,.uiv1-a-list:focus-visible{outline:3px solid #ffe0a2;outline-offset:2px}
+.uiv1-a-btn:hover{background:#385a45}
+.uiv1-a-list{min-height:75px;max-height:min(43dvh,440px);overflow:auto;overscroll-behavior:contain;border:1px solid #617a66;border-radius:8px}
+.uiv1-a-unit{padding:9px 8px;border-bottom:1px solid #4b654f;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.uiv1-a-unit-info{display:grid;gap:4px;flex:1 1 60%;overflow-wrap:anywhere}
+.uiv1-a-unit-info small{color:#cbd2c6}
+.uiv1-a-unit-actions{display:flex;flex:0 1 auto;gap:5px}
+.uiv1-a-detail{padding:10px;border:1px solid #a38d65;border-radius:8px;background:#233e30}
+.uiv1-a-details{display:grid;grid-template-columns:minmax(74px,30%) minmax(0,1fr);gap:6px 8px;margin:8px 0 0}
+.uiv1-a-details dt{color:#e3ccaa}.uiv1-a-details dd{margin:0;overflow-wrap:anywhere}
+.uiv1-a-note:not(:empty){padding:8px;border-radius:8px;background:#285036}
+.uiv1-a-note[data-error=true]:not(:empty){background:#633832}
+.uiv1-a-empty{padding:12px;text-align:center}
+@media(max-width:430px){
+ .uiv1-a{width:100%;padding:8px;gap:7px}
+ .uiv1-a-unit{flex-wrap:wrap}
+ .uiv1-a-unit-actions{flex:1 1 100%}
+ .uiv1-a-unit-actions>*{flex:1}
+ .uiv1-a-queen-text{flex:1 1 100%}
+}
+@media(max-height:500px) and (orientation:landscape){
+ .uiv1-a{padding:7px;gap:5px}
+ .uiv1-a-list{max-height:29dvh}
+}
+
+/* Keep Close reachable while the roster or short-landscape sheet scrolls. */
+.uiv1-a-head{position:sticky;top:0;z-index:1;padding-block:4px;background:var(--ui-panel-bg,#13251c)}
