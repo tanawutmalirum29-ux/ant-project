@@ -63,14 +63,20 @@ try:
             assert page.locator('#nursery-panel').evaluate("(e)=>getComputedStyle(e).visibility==='hidden'"),(width,'squad dialog obscured')
             page.locator('#u6-close').click()
             assert drawer.is_visible(),width
-            page.locator('#nursery-profession').select_option('nurse')
-            page.locator('#nursery-level').select_option('3')
+            page.locator('#nursery-profession-trigger').click()
+            assert page.locator('#nursery-profession-options').is_visible(),(width,'profession list is not styled DOM')
+            page.locator('#nursery-profession-options [data-value="nurse"]').click()
+            assert page.locator('#nursery-profession').input_value()=='nurse'
+            page.locator('#nursery-level-trigger').click()
+            assert page.locator('#nursery-level-options').is_visible(),(width,'level list is not styled DOM')
+            page.locator('#nursery-level-options [data-value="3"]').click()
+            assert page.locator('#nursery-level').input_value()=='3'
             # Real touchscreen pointer should activate hatch without reaching canvas.
             page.evaluate('''() => {
               window.__nurseryMapTouches=0;
               document.querySelector('#game-canvas').addEventListener('pointerdown',()=>window.__nurseryMapTouches++);
             }''')
-            page.locator('#nursery-level').focus()
+            page.locator('#nursery-level-trigger').focus()
             page.keyboard.press('Tab')
             assert page.evaluate('document.activeElement.id')=='nursery-queue',(width,'keyboard tab order')
             rect=page.locator('#nursery-queue').bounding_box()
