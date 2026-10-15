@@ -175,7 +175,7 @@ test('R2-FORM active arrival | non-rally and intercept/retreat/attack states do 
   center.next=null;center.combatHP=2;assert.equal(f.combat.ralliedCount,0);
 });
 
-test('R2-FORM priority | rally cannot bypass nearby attack or wounded retreat',()=>{
+test('R2-FORM priority | rally cannot bypass nearby attack or retreat outside queen emergency',()=>{
   const g=new Game('r2-priority');
   g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
   g.lifecycle.promote({profession:'soldier',level:1});g.combat.allocate();
@@ -188,6 +188,9 @@ test('R2-FORM priority | rally cannot bypass nearby attack or wounded retreat',(
   const hp=enemy.hp;
   assert.ok(hp<COMBAT.soldierHP+10);
   ant.combatHP=1;
+  // A nearby queen emergency intentionally outranks ordinary retreat; isolate the
+  // non-emergency wound policy while queen-defense regressions cover the override.
+  g.combat.queenThreat=()=>false;
   g.combat.soldierTick(ant);
   assert.equal(ant.state,'combat-retreat');
   assert.equal(ant.retreating,true);
