@@ -56,6 +56,9 @@ export class UIOverlayController {
     if(panel.element.hidden) panel.element.hidden=false;
     this.stack.push({id,opener,context});
     panel.element.setAttribute?.('data-ui-overlay-open','true');
+    // The old trigger may be in a dismissed menu; enter the new panel's focus context.
+    const first=panel.element.querySelector?.('button:not([disabled]), input:not([disabled]), [tabindex="0"]');
+    first?.focus?.({preventScroll:true});
     this._notify();
     return {ok:true};
   }
@@ -73,7 +76,8 @@ export class UIOverlayController {
       panel.element.removeAttribute?.('data-ui-overlay-open');
       if(!panel.hide) panel.element.hidden=true;
     }
-    if(reason!=='replaced' && reason!=='unmount' && entry.opener?.isConnected
+    if(!this.stack.length && reason!=='replaced' && reason!=='unmount' &&
+       reason!=='world-reset' && entry.opener?.isConnected
        && typeof entry.opener.focus==='function')
       entry.opener.focus({preventScroll:true});
     this._notify();
@@ -117,6 +121,16 @@ export function createRenovationShell({document:doc=globalThis.document}={}) {
   const overlay=new UIOverlayController({document:doc});
   const regions=Object.freeze(Object.fromEntries(UI_REGIONS.map(id=>[id,
     root.querySelector('[data-ui-region="'+id+'"]')])));
+  // A single shared clickable outside-dismiss surface, not per-feature ad hoc masks.
+  const backdrop=doc.createElement('button');
+  backdrop.type='button';backdrop.className='ui-renovation-backdrop';
+  backdrop.hidden=true;
+  backdrop.setAttribute('aria-label','ปิดหน้าต่างและกลับไปยังแผนที่');
+  regions.PRIMARY_SHEET.prepend(backdrop);
+  backdrop.addEventListener('click',()=>overlay.closeTop('outside'));
+  const offBackdrop=overlay.subscribe(({active})=>{
+    backdrop.hidden=!(active && overlay.registry.get(active)?.kind==='sheet');
+  });
   return Object.freeze({
     root,regions,overlay,
     getRegion(name){return regions[name]??null;},
@@ -143,6 +157,6 @@ export function createRenovationShell({document:doc=globalThis.document}={}) {
       root.hidden=!enabled;
       root.dataset.preview=String(enabled);
     },
-    dispose(){overlay.dispose();root.remove();}
+    dispose(){offBackdrop();overlay.dispose();root.remove();}
   });
 }
