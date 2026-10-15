@@ -48,7 +48,8 @@ body:has(.nursery-panel:not(.hidden)) #selection-card:not(.hidden){visibility:hi
 body:has(#u6-dialog[open]) .nursery-panel:not(.hidden),
 body:has(.colony-panel:not(.hidden)) .nursery-panel:not(.hidden){visibility:hidden;pointer-events:none;}
 @media(max-width:600px){
- .nursery-panel{left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));
+ /* Reserve the 80px right-hand military lane plus an 8px pointer gap. */
+ .nursery-panel{left:max(8px,env(safe-area-inset-left,0px));right:calc(96px + env(safe-area-inset-right,0px));
   top:auto;bottom:calc(188px + env(safe-area-inset-bottom,0px));transform:none;width:auto;
   max-height:min(45dvh,calc(100dvh - 365px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
   padding:10px 11px;border-radius:10px;}
