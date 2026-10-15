@@ -215,3 +215,34 @@ test('HATCH-A | cancellation refunds disconnected original depot but cannot spen
  assert.equal(g.foraging.inventory.protein,5);
  assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).reason,'insufficient-resources');
 });
+
+
+test('INTEGRATION: new seed forages, builds its own Nursery and hatches without seeded stock',()=>{
+ const g=new Game('u5-mass'),q=g.colony.queen;
+ assert.deepEqual(g.foraging.inventory,{carbs:0,protein:0,water:0});
+ let room=null,order=null,born=null;
+ for(let tick=0;tick<5500;tick++){
+   if(!room && g.foraging.inventory.carbs>=3 && g.foraging.inventory.protein>=2){
+     const result=g.rooms.queue('nursery',q.x-4,q.y);
+     assert.ok(result.ok || result.reason==='insufficient-resources',
+       'the natural 2x2 Nursery site must be buildable: '+result.reason);
+     if(result.ok)room=result.room;
+   }
+   if(room?.status==='ready'&&!order &&
+      g.foraging.inventory.carbs>=1&&g.foraging.inventory.protein>=1){
+     const accepted=g.lifecycle.queueEgg(room.id,'miner',1);
+     assert.equal(accepted.ok,true,'natural bootstrap egg order: '+accepted.reason);
+     order=accepted.order;
+   }
+   g.update(100);
+   born=g.colony.workers.find(w=>w.profession==='miner');
+   if(born)break;
+ }
+ assert.ok(g.foraging.delivered>0,'starters must physically gather natural supplies');
+ assert.ok(room,'starters must fund and queue a Nursery from foraged resources');
+ assert.equal(room.status,'ready','starters must physically construct a connected Nursery');
+ assert.ok(order,'new Nursery must accept manually selected egg');
+ assert.ok(born,'nurse must physically deliver and hatch an egg on natural bootstrap');
+ assert.equal(born.level,1);
+ assert.equal(g.lifecycle.births,1);
+});
