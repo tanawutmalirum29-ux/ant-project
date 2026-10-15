@@ -57,7 +57,7 @@ Each scenario marked P0 is a hard release blocker. Run on all S0/S3/L0/L2/T0/D1 
 ### Military A/B
 - [P0] 0 soldiers, 1 soldier, 2+; active Squad A/B switching, transfer real Soldier, no forced profession changes.
 - [P0] Pick Squad B → rally mode → map tap → confirmation/cancel; camera drag during targeting; tap Cancel must not command rally.
-- [P0] Defend, retreat/heal, unreachable path, queen emergency, death, enemy present and no enemy.
+- [P0] Defend, retreat/heal, unreachable path, queen emergency, death, enemy present and no enemy. Soldier Lv1/Lv3/Lv5 detail must show authoritative HP/maxHP (16/22/28), not hardcoded /16.
 - [P0] Military dialog opened from inspect/build/Nursery/population; old panel closed/suspended, no stacking leak.
 - [P0] Scroll long roster (up to colony cap), selection/detail/follow and return focus; dialog close restores opener.
 - [P1] Buttons with unavailable action reason, no hidden legacy recruitment controls.
@@ -70,7 +70,7 @@ Each scenario marked P0 is a hard release blocker. Run on all S0/S3/L0/L2/T0/D1 
 - [P1] Dragging camera while inspector dismissed, details text wrapping, HP/progress if appropriate.
 
 ### Nursery
-- [P0] No ready Nursery, newly built/disabled/disconnected/ready Nursery, 4/4 slots full, population 150, insufficient resources, queen death.
+- [P0] No ready Nursery, newly built/disabled/disconnected/ready Nursery, default 2×2 at 4/4 slots **and resized Nursery 8×8 at 16/16 slots**, population 150, insufficient resources, queen death. Actual capacity = min(room area,16).
 - [P0] All 5 professions × Lv1–Lv5, correct cost and queue, valid room linkage, no auto hatch.
 - [P0] QUEUED cancellation and refund, then LAID/PICKUP/CARRYING/WAITING_ROUTE/INCUBATING/HATCHED with cancellation permission correctly constrained.
 - [P0] Scroll list while simulation advances, queue updates do not reset scroll/focus; close and reopen selected Nursery.
@@ -79,7 +79,7 @@ Each scenario marked P0 is a hard release blocker. Run on all S0/S3/L0/L2/T0/D1 
 
 ### Construction and excavation
 - [P0] Dig drag selects multiple tiles, add/cancel/reselect previously requested tiles; no mistaken camera drag.
-- [P0] Build 2×2 valid and invalid sites, overlap, unreachable terrain, connected path, funded vs insufficient stock.
+- [P0] Build default 2×2 and resizable rectangles 1×4, 2×3, 4×3, maximum 8×8; reject <4 cells, dimension >8, overlap, unreachable terrain, disconnected sites, funded vs insufficient stock; compare scaled costs/ticks against authoritative roomPlan.
 - [P0] Planned/building/ready/disabled room view, cancel refund and progress; no duplicate placement on tap.
 - [P0] Room picker open in portrait/landscape while tactical dock and ant inspector accessible; close/ESC/outside tap.
 - [P0] Change room selection, switch layer, switch inspect/dig, pause/speed while build mode active.
