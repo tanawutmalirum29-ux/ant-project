@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./src/ui/visual/v2-fixes.css" />
   <link rel="stylesheet" href="./src/ui/visual/v3-compact.css" />
   <link rel="stylesheet" href="./src/ui/visual/inspector.css" />
+  <link rel="stylesheet" href="./src/ui/visual/nursery.css" />
 </head>
 <body>
   <div id="app">
@@ -52,6 +53,7 @@
     </section>
 
     <aside class="colony-panel hidden" id="colony-panel" aria-label="รายงานประชากรในรัง"><div class="colony-panel-title">รายงานประชากร <button id="close-colony" type="button" aria-label="ปิดรายงานประชากร">×</button></div><div class="colony-grid"><span>มดงาน</span><strong id="report-workers">5</strong><span>มดพี่เลี้ยง</span><strong id="report-nurses">0</strong><span>ไข่ / ตัวอ่อน / ดักแด้</span><strong id="report-brood">0 / 0 / 0</strong><span>มดเกิด / ตาย</span><strong id="report-births">0 / 0</strong><span>มดหิว / ขาดน้ำ</span><strong id="report-needs">0 / 0</strong><span>อายุนางพญา (วันเกม)</span><strong id="report-queen-age">0.0</strong><span>ทรัพยากรที่บริโภค</span><strong id="report-consumed">0</strong></div><p class="colony-panel-note" id="report-message">สถานะอาณาจักร</p>
+      <div id="caste-report" class="caste-report" aria-label="ประชากรตามอาชีพและเลเวล"></div>
       <section class="workforce-editor" aria-labelledby="workforce-heading">
         <h3 id="workforce-heading">จัดสรรมดาอัตโนมัติ</h3>
         
@@ -126,6 +128,20 @@
       <div class="metric"><span>Births / deaths</span><strong id="metric-life">0 / 0</strong></div>
     </aside>
 
+    <section id="nursery-panel" class="nursery-panel hidden" aria-labelledby="nursery-heading" aria-live="off">
+      <header class="nursery-head"><h2 id="nursery-heading">ห้องฟักไข่</h2><button type="button" id="nursery-close" aria-label="ปิดหน้าฟักไข่">×</button></header>
+      <p id="nursery-capacity" class="nursery-capacity"></p>
+      <div class="nursery-form">
+        <label for="nursery-profession">อาชีพมด</label>
+        <select id="nursery-profession"><option value="miner">มดขุด</option><option value="forager">มดหาอาหาร</option><option value="builder">มดช่าง</option><option value="nurse">มดพี่เลี้ยง</option><option value="soldier">มดทหาร</option></select>
+        <label for="nursery-level">เลเวล</label>
+        <select id="nursery-level"><option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option><option value="4">Lv.4</option><option value="5">Lv.5</option></select>
+        <p id="nursery-cost" class="nursery-cost"></p>
+        <button type="button" id="nursery-queue">สั่งฟักไข่</button>
+        <p id="nursery-feedback" role="status"></p>
+      </div>
+      <h3>คิวไข่ในห้อง</h3><ol id="nursery-orders" class="nursery-orders"></ol>
+    </section>
     <aside class="selection-card hidden" id="selection-card" aria-live="polite">
       <div class="selection-title"><span id="selection-terrain">พื้นดิน</span><button id="selection-close" aria-label="ปิดข้อมูลช่อง">×</button></div>
       <p id="selection-coords">ตำแหน่ง —</p>
