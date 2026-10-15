@@ -75,7 +75,7 @@ export function mount(container,{view,actions,overlay,subscribe}) {
   sheet.append(head,scroll);shell.append(reopen,sheet);container.append(shell);
   const unregisterSheet=overlay.registerPanel(instance,{element:sheet,kind:'sheet',
     show:()=>{sheet.hidden=false;reopen.hidden=true;},
-    hide:()=>{sheet.hidden=true;reopen.hidden=!(selected.roomId && dismissedRoom===selected.roomId);}
+    hide:()=>{sheet.hidden=true;reopen.hidden=!activeRoom();}
   });
   const pickerDefinitions=[
     {id:'ui04-professions',menu:professionMenu,trigger:professionTrigger,
@@ -89,14 +89,14 @@ export function mount(container,{view,actions,overlay,subscribe}) {
     show:()=>{picker.menu.hidden=false;picker.trigger.setAttribute('aria-expanded','true');},
     hide:()=>{picker.menu.hidden=true;picker.trigger.setAttribute('aria-expanded','false');}
   }));
-  let latest=view,disposed=false,dismissedRoom=null,observedRoomId=null;
+  let latest=view,disposed=false,observedRoomId=view?.nursery?.selectedRoomId??null;
+  const shellLive=()=>{const host=container.closest?.('#ui-renovation-root');return !!host && !host.hidden;};
   const closePickers=()=>{for(const p of pickerDefinitions)overlay.closePanel(p.id,'replaced');};
   const activeRoom=()=>latest?.nursery?.rooms?.find(r=>r.id===selected.roomId)??null;
   const openSheet=()=>{
     if(!activeRoom())return;
-    dismissedRoom=null;
     const result=overlay.openPanel(instance,{opener:doc.activeElement});
-    if(result.ok)heading.focus({preventScroll:true});
+    if(result.ok && shellLive())heading.focus({preventScroll:true});
   };
   function renderPickers(){
     for(const p of pickerDefinitions){
@@ -142,7 +142,7 @@ export function mount(container,{view,actions,overlay,subscribe}) {
     });
   }
   close.addEventListener('click',()=>{
-    dismissedRoom=selected.roomId;closePickers();overlay.closePanel(instance);
+    closePickers();overlay.closePanel(instance);
   });
   reopen.addEventListener('click',openSheet);
   queue.addEventListener('click',()=>{
@@ -207,17 +207,18 @@ export function mount(container,{view,actions,overlay,subscribe}) {
     const rooms=latest?.nursery?.rooms||[];
     let newId=latest?.nursery?.selectedRoomId;
     if(newId && !rooms.some(r=>r.id===newId))newId=null;
-    if(newId && newId!==observedRoomId){
-      selected.roomId=newId;dismissedRoom=null;
-    }
+    // HUD subscriptions are snapshots, never repeated requests to open an overlay.
+    // Initial selected room in the dormant shell is NOT an explicit selection.
+    const changed=newId && newId!==observedRoomId;
     observedRoomId=newId;
+    if(changed)selected.roomId=newId;
     if(!rooms.some(r=>r.id===selected.roomId)){
       selected.roomId=newId || rooms[0]?.id || null;
-      if(!rooms.length){dismissedRoom=null;closePickers();overlay.closePanel(instance,'unmount');}
+      if(!rooms.length){closePickers();overlay.closePanel(instance,'unmount');}
     }
     const room=activeRoom();
-    reopen.hidden=!room || overlay.isOpen(instance) || dismissedRoom!==selected.roomId;
-    if(newId && dismissedRoom!==newId && !overlay.isOpen(instance))openSheet();
+    reopen.hidden=!room || overlay.isOpen(instance);
+    if(changed && room && shellLive() && !overlay.isOpen(instance))openSheet();
     if(room){
       setText(heading,`ห้องฟักไข่ ${room.width}×${room.height}`);
       const roomState=ROOM_STATES[room.status]||room.status;
@@ -230,7 +231,7 @@ export function mount(container,{view,actions,overlay,subscribe}) {
         const item=rooms[i];const btn=make(doc,'button','ui04-room-choice');
         btn.type='button';btn.dataset.roomId=item.id;
         btn.addEventListener('click',()=>{
-          if(selected.roomId!==item.id){selected.roomId=item.id;dismissedRoom=null;closePickers();setText(feedback,'');render();}
+          if(selected.roomId!==item.id){selected.roomId=item.id;closePickers();setText(feedback,'');render();}
           openSheet();
         });roomPicker.append(btn);
       }
@@ -244,8 +245,9 @@ export function mount(container,{view,actions,overlay,subscribe}) {
     }
     renderPickers();
     const price=actions.nurseryCost(selected.profession,selected.level);
-    const ticks=[440,560,720,900,1140][selected.level-1];
-    setText(cost,price?`ต้นทุน อาหาร ${price.carbs} · โปรตีน ${price.protein} · ฟัก ${ticks} ติ๊ก (ไม่รวมเวลารอ/ขนส่ง)`:'ไม่สามารถอ่านต้นทุนไข่');
+    // G1 gives true cost, not an authoritative total hatch time per choice.
+    // Show actual hatchTicks/remainingTicks from placed orders only.
+    setText(cost,price?`ต้นทุน อาหาร ${price.carbs} · โปรตีน ${price.protein} · เวลาฟักแสดงในคิวหลังสั่ง`:'ไม่สามารถอ่านต้นทุนไข่');
     let reason='';
     if(!room)reason='เลือกห้องฟักไข่ก่อน';
     else if(room.status!=='ready'||!room.connected)reason='ห้องฟักไข่ยังไม่พร้อมหรือขาดทางเชื่อม';
