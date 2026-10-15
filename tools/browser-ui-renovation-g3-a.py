@@ -24,7 +24,9 @@ try:
         for engine in [pw.chromium,pw.webkit]:
             browser=engine.launch(headless=True,
                 args=['--no-sandbox'] if engine.name=='chromium' else [])
-            for w,h in [(320,568),(390,844),(568,320),(844,390),(768,1024),(1440,900)]:
+            for w,h in [(320,568),(360,640),(375,667),(390,844),(430,932),
+                        (568,320),(667,375),(844,390),(768,1024),(820,1180),
+                        (1024,768),(1280,720),(1440,900),(1920,1080)]:
                 mobile=w<1200
                 ctx=browser.new_context(viewport={'width':w,'height':h},
                     device_scale_factor=1,is_mobile=mobile,has_touch=mobile)
@@ -164,6 +166,35 @@ try:
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-military.png'))
                 page.locator('.uiv1-b-head button').click()
                 assert page.locator('.uiv1-b').is_hidden()
+                # All six actual G3 modules must be mounted.  C is sourced
+                # from real G1 snapshots and still protected by dormant shell.
+                assert page.evaluate('''() => {
+                    const d=window.__ANT_DEBUG__;
+                    return d.renovationC?.mounted?.join(',')==='nursery,rooms' &&
+                        d.renovationShell.overlay.registry.has('ui04-nursery') &&
+                        d.renovationShell.overlay.registry.has('ui05-room-options');
+                }'''),(engine.name,w,'C mount unavailable')
+                page.locator('[data-home-action="dig"]').click()
+                assert page.locator('.ui05-dig').is_visible(),(engine.name,w,'dig tool unavailable')
+                assert page.locator('.ui05-actions button').count()==3
+                page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-dig.png'))
+                page.locator('[data-home-action="room"]').click()
+                assert page.locator('.ui05-build').is_visible(),(engine.name,w,'build tool unavailable')
+                page.locator('.ui05-type-trigger').click()
+                assert page.locator('.ui05-type-list').is_visible(),(engine.name,w,'room CSS picker missing')
+                assert page.locator('.ui05-type-option').count()>=2
+                page.locator('.ui05-type-option').nth(1).click()
+                assert page.evaluate('''() => {
+                    const d=__ANT_DEBUG__, picker=document.querySelector('#room-type');
+                    return d.ui.tool==='room' && picker &&
+                        d.renovationAdapter.view.rooms.canvas.roomType===picker.value;
+                }'''),(engine.name,w,'room type source desynchronized')
+                page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-room.png'))
+                layer.click()
+                assert page.locator('.ui05-root').is_hidden(),(engine.name,w,'map action did not dismiss')
+                assert page.evaluate('__ANT_DEBUG__.ui.tool')=='inspect'
+                layer.click()
+                assert page.evaluate('__ANT_DEBUG__.game.layer')=='underground'
                 assert not errs,(engine.name,w,h,errs)
                 print(f'G3-A PASS {engine.name} {w}x{h}: 5 true hit targets, layer 20x, sheets, outside click, Seed cancel+confirm, no JS errors')
                 ctx.close()
