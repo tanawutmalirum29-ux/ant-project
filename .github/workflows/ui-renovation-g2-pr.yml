@@ -1,0 +1,47 @@
+name: UI Renovation G2 Feature PR Verification
+on:
+  pull_request:
+    branches:
+      - feat/ui-renovation-v1-integration
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'src/ui/renovation/**'
+      - 'tests/ui-*-g2.test.mjs'
+      - '.github/workflows/ui-renovation-g2-pr.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  feature-native-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact checkout revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Native test suite including G2 feature tests
+        run: npm test
+      - name: Static site build
+        run: npm run build
+  feature-browser-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser QA
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium webkit
+      - name: Foundation geometry and legacy Nursery regression on PR
+        run: |
+          python tools/browser-ui-renovation-g1.py
+          python tools/browser-nursery.py
