@@ -294,6 +294,7 @@ export class UI {
       :result.added?`สั่งขุดเพิ่ม ${result.added} ช่อง${result.limit?' (คิวเต็ม)':''}`
       :'ไม่มีพื้นที่ใหม่ให้สั่งขุด');
     this.refreshSelection();this.updateMetrics();
+    return result; // G3 facade forwards actual result without replaying the command.
   }
   setTool(tool) {
     if((tool==='dig'||tool==='room') && this.game.layer!==UNDERGROUND){this.notice('สั่งขุดได้เฉพาะโลกใต้ดิน');return;}

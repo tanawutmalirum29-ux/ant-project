@@ -8,6 +8,8 @@ import { antById } from '../ant-inspector.js';
 
 const fail=(code,message=code)=>({ok:false,error:{code,message}});
 const copyTile=tile=>tile?{layer:tile.layer,x:tile.x,y:tile.y}:null;
+// G3 canvas bridge: snapshots never expose mutable UI preview objects.
+const copyRect=rect=>rect?.from&&rect?.to?{from:{...rect.from},to:{...rect.to}}:null;
 const copyAnt=(ant,game)=>Object.freeze({
   id:String(ant.id),profession:ant.profession??(ant.caste==='queen'?'queen':'starter'),
   caste:ant.caste??null,level:ant.level??1,state:ant.state??'idle',
@@ -74,7 +76,12 @@ export function makeGameView(game,ui,combatControls) {
     rooms:Object.freeze({items:rooms,
       catalog:Object.entries(ROOM_CATALOG).filter(([type])=>type!=='queen')
         .map(([type,r])=>({type,name:r.name,width:r.width,height:r.height})),
-      limits:{...ROOM_LIMITS}}),
+      limits:{...ROOM_LIMITS},
+      // Legacy UI still owns pointer gestures and exactly-once map commits.
+      canvas:{digPreview:copyRect(ui.digPreview),
+        digSelection:copyRect(ui.digSelection),
+        roomPreview:ui.roomPreview?{...copyRect(ui.roomPreview),dragging:!!ui.roomPreview.dragging}:null,
+        roomType:ui.renderer?.canvas?.ownerDocument?.getElementById?.('room-type')?.value??null}}),
     settings:Object.freeze({seed:game.world?.seedLabel??''})
   });
 }
@@ -102,6 +109,10 @@ export class UIRenovationAdapter {
       validateRoom:(type,x,y,w,h)=>this.ui.game.rooms.validate(type,x,y,w,h),
       queueRoom:(type,x,y,w,h)=>this.queueRoom(type,x,y,w,h),
       cancelRoom:id=>this.cancelRoom(id),
+      // G3 shared map-gesture bridge, never reimplement pointer handlers in features.
+      selectRoomType:type=>this.selectRoomType(type),
+      clearDigSelection:()=>this.clearDigSelection(),
+      applySelectedDig:cancel=>this.applySelectedDig(cancel),
       inspectDig:(from,to)=>this.ui.game.colony.inspectRectangle(from,to),
       queueDig:(from,to)=>this.dig(from,to,false),
       cancelDig:(from,to)=>this.dig(from,to,true),
@@ -200,6 +211,29 @@ export class UIRenovationAdapter {
   cancelRoom(id){
     const ok=this.ui.game.rooms.cancel(id);
     return this._after(ok?{ok:true}:fail('ROOM_NOT_CANCELLABLE'));
+  }
+  selectRoomType(type){
+    if(!Object.hasOwn(ROOM_CATALOG,type)||type==='queen')return fail('INVALID_ROOM_TYPE');
+    const doc=this.ui.renderer?.canvas?.ownerDocument;
+    const picker=doc?.getElementById?.('room-type');
+    if(!picker || !Array.from(picker.options??[]).some(x=>x.value===type))return fail('ROOM_PICKER_UNAVAILABLE');
+    if(picker.value!==type){
+      picker.value=type;
+      const EventType=doc?.defaultView?.Event;
+      if(EventType)picker.dispatchEvent(new EventType('change',{bubbles:true}));
+      else this.ui.updateRoomCost?.();
+    }
+    return this._after({ok:true,type});
+  }
+  clearDigSelection(){
+    this.ui.clearDigSelection();
+    return this._after({ok:true});
+  }
+  applySelectedDig(cancel=false){
+    if(!this.ui.digSelection)return fail('NO_DIG_SELECTION');
+    // UI is sole command owner; do not call colony.queue/cancel a second time.
+    const data=this.ui.applyDigSelection(!!cancel);
+    return this._after({ok:true,data});
   }
   dig(from,to,cancel){
     if(!from||!to)return fail('INVALID_DIG_RECT');
