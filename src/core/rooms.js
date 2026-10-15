@@ -210,7 +210,8 @@ export class Rooms {
     return true;
   }
   reachable(room) {
-    if(!this.colony.queen.alive)return false;
+    // Connectivity is physical; the queen's death stops new egg orders but
+    // cannot magically disconnect existing Nursery rooms and laid brood.
     const layer=this.world.layers[UNDERGROUND], paths=reachablePaths(layer,this.colony.queen);
     return !!paths && this.footprint(room).every(p=>isWalkable(layer,p.x,p.y)&&paths.distance(p.x,p.y)>=0);
   }
