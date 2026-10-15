@@ -39,8 +39,9 @@ export class Combat {
     this.allocate();
   }
   get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier'&&a.profession==='soldier');}
-  maxHP(ant){return COMBAT.soldierHP+3*Math.max(0,(ant.level||1)-1);}
-  damage(ant){return COMBAT.soldierDamage+Math.floor(Math.max(0,(ant.level||1)-1)/2);}
+  soldierLevel(ant){return Number.isInteger(ant?.level)?Math.max(1,Math.min(5,ant.level)):1;}
+  maxHP(ant){return COMBAT.soldierHP+3*(this.soldierLevel(ant)-1);}
+  damage(ant){return COMBAT.soldierDamage+Math.floor((this.soldierLevel(ant)-1)/2);}
 
   /** Unspecified IDs on legacy soldier fixtures belong to the default A squad. */
   _squadOf(ant){return ant?.squadId==='B'?'B':'A';}
@@ -57,7 +58,7 @@ export class Combat {
   _error(code,message){return {ok:false,error:{code,message}};}
   _arrived(ant,goal){
     return !!(goal&&ant.layer===goal.layer&&same(ant,goal)&&!ant.next&&!ant.retreating&&
-      (ant.combatHP||0)>Math.ceil(COMBAT.soldierHP*.3)&&
+      (ant.combatHP||0)>Math.ceil(this.maxHP(ant)*.3)&&
       !['combat-intercept','combat-attack','combat-retreat','combat-queen-defense'].includes(ant.state)&&
       !this.queenThreat());
   }
@@ -96,7 +97,7 @@ export class Combat {
     if(toSquadId!=='A'&&toSquadId!=='B')return this._error('INVALID_SQUAD','Unknown destination squad');
     if(typeof soldierId!=='string'||!soldierId)return this._error('INVALID_SOLDIER','Invalid soldier ID');
     const ant=this.colony.workers.find(a=>a.id===soldierId);
-    if(!ant||ant.combatRole!=='soldier')return this._error('NOT_ACTIVE_SOLDIER','Soldier is not active');
+    if(!ant||!this.soldiers.includes(ant))return this._error('NOT_ACTIVE_SOLDIER','Soldier is not active');
     const fromSquad=this._squadOf(ant);
     if(fromSquad===toSquadId)return this._error('SAME_SQUAD','Soldier already belongs to this squad');
     const emergency=!!this.queenThreat();
@@ -157,7 +158,7 @@ export class Combat {
     if(!this.canRecruit(a))return false;
     if(a.state==='room-rest')this.rooms?.releaseRestWorker(a);
     if(a.state==='room-guard')this.rooms?.release(a);
-    a.combatRole='soldier';a.squadId='A';a.combatHP??=COMBAT.soldierHP;a.combatCooldown=0;
+    a.combatRole='soldier';a.squadId='A';a.combatHP??=this.maxHP(a);a.combatCooldown=0;
     a.retreating=false;a.combatGoal=null;a.state='combat-guard';a.path=[];a.next=null;a.motion=0;
     this.soldierSlots=Math.max(this.soldierSlots,this.soldiers.length);
     this._formationDirty=true;
@@ -313,20 +314,26 @@ export class Combat {
   }
   get ralliedCount(){return this._ralliedCount('A');}
   releaseSoldier(ant){
-    if(ant.combatRole!=='soldier')return;
+    if(ant.combatRole!=='soldier'||ant.profession==='soldier')return false;
     const squadId=this._squadOf(ant);
     delete ant.squadId;delete ant.combatRole;delete ant.combatCooldown;
     delete ant.combatGoal;delete ant.retreating;
     ant.state='idle';ant.path=[];ant.next=null;ant.motion=0;
     this._markDirty(squadId);
     if(!this._allocating)this.ensureFormation(squadId);
+    return true;
   }
   allocate(){
-    // A permanent Soldier is enlisted at hatch; never recruit or demobilize
-    // unrelated workers in response to a percentage quota.
+    // New soldier-only fixtures are enlisted without conscripting a civilian.
+    this._allocating=true;
+    try{
+      for(const ant of this.colony.workers)if(ant.profession==='soldier'&&ant.combatRole!=='soldier')
+        this.recruit(ant);
+    }finally{this._allocating=false;}
     this.soldierSlots=this.soldiers.length;
     for(const ant of this.soldiers){
       ant.squadId??='A';ant.combatHP??=this.maxHP(ant);ant.combatCooldown??=0;
+      ant.combatHP=Math.max(0,Math.min(this.maxHP(ant),ant.combatHP));
     }
     this.ensureFormation();
   }
