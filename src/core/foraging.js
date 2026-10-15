@@ -27,7 +27,10 @@ export class Foraging {
   }
   capacityFor(type) { return this.rooms ? this.rooms.capacityFor(type) : 9999; }
   carryCapacityFor(ant){
-    if(ant.profession==='forager')return [3,3,4,4,5][Math.max(1,Math.min(5,ant.level||1))-1];
+    if(ant.profession==='forager'){
+      const level=Number.isInteger(ant.level)?Math.max(1,Math.min(5,ant.level)):1;
+      return [3,3,4,4,5][level-1];
+    }
     return CARRY_CAPACITY;
   }
   get waitingCount() { return this.colony.workers.filter(a => a.state==='forage-wait-storage').length; }
@@ -146,7 +149,8 @@ export class Foraging {
   // Preserve the original public node-selection interface for callers/tests.
   pickNode(ant) { return this.chooseSource(ant)?.node || null; }
   beginTrip(ant) {
-    if(ant.orderId!=null || ant.state!=='idle' || (!this.colony.isForager(ant)||!this.colony.canWork(ant,'forager')) ||
+    if(!this.colony.workers.includes(ant)||ant.orderId!=null || ant.state!=='idle' ||
+       !this.colony.isForager(ant)||!this.colony.canWork(ant,'forager') ||
        ant.cargo?.amount || ant.layer!==UNDERGROUND || this.tickCount<(this.retryAt.get(ant)||0))return;
     // Cosmetic ambient strolls must not own the first step of a real resource trip.
     this.colony.stopAmbient?.(ant);

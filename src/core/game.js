@@ -9,9 +9,8 @@ import { createResourceNodes } from '../world/resources.js';
 import { ResourceEcology } from './resource-ecology.js';
 import { Weather } from './weather.js';
 import { MilestoneTracker } from './milestones.js';
-/** Worker assignment policy: editable shares plus a protected general-work remainder.
- * Only real workers count (not queen or brood). All integer quotas sum to N via
- * deterministic largest-remainder apportionment, stable on birth/death. */
+/** Compatibility adapter: percentage settings are no longer profession quotas.
+ * Actual jobs and troop headcounts derive only from permanent ant professions. */
 export class WorkforcePolicy {
   constructor(game) {
     this.game=game;
@@ -55,12 +54,12 @@ export class WorkforcePolicy {
   reconcile() {
     const {colony,lifecycle,combat}=this.game;
     const n=colony.workers.length;
-    if(!this.dirty&&n===this.lastPopulation)return;
-    const starters=colony.workers.filter(a=>!a.profession||a.profession==='starter');
-    const specialists=colony.workers.filter(a=>a.profession==='nurse');
-    // Roles are permanent: no quota may conscript, change profession or cancel a
-    // specialist's ongoing job. One starter nurses until the first nurse hatches.
-    if(!this.manual.has('nurse'))lifecycle.nurseSlots=Math.min(n,specialists.length+(specialists.length?0:starters.length?1:0));
+    const starters=colony.workers.filter(a=>a.profession==='starter'||!a.profession);
+    const nurses=colony.workers.filter(a=>a.profession==='nurse').length;
+    // No fixed specialist is ever reassigned, and no quota drafts soldiers.
+    // Recheck every tick: the caste mix can change without population changing.
+    if(!this.manual.has('nurse'))
+      lifecycle.nurseSlots=Math.min(n,nurses||(starters.length?1:colony.emergencyWorker('nurse')?1:0));
     if(!this.manual.has('forage'))colony.forageSlots=Math.min(starters.length,2);
     combat.soldierSlots=combat.soldiers.length;
     this.lastPopulation=n;this.dirty=false;
