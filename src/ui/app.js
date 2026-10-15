@@ -87,32 +87,33 @@ export class UI {
       this.setTool('inspect');
       this.showColonyPanel(opening);
     });
-    for(const kind of ['forage','nurse','soldier']) {
-      $('alloc-'+kind).addEventListener('input', e=>{
-        this.game.workforce.setShare(kind,Number(e.target.value));
-        this.updateMetrics();
-        this.combatControls?.update(true);
-      });
-    }
+    // Legacy percentage inputs remain in HTML for existing regressions but are
+    // not exposed or bound: fixed ant professions are never reassigned by UI.
     $('zoom-in').addEventListener('click', () => this.zoom(1.25));
     $('zoom-out').addEventListener('click', () => this.zoom(1 / 1.25));
     $('recenter').addEventListener('click', () => this.recenter());
     $('debug-toggle').addEventListener('click', () => { this.debug = !this.debug; $('debug-panel').classList.toggle('hidden', !this.debug); });
     $('selection-close').addEventListener('click', () => this.select(null));
-    $('nursery-close').addEventListener('click',()=>{this.nurseryDismissedForId=this.nurseryRoomId;$('nursery-panel').classList.add('hidden');});
+    $('nursery-close').addEventListener('click',()=>this.closeNursery());
+    $('nursery-reopen').addEventListener('click',()=>{
+      this.nurseryDismissedForId=null;
+      this.refreshNursery();
+      $('nursery-heading').focus({preventScroll:true});
+    });
     for(const id of ['nursery-profession','nursery-level'])$(id).addEventListener('change',()=>this.refreshNursery());
     $('nursery-queue').addEventListener('click',()=>{
       const roomId=this.nurseryRoomId;if(!roomId)return;
-      const result=this.game.lifecycle.queueEgg(roomId,$('nursery-profession').value,Number($('nursery-level').value));
+      const result=this.game.lifecycle?.queueEgg?.(roomId,$('nursery-profession').value,Number($('nursery-level').value))??{ok:false,reason:'api-unavailable'};
       $('nursery-feedback').textContent=result.ok?'บันทึกคิวฟักแล้ว':this.nurseryReason(result.reason);
       this.refreshNursery();
     });
     $('nursery-orders').addEventListener('click',event=>{
       const btn=event.target.closest('button[data-egg-id]');
       if(!btn)return;
-      const success=this.game.lifecycle.cancelEgg(btn.dataset.eggId);
+      const success=this.game.lifecycle?.cancelEgg?.(btn.dataset.eggId)??false;
       $('nursery-feedback').textContent=success?'ยกเลิกคิวและคืนทรัพยากรแล้ว':'รายการนี้ยกเลิกไม่ได้แล้ว';
       this.refreshNursery();
+      if(success)$('nursery-queue').focus({preventScroll:true});
     });
     $('selection-ants-list').addEventListener('click', event => {
       const button=event.target.closest('button[data-ant-id]');
@@ -159,6 +160,10 @@ export class UI {
       const interactive = focused?.isContentEditable || focused?.closest(
         'button,input,textarea,select,a[href],summary,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="link"],[role="textbox"],[role="combobox"],[role="slider"],[role="spinbutton"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="radio"],[role="switch"]'
       );
+      if(e.code==='Escape' && !$('seed-dialog').open && !document.getElementById('u6-dialog')?.open &&
+         !$('nursery-panel').classList.contains('hidden')){
+        e.preventDefault();this.closeNursery();return;
+      }
       if (interactive || $('seed-dialog').open) return;
       if (e.code === 'Space') { e.preventDefault(); this.changeSpeed(this.game.clock.speed === 0 ? this.lastSpeed : 0); }
       if (e.code === 'Digit1') this.switchLayer(SURFACE);
@@ -406,6 +411,11 @@ export class UI {
     renderAntInspector(this.game,s,this.selectedAntId);
     this.refreshNursery(room?.type==='nursery'?room:null);
   }
+  closeNursery(){
+    this.nurseryDismissedForId=this.nurseryRoomId;
+    $('nursery-panel').classList.add('hidden');
+    if(this.nurseryRoomId)$('nursery-reopen').focus({preventScroll:true});
+  }
   nurseryReason(reason){
     return ({
       'invalid-choice':'เลือกอาชีพหรือเลเวลไม่ถูกต้อง',
@@ -414,61 +424,97 @@ export class UI {
       'queen-dead':'นางพญาไม่สามารถวางไข่ได้',
       'population-cap':'ประชากรเต็ม 150 ตัว',
       'nursery-full':'ไม่มีช่องฟักว่าง',
-      'insufficient-resources':'ทรัพยากรสำหรับจองไข่ไม่เพียงพอ'
+      'insufficient-resources':'ทรัพยากรสำหรับจองไข่ไม่เพียงพอ',
+      'api-unavailable':'ระบบฟักไข่ยังไม่พร้อมใช้งาน'
     })[reason]||'ไม่สามารถสั่งฟักไข่ได้';
   }
   refreshNursery(room=undefined){
-    if(room===undefined)room=this.game.rooms.rooms.find(r=>r.id===this.nurseryRoomId);
+    const panel=$('nursery-panel'),reopen=$('nursery-reopen');
+    if(room===undefined)room=this.game.rooms?.rooms?.find(r=>r.id===this.nurseryRoomId);
     if(!room||room.type!=='nursery'){
-      this.nurseryRoomId=null;$('nursery-panel').classList.add('hidden');return;
+      this.nurseryRoomId=null;panel.classList.add('hidden');
+      reopen.classList.add('hidden');return;
     }
-    if(room.id!==this.nurseryRoomId){
+    reopen.classList.remove('hidden');
+    const isNew=room.id!==this.nurseryRoomId;
+    if(isNew){
       this.nurseryRoomId=room.id;this.nurseryDismissedForId=null;
       $('nursery-feedback').textContent='';
     }
-    if(this.nurseryDismissedForId===room.id){
-      $('nursery-panel').classList.add('hidden');return;
-    }
-    $('nursery-panel').classList.remove('hidden');
-    const status=this.game.lifecycle.nurseryStatus(room.id);
-    if(!status)return;
+    if(this.nurseryDismissedForId===room.id){panel.classList.add('hidden');return;}
+    panel.classList.remove('hidden');
+    if(isNew && document.activeElement===this.renderer.canvas)
+      $('nursery-heading').focus({preventScroll:true});
+
+    const life=this.game.lifecycle;
+    const status=life?.nurseryStatus?.(room.id)??null;
+    const ready=room.status==='ready'&&room.connected===true;
+    const roomName={ready:'พร้อมใช้งาน',planned:'รอก่อสร้าง',building:'กำลังก่อสร้าง',disabled:'ขาดทางเข้า'}[room.status]||'ยังไม่พร้อม';
     $('nursery-heading').textContent='ห้องฟักไข่ · '+room.width+'×'+room.height;
-    $('nursery-capacity').textContent='ช่องฟัก '+status.used+'/'+status.slots+' · ว่าง '+status.free+' · '+(room.status==='ready'?'พร้อมใช้งาน':'ห้องไม่พร้อม/ขาดทาง');
+    $('nursery-capacity').textContent=status
+      ? 'ช่องฟัก '+status.used+'/'+status.slots+' · ว่าง '+status.free+' · '+(ready?'พร้อมใช้งาน':(room.status==='ready'?'ขาดทางเชื่อม':roomName))
+      : 'กำลังเชื่อมต่อข้อมูลช่องฟัก · '+roomName;
     const profession=$('nursery-profession').value,level=Number($('nursery-level').value);
-    const cost=this.game.lifecycle.eggCost(profession,level);
-    const canAfford=cost&&Object.entries(cost).every(([k,v])=>{
-      this.game.rooms.syncInventory();
-      return this.game.rooms.storageSlots(k).filter(s=>s.room.connected)
-        .reduce((n,s)=>n+(s.room.stock?.[k]||0),0)>=v;
-    });
-    $('nursery-cost').textContent=cost?'ต้นทุนจองไข่: พลังงาน '+cost.carbs+' · โปรตีน '+cost.protein+' · เวลาฟัก '+[440,560,720,900,1140][level-1]+' ticks (ไม่รวมเวลารอและขนส่ง)':'ตัวเลือกไม่ถูกต้อง';
-    const disabled=room.status!=='ready'||!room.connected||!status.free||!this.game.colony.queen.alive||
-      this.game.lifecycle.totalPopulation>=LIFE.maxPopulation||!canAfford;
-    $('nursery-queue').disabled=!!disabled;
-    $('nursery-queue').title=disabled?(!canAfford?'ทรัพยากรไม่เพียงพอ':room.status!=='ready'?'ห้องไม่พร้อม':!status.free?'ห้องเต็ม':'ไม่สามารถสั่งฟักได้'):'';
+    const cost=life?.eggCost?.(profession,level)??null;
+    const totalTicks=[440,560,720,900,1140][level-1];
+    $('nursery-cost').textContent=cost
+      ? 'ต้นทุน: อาหาร '+cost.carbs+' · โปรตีน '+cost.protein+' · ฟัก '+totalTicks+' ติ๊ก (ไม่นับเวลารอ/ขนส่ง)'
+      : 'ไม่สามารถอ่านต้นทุนไข่ได้';
+    let reason='';
+    if(!status||!cost||typeof life?.queueEgg!=='function')reason='api-unavailable';
+    else if(!ready)reason='nursery-unavailable';
+    else if(!this.game.colony?.queen?.alive)reason='queen-dead';
+    else if(life.totalPopulation>=LIFE.maxPopulation)reason='population-cap';
+    else if(status.free<=0)reason='nursery-full';
+    else {
+      // Use only physical connected storage, never invent spendable inventory.
+      const rooms=this.game.rooms;
+      rooms?.syncInventory?.();
+      if(typeof rooms?.storageSlots==='function'){
+        const enough=Object.entries(cost).every(([type,amount])=>rooms.storageSlots(type)
+          .filter(slot=>slot.room?.connected).reduce((sum,slot)=>sum+(slot.room.stock?.[type]||0),0)>=amount);
+        if(!enough)reason='insufficient-resources';
+      }
+    }
+    $('nursery-queue').disabled=!!reason;
+    $('nursery-queue').title=reason?this.nurseryReason(reason):'';
+    $('nursery-blocked').textContent=reason?this.nurseryReason(reason):'พร้อมรับคำสั่งฟักไข่';
     const list=$('nursery-orders');
-    const labels={QUEUED:'รอนางพญา',LAID:'วางไข่แล้ว',AWAITING_PICKUP:'รอพี่เลี้ยง',CARRYING:'กำลังขนไข่',WAITING_ROUTE:'รอทางเชื่อม',INCUBATING:'กำลังฟัก'};
-    const existing=new Map([...list.children].map(li=>[li.dataset.id,li]));
-    for(const order of status.orders){
+    const labels={QUEUED:'รอนางพญาวางไข่',LAID:'วางไข่แล้ว',AWAITING_PICKUP:'รอมดพี่เลี้ยงมารับ',
+      CARRYING:'กำลังขนไปห้องฟัก',WAITING_ROUTE:'รอเส้นทางที่เดินถึง',INCUBATING:'กำลังฟัก',HATCHED:'ฟักสำเร็จ'};
+    const names={miner:'มดขุด',forager:'มดหาอาหาร',builder:'มดช่าง',nurse:'มดพี่เลี้ยง',soldier:'มดทหาร'};
+    const existing=new Map([...list.querySelectorAll('li[data-id]')].map(li=>[li.dataset.id,li]));
+    for(const order of status?.orders??[]){
       let li=existing.get(order.id);
-      if(!li){li=document.createElement('li');li.dataset.id=order.id;list.appendChild(li);}
+      if(!li){li=document.createElement('li');li.dataset.id=order.id;li.className='nursery-order';list.appendChild(li);}
       existing.delete(order.id);
-      const text=order.profession+' Lv.'+order.level+' · '+(labels[order.status]||order.status)+
-        (order.status==='INCUBATING'?' · เหลือ '+order.remainingTicks+' ticks':'');
-      const summary=li.querySelector('span')||document.createElement('span');
-      summary.textContent=text;
-      if(!summary.parentNode)li.appendChild(summary);
-      let cancel=li.querySelector('button');
+      const max=Number.isFinite(order.hatchTicks)&&order.hatchTicks>0?order.hatchTicks:totalTicks;
+      const left=Number.isFinite(order.remainingTicks)?Math.max(0,Math.min(max,order.remainingTicks)):max;
+      const incubating=order.status==='INCUBATING';
+      const progress=Math.round((max-left)/max*100);
+      const text=(names[order.profession]||order.profession)+' · Lv.'+order.level+' · '+(labels[order.status]||order.status);
+      let content=li.querySelector('.nursery-order-content');
+      if(!content){content=document.createElement('div');content.className='nursery-order-content';li.append(content);}
+      let caption=content.querySelector('.nursery-order-label');
+      if(!caption){caption=document.createElement('strong');caption.className='nursery-order-label';content.append(caption);}
+      if(caption.textContent!==text)caption.textContent=text;
+      let eta=content.querySelector('.nursery-order-eta');
+      if(!eta){eta=document.createElement('small');eta.className='nursery-order-eta';content.append(eta);}
+      eta.textContent=incubating?'ฟักแล้ว '+progress+'% · เหลือ '+left+' ติ๊ก':'รอวาง/ขนส่ง · ยังไม่เริ่มนับเวลาฟัก';
+      let bar=content.querySelector('progress');
+      if(!bar){bar=document.createElement('progress');bar.max=100;bar.setAttribute('aria-label','ความคืบหน้าการฟักไข่');content.append(bar);}
+      bar.value=incubating?progress:0;
+      bar.hidden=!incubating;
+      let cancel=li.querySelector('button[data-egg-id]');
       if(order.status==='QUEUED'){
-        if(!cancel){cancel=document.createElement('button');cancel.type='button';cancel.textContent='ยกเลิก';li.appendChild(cancel);}
-        cancel.dataset.eggId=order.id;
-      }else if(cancel)cancel.remove();
+        if(!cancel){cancel=document.createElement('button');cancel.type='button';cancel.textContent='ยกเลิก';li.append(cancel);}
+        cancel.dataset.eggId=order.id;cancel.setAttribute('aria-label','ยกเลิกคิว '+text);
+      }else cancel?.remove();
     }
     for(const stale of existing.values())stale.remove();
-    if(!status.orders.length){
-      let empty=list.querySelector('li[data-empty]');
-      if(!empty){empty=document.createElement('li');empty.dataset.empty='true';empty.textContent='ยังไม่มีคำสั่งฟักไข่';list.appendChild(empty);}
-    }else list.querySelector('li[data-empty]')?.remove();
+    const empty=list.querySelector('li[data-empty]');
+    if(status?.orders?.length)empty?.remove();
+    else if(!empty){const li=document.createElement('li');li.dataset.empty='true';li.textContent='ยังไม่มีคำสั่งฟักไข่';list.append(li);}
   }
   notice(message) {
     const toast = $('toast');
@@ -521,19 +567,10 @@ export class UI {
     $('game-time').textContent = formatGameTime(this.game.clock);
     this.updateWeather();
     for(const type of ['carbs','protein','water']) $(`stock-${type}`).textContent=String(this.game.foraging.inventory[type]);
-    const policy=this.game.workforce,shares=policy.shares,planned=policy.plan();
-    const workers=this.game.colony.workers.length;
-    $('forage-count').textContent=`${shares.forage}% · ${this.game.colony.forageSlots}/${workers}`;
-    $('nurse-count').textContent=`${shares.nurse}% · ${this.game.lifecycle.nurseSlots}/${workers}`;
-    for(const kind of ['forage','nurse','soldier']){
-      const percent=shares[kind],input=$('alloc-'+kind);
-      input.max=String(100-Object.entries(shares).reduce((sum,[key,value])=>sum+(key===kind?0:value),0));
-      input.value=String(percent);
-      $('alloc-'+kind+'-label').textContent=`${percent}% · ${planned[kind]} ตัว`;
-      $('alloc-bar-'+kind).style.width=percent+'%';
-    }
-    $('alloc-general-label').textContent=`${policy.generalPercent}% · ${planned.general} ตัว`;
-    $('alloc-bar-general').style.width=policy.generalPercent+'%';
+    // Actual permanent caste headcounts; no percentage quota UI or role rewrites.
+    const living=this.game.colony.workers.filter(a=>a.alive!==false);
+    $('forage-count').textContent='มดหาอาหาร '+living.filter(a=>a.profession==='forager').length;
+    $('nurse-count').textContent='มดพี่เลี้ยง '+living.filter(a=>a.profession==='nurse').length;
     const life=this.game.lifecycle;
     const temporaryBrood=life.brood.filter(b=>b.site==='temporary').length;
     $('brood-summary').textContent=`ไข่ ${life.eggs} · ตัวอ่อน ${life.larvae} · ดักแด้ ${life.pupae}${temporaryBrood?` · พักชั่วคราว ${temporaryBrood}`:''}`;
@@ -549,14 +586,30 @@ export class UI {
     $('report-queen-age').textContent=(life.queenHealth.age/4800).toFixed(1);
     $('report-consumed').textContent=String(Object.values(life.consumed).reduce((a,b)=>a+b,0));
     $('report-message').textContent=life.lastEvent;
-    const professionNames={starter:'มดเริ่มต้น',miner:'มดขุด',forager:'มดหาอาหาร',builder:'มดช่าง',nurse:'มดพี่เลี้ยง',soldier:'มดทหาร'};
-    const castes=Object.keys(professionNames);
-    $('caste-report').replaceChildren(...castes.map(kind=>{
-      const row=document.createElement('p');
-      const ants=this.game.colony.workers.filter(a=>(a.profession||'starter')===kind);
-      row.textContent=professionNames[kind]+' '+ants.length+' ตัว'+(kind==='starter'?'':(' · '+[1,2,3,4,5].map(l=>'Lv'+l+':'+ants.filter(a=>(a.level||1)===l).length).join(' ')));
-      return row;
-    }));
+    const names={starter:'มดเริ่มต้น',miner:'มดขุด',forager:'มดหาอาหาร',builder:'มดช่าง',nurse:'มดพี่เลี้ยง',soldier:'มดทหาร'};
+    const ants=this.game.colony.workers.filter(a=>a.alive!==false);
+    const signature=ants.map(a=>a.id+':'+(a.profession||'starter')+':'+(a.level||1)).join('|');
+    if(this.casteSignature!==signature){
+      const table=document.createElement('table');table.className='caste-table';
+      const header=document.createElement('thead'),hrow=document.createElement('tr');
+      for(const name of ['อาชีพ','รวม','Lv.1','Lv.2','Lv.3','Lv.4','Lv.5']){
+        const cell=document.createElement('th');cell.scope='col';cell.textContent=name;hrow.append(cell);
+      }
+      header.append(hrow);table.append(header);
+      const body=document.createElement('tbody');
+      for(const [kind,name] of Object.entries(names)){
+        const cohort=ants.filter(a=>(a.profession||'starter')===kind);
+        const tr=document.createElement('tr');if(kind==='starter')tr.className='starter-row';
+        for(const value of [name,cohort.length,...[1,2,3,4,5].map(level=>cohort.filter(a=>(a.level||1)===level).length)]){
+          const cell=document.createElement(value===name?'th':'td');
+          if(value===name)cell.scope='row';
+          cell.textContent=String(value);tr.append(cell);
+        }
+        body.append(tr);
+      }
+      table.append(body);$('caste-report').replaceChildren(table);
+      this.casteSignature=signature;
+    }
     $('worker-status').textContent=`ขุด ${this.game.colony.busyCount} · หาอาหาร ${this.game.foraging.activeCount} · เลี้ยง ${this.game.lifecycle.nurseCount}`;
     $('queue-status').textContent=`คิวขุด ${this.game.colony.pendingCount}`;
     const cap=this.game.rooms.capacities();

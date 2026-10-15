@@ -92,10 +92,10 @@
         </div>
       </div>
       <div class="room-palette hidden" id="room-palette"><label for="room-type">ประเภทห้อง</label><select id="room-type" aria-label="เลือกประเภทห้อง"><option value="food_store">คลังอาหาร</option><option value="water_store">คลังน้ำ</option><option value="nursery">ห้องเลี้ยงตัวอ่อน</option><option value="rest">ห้องพักมดงาน</option><option value="guard">ห้องเตรียมป้องกัน</option></select><span class="room-cost" id="room-cost">คลิกบนพื้นที่อุโมงค์ 2×2</span></div>
-      <button type="button" id="workforce-open" class="workforce-open" aria-controls="colony-panel" aria-expanded="false" aria-label="เปิดหรือปิดหน้าจัดสรรกำลังมด">
+      <button type="button" id="workforce-open" class="workforce-open" aria-controls="colony-panel" aria-expanded="false" aria-label="เปิดหรือปิดรายงานกำลังมด">
         <span>⚙ กำลังมด</span>
-        <strong>หาอาหาร <span id="forage-count">40% · 2/5</span></strong>
-        <strong>พี่เลี้ยง <span id="nurse-count">20% · 1/5</span></strong>
+        <strong><span id="forage-count">มดหาอาหาร 0</span></strong>
+        <strong><span id="nurse-count">มดพี่เลี้ยง 0</span></strong>
       </button>
 
     </aside>
@@ -128,8 +128,8 @@
       <div class="metric"><span>Births / deaths</span><strong id="metric-life">0 / 0</strong></div>
     </aside>
 
-    <section id="nursery-panel" class="nursery-panel hidden" aria-labelledby="nursery-heading" aria-live="off">
-      <header class="nursery-head"><h2 id="nursery-heading">ห้องฟักไข่</h2><button type="button" id="nursery-close" aria-label="ปิดหน้าฟักไข่">×</button></header>
+    <section id="nursery-panel" class="nursery-panel hidden" role="region" aria-labelledby="nursery-heading" aria-live="off">
+      <header class="nursery-head"><h2 id="nursery-heading" tabindex="-1">ห้องฟักไข่</h2><button type="button" id="nursery-close" aria-label="ปิดหน้าฟักไข่">×</button></header>
       <p id="nursery-capacity" class="nursery-capacity"></p>
       <div class="nursery-form">
         <label for="nursery-profession">อาชีพมด</label>
@@ -137,7 +137,8 @@
         <label for="nursery-level">เลเวล</label>
         <select id="nursery-level"><option value="1">Lv.1</option><option value="2">Lv.2</option><option value="3">Lv.3</option><option value="4">Lv.4</option><option value="5">Lv.5</option></select>
         <p id="nursery-cost" class="nursery-cost"></p>
-        <button type="button" id="nursery-queue">สั่งฟักไข่</button>
+        <button type="button" id="nursery-queue" aria-describedby="nursery-cost nursery-blocked">สั่งฟักไข่</button>
+        <p id="nursery-blocked" class="nursery-blocked" role="status"></p>
         <p id="nursery-feedback" role="status"></p>
       </div>
       <h3>คิวไข่ในห้อง</h3><ol id="nursery-orders" class="nursery-orders"></ol>
@@ -155,6 +156,7 @@
       <button type="button" id="cancel-dig" class="cancel-dig hidden">ยกเลิกคำสั่งขุด</button>
 <p class="selection-resource hidden" id="selection-resource"></p>
       <p class="selection-room hidden" id="selection-room"></p>
+       <button type="button" id="nursery-reopen" class="nursery-reopen hidden" aria-controls="nursery-panel">เปิดหน้าฟักไข่</button>
       <button type="button" class="cancel-dig hidden" id="cancel-room">ยกเลิกผังห้อง (คืนทรัพยากร)</button>
       <p class="selection-brood hidden" id="selection-brood"></p>
       <span class="selection-note" id="selection-note"></span>
