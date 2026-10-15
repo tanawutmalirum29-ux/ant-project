@@ -26,7 +26,7 @@ The existing source `#room-type`, `#nursery-profession`, `#nursery-level`, `#u6-
 
 **Only shell CSS** may place structural areas (header, nav, dock, inspector, sheet, toast, system modal, overlay mask). Feature CSS styles **inside the allocated slot** and must not use viewport-wide `position:fixed`, ad hoc `z-index:9999`, arbitrary global `body:has()` collisions, or reposition unrelated sibling panels.
 
-Named regions: `HUD_TOP`, `PRIMARY_COMMAND`, `LAYER_NAV`, `MAP_VIEWPORT`, `MAP_ACTION`, `CONTEXT_INSPECTOR`, `PRIMARY_SHEET`, `MODAL`, `TOAST`, `DEV_ONLY`. Shell reserves safe-area and actual layout height; hit testing uses true DOM geometry.
+Named regions: `HUD_TOP`, `PRIMARY_COMMAND`, `MAP_VIEWPORT`, `MAP_ACTION`, `CONTEXT_INSPECTOR`, `PRIMARY_SHEET`, `MODAL`, `TOAST`, `DEV_ONLY`. The **layer switch belongs inside `PRIMARY_COMMAND`**, not in a separate `LAYER_NAV` row. Shell reserves safe-area and actual layout height; hit testing uses true DOM geometry.
 
 **Layout profiles:**
 - narrow mobile 320–359 CSS px, 360–430, 431–680
@@ -34,6 +34,8 @@ Named regions: `HUD_TOP`, `PRIMARY_COMMAND`, `LAYER_NAV`, `MAP_VIEWPORT`, `MAP_A
 - tablet 681–1199; desktop ≥1200; support widths >1920 by max-content constraints
 - Mobile/panel layouts must support visual viewport shrink caused by virtual keyboard, bottom safe area and reduced motion
 - Use viewport-based profiles as defaults, verify actual geometry rather than trusting breakpoints alone
+
+**Layer-toggle design lock (OWNER feedback):** Exactly ONE visible world-layer switch button in the shared command row/rail. No permanent two-button 'พื้นผิว / ใต้ดิน' selector, no separate bottom navigation tier, and no OS native selector. Tap toggles current `surface` ↔ `underground` through the **existing** `UI.switchLayer(...)` command, not a new independent world-layer state. Button shows the CURRENT layer via distinct icon and compact caption wherever it fits, plus an `aria-label` explicitly describing current layer and the destination, `aria-pressed` or equivalent consistent state indication, tooltip/title on hover, keyboard Enter/Space. On 320px a 5-control action row (inspect/dig/build/layer/menu) fits by 44×44 minimum hit targets with gaps and safe-area insets; use icon+compact text when space permits and **never hide which layer is active**. After switching to surface, existing dig/build disable/exit semantics still apply; all state indicators and help text update from authoritative `UI.game.layer` without duplicating business logic. Ensure any returning modal/inspector does not leave stale layer label. QA must test both toggle directions, repeat 20×, drag/map state, keyboard, landscape and no overlapping target/cancel actions.
 
 **Stacking contract:** world 0, HUD 10, context inspector 20, popover 30, sheet 40, toast 50, modal backdrop 59, modal 60. Real `<dialog>` top layer needs explicit focus, lock, and underlay safety and overrides ordinary z-index.
 
