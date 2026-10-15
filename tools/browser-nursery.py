@@ -19,7 +19,7 @@ try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox'])
         for width,height in [(320,568),(390,844),(1440,900)]:
-            page=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1)
+            page=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1,has_touch=True)
             errors=[]
             page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
@@ -65,7 +65,17 @@ try:
             assert drawer.is_visible(),width
             page.locator('#nursery-profession').select_option('nurse')
             page.locator('#nursery-level').select_option('3')
-            page.locator('#nursery-queue').click()
+            # Real touchscreen pointer should activate hatch without reaching canvas.
+            page.evaluate('''() => {
+              window.__nurseryMapTouches=0;
+              document.querySelector('#game-canvas').addEventListener('pointerdown',()=>window.__nurseryMapTouches++);
+            }''')
+            page.locator('#nursery-level').focus()
+            page.keyboard.press('Tab')
+            assert page.evaluate('document.activeElement.id')=='nursery-queue',(width,'keyboard tab order')
+            rect=page.locator('#nursery-queue').bounding_box()
+            page.touchscreen.tap(rect['x']+rect['width']/2,rect['y']+rect['height']/2)
+            assert page.evaluate('window.__nurseryMapTouches')==0,(width,'tap passed through drawer')
             orders=page.evaluate('''() => __ANT_DEBUG__.game.lifecycle.eggOrders.map(o=>({profession:o.profession,level:o.level,status:o.status}))''')
             assert orders==[{'profession':'nurse','level':3,'status':'QUEUED'}],(width,orders)
             assert page.locator('#nursery-orders li[data-id]').count()==1
@@ -89,6 +99,7 @@ try:
             page.locator('#close-colony').click()
             assert page.evaluate('''() => {
               const {game,ui}=__ANT_DEBUG__,ant=game.colony.workers[0];
+              ui.switchLayer(ant.layer);
               ui.select({layer:ant.layer,x:ant.x,y:ant.y},ant.id);
               return document.querySelector('#selection-ant-detail').textContent.includes('Lv.1');
             }'''),(width,'real ant inspector failed')
