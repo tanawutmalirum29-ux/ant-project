@@ -103,6 +103,7 @@ try:
               ui.select({layer:ant.layer,x:ant.x,y:ant.y},ant.id);
               return document.querySelector('#selection-ant-detail').textContent.includes('Lv.1');
             }'''),(width,'real ant inspector failed')
+            page.evaluate("__ANT_DEBUG__.ui.switchLayer('underground')")
             page.locator('#tool-dig').click()
             assert page.evaluate('__ANT_DEBUG__.ui.tool')=='dig',(width,'dig tool regressed')
             page.locator('#tool-inspect').click()
