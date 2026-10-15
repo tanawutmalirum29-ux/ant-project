@@ -6,6 +6,49 @@ from urllib.request import urlopen
 import subprocess,time
 from playwright.sync_api import sync_playwright
 
+def assert_sheet_geometry(page,sheet_selector,close_selector,engine,w,h):
+    """No Playwright auto-scroll: verify this visible sheet is really on screen.
+
+    A prior green G3 run only used is_visible(); later sheet hosts lived below
+    the shell clip, so all screenshot pixels showed only a dark backdrop.
+    """
+    result=page.evaluate("""([sheetSel,closeSel])=>{
+        const sheet=document.querySelector(sheetSel);
+        const close=document.querySelector(closeSel);
+        const visual=window.visualViewport;
+        const viewport={x:visual?.offsetLeft??0,y:visual?.offsetTop??0,
+          w:visual?.width??innerWidth,h:visual?.height??innerHeight};
+        function describe(el){
+          if(!el)return null;
+          const r=el.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;
+          const hit=document.elementFromPoint(x,y);
+          return {x:r.x,y:r.y,w:r.width,h:r.height,
+            hit:!!hit&&(hit===el||el.contains(hit))};
+        }
+        const host=sheet?.closest('.ui-feature-panel');
+        return {viewport,sheet:describe(sheet),close:describe(close),
+          host:describe(host),hostTop:host?.getBoundingClientRect().top,
+          docOverflow:document.documentElement.scrollWidth-innerWidth};
+      }""",[sheet_selector,close_selector]);
+    v=result['viewport'];s=result['sheet'];c=result['close']
+    assert s and c,(engine,w,h,sheet_selector,'missing panel/close',result)
+    assert s['w']>40 and s['h']>40 and s['hit'],(engine,w,h,sheet_selector,'panel not painted/hit',result)
+    assert s['x']>=v['x']-2 and s['y']>=v['y']-2,(engine,w,h,sheet_selector,'panel begins offscreen',result)
+    assert s['x']+s['w']<=v['x']+v['w']+2,(engine,w,h,sheet_selector,'panel exceeds right viewport',result)
+    assert s['y']+s['h']<=v['y']+v['h']+2,(engine,w,h,sheet_selector,'panel exceeds bottom viewport',result)
+    assert c['w']>=43.9 and c['h']>=43.9 and c['hit'],(engine,w,h,close_selector,'close control not hittable',result)
+    assert c['x']>=v['x']-2 and c['y']>=v['y']-2 and c['x']+c['w']<=v['x']+v['w']+2 and c['y']+c['h']<=v['y']+v['h']+2,(engine,w,h,close_selector,'close offscreen',result)
+    assert result['docOverflow']<=1,(engine,w,h,'horizontal document overflow',result)
+    return result
+
+def tap_close_no_scroll(page,selector,mobile):
+    """Genuine pointer/touch without locator.click() scrolling hidden controls."""
+    bounds=page.locator(selector).bounding_box()
+    assert bounds is not None,(selector,'no bounds')
+    x=bounds['x']+bounds['width']/2;y=bounds['y']+bounds['height']/2
+    if mobile:page.touchscreen.tap(x,y)
+    else:page.mouse.click(x,y)
+
 ROOT=Path(__file__).resolve().parents[1]
 SHOTS=ROOT/'artifacts'/'g3-engineer-a'
 SHOTS.mkdir(parents=True,exist_ok=True)
@@ -88,6 +131,7 @@ try:
                 menu=page.locator('[data-home-action="menu"]')
                 menu.click()
                 assert page.locator('.ui-home-menu').is_visible()
+                assert_sheet_geometry(page,'.ui-home-menu','.ui-home-menu-close',engine.name,w,h)
                 assert page.locator('.ui-renovation-backdrop').is_visible()
                 assert menu.get_attribute('aria-expanded')=='true'
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-menu.png'))
@@ -99,6 +143,7 @@ try:
                 menu.click()
                 page.get_by_role('button',name='ตั้งค่าและ Seed').click()
                 assert page.locator('.ui-settings-sheet').is_visible()
+                assert_sheet_geometry(page,'.ui-settings-sheet','.ui-settings-close',engine.name,w,h)
                 assert not page.locator('.ui-home-menu').is_visible()
                 assert page.locator('.ui-renovation-backdrop').is_visible()
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-settings.png'))
@@ -133,6 +178,13 @@ try:
                 assert page.evaluate('''() => __ANT_DEBUG__.game.population''')==6
                 assert page.evaluate('''() => __ANT_DEBUG__.ui.tool''')=='inspect'
                 assert 'Seed: '+intended in page.locator('.ui-home-seed').inner_text()
+                # The Settings close must work as an actual unassisted tap.
+                menu.click()
+                page.get_by_role('button',name='ตั้งค่าและ Seed').click()
+                assert_sheet_geometry(page,'.ui-settings-sheet','.ui-settings-close',engine.name,w,h)
+                tap_close_no_scroll(page,'.ui-settings-close',mobile)
+                assert page.locator('.ui-settings-sheet').is_hidden()
+                assert page.locator('.ui-renovation-backdrop').is_hidden()
                 # Coordinator G3-B: real buttons/overlay navigation against the
                 # full game, not a synthetic DOM or a re-created facade.
                 assert page.evaluate('''() => {
@@ -144,18 +196,20 @@ try:
                 menu.click()
                 page.get_by_role('button',name='มดในอาณาจักร').click()
                 assert page.locator('.uiv1-a').is_visible(),(engine.name,w,'ant panel missing')
+                assert_sheet_geometry(page,'.uiv1-a','.uiv1-a-head button',engine.name,w,h)
                 assert page.locator('.uiv1-a-unit').count()>=5,(engine.name,w,'ant roster empty')
                 assert page.locator('.ui-home-menu').is_hidden()
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-ants.png'))
-                page.locator('.uiv1-a-head button').click()
+                tap_close_no_scroll(page,'.uiv1-a-head button',mobile)
                 assert page.locator('.uiv1-a').is_hidden()
                 menu.click()
                 page.get_by_role('button',name='กองทหาร A/B').click()
                 assert page.locator('.uiv1-b').is_visible(),(engine.name,w,'military panel missing')
+                assert_sheet_geometry(page,'.uiv1-b','.uiv1-b-head button',engine.name,w,h)
                 assert page.locator('.uiv1-b-tabs button').count()==2
                 assert page.locator('.ui-home-menu').is_hidden()
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-military.png'))
-                page.locator('.uiv1-b-head button').click()
+                tap_close_no_scroll(page,'.uiv1-b-head button',mobile)
                 assert page.locator('.uiv1-b').is_hidden()
                 # All six actual G3 modules must be mounted.  C is sourced
                 # from real G1 snapshots and still protected by dormant shell.
