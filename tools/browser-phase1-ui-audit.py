@@ -398,59 +398,68 @@ def audit_view(browser,html,spec,artifacts):
         test('dig/room/inspect and authoritative room picker',room_picker)
 
         def selection():
-            page.locator('#tool-inspect').click()
-            p=exposed(page);assert p,'no exposed map tile'
-            tap(page,p,mobile)
-            assert page.locator('#selection-card').is_visible()
-            s=inspect(page)['selection']
-            assert s and f'X:{s["x"]}' in page.locator('#selection-coords').inner_text(),s
-            # Information can legitimately cover the initially chosen pixel.
-            # Choose a different *physically tappable* canvas point, then retap
-            # exactly that tile. Do not hide the panel or bypass real pointers.
-            top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
-            if top!='game-canvas':
-                # Screen pixels near a selected tile can still map to the same
-                # logical tile. Require a different tile and a visible map
-                # hit target; otherwise the new toggle correctly closes it.
-                p=page.evaluate("""selected => {
-                  const {game,cameras,renderer}=__ANT_DEBUG__;
-                  const c=cameras[game.layer],canvas=renderer.canvas;
-                  const pixels=[];
-                  for(let y=4;y<=16;y++)for(let x=4;x<=16;x++){
-                    const px=innerWidth*x/20,py=innerHeight*y/20;
-                    if(document.elementFromPoint(px,py)!==canvas)continue;
-                    const tile=c.screenToCell(px,py,renderer.width,renderer.height);
-                    if(tile.x===selected.x&&tile.y===selected.y)continue;
-                    pixels.push({x:px,y:py,rank:Math.abs(px-innerWidth/2)+Math.abs(py-innerHeight/2)});
-                  }
-                  pixels.sort((a,b)=>a.rank-b.rank);
-                  return pixels[0]||null;
-                }""",s)
-                assert p,('no distinct unobstructed map tile after opening info')
+            # Freeze moving ants and camera-dependent focus while exercising a
+            # deterministic same-cell tap; restore live gameplay immediately after.
+            prior_speed=page.evaluate('''() => {
+              const game=__ANT_DEBUG__.game,speed=game.clock.speed;
+              game.setSpeed(0);return speed;
+            }''')
+            try:
+                page.locator('#tool-inspect').click()
+                p=exposed(page);assert p,'no exposed map tile'
                 tap(page,p,mobile)
+                assert page.locator('#selection-card').is_visible()
                 s=inspect(page)['selection']
-                assert s and page.locator('#selection-card').is_visible()
-            top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
-            assert top=='game-canvas',('selected map tile remains obscured',top,p)
-            # Re-tap the identical map tile: hide and clear its selection, not game state.
-            tap(page,p,mobile)
-            assert page.locator('#selection-card').is_hidden()
-            assert inspect(page)['selection'] is None
-            tap(page,p,mobile)
-            assert page.locator('#selection-card').is_visible()
-            again=inspect(page)['selection']
-            assert again==s,('tapping again did not reselect same tile',again,s)
-            assert not collisions(page),collisions(page)
-            screenshot('selection')
-            page.locator('#debug-toggle').click()
-            assert page.locator('#debug-panel').is_visible()
-            assert not collisions(page),collisions(page)
-            screenshot('selection-debug')
-            page.locator('#debug-toggle').click()
-            assert page.locator('#selection-card').is_visible()
-            page.locator('#selection-close').click()
-            assert page.locator('#selection-card').is_hidden()
-            return {'selected':s}
+                assert s and f'X:{s["x"]}' in page.locator('#selection-coords').inner_text(),s
+                # Information can legitimately cover the initially chosen pixel.
+                # Choose a different *physically tappable* canvas point, then retap
+                # exactly that tile. Do not hide the panel or bypass real pointers.
+                top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
+                if top!='game-canvas':
+                    # Screen pixels near a selected tile can still map to the same
+                    # logical tile. Require a different tile and a visible map
+                    # hit target; otherwise the new toggle correctly closes it.
+                    p=page.evaluate("""selected => {
+                      const {game,cameras,renderer}=__ANT_DEBUG__;
+                      const c=cameras[game.layer],canvas=renderer.canvas;
+                      const pixels=[];
+                      for(let y=4;y<=16;y++)for(let x=4;x<=16;x++){
+                        const px=innerWidth*x/20,py=innerHeight*y/20;
+                        if(document.elementFromPoint(px,py)!==canvas)continue;
+                        const tile=c.screenToCell(px,py,renderer.width,renderer.height);
+                        if(tile.x===selected.x&&tile.y===selected.y)continue;
+                        pixels.push({x:px,y:py,rank:Math.abs(px-innerWidth/2)+Math.abs(py-innerHeight/2)});
+                      }
+                      pixels.sort((a,b)=>a.rank-b.rank);
+                      return pixels[0]||null;
+                    }""",s)
+                    assert p,('no distinct unobstructed map tile after opening info')
+                    tap(page,p,mobile)
+                    s=inspect(page)['selection']
+                    assert s and page.locator('#selection-card').is_visible()
+                top=page.evaluate('''p => document.elementFromPoint(p.x,p.y)?.id''',p)
+                assert top=='game-canvas',('selected map tile remains obscured',top,p)
+                # Re-tap the identical map tile: hide and clear its selection, not game state.
+                tap(page,p,mobile)
+                assert page.locator('#selection-card').is_hidden(), ('same-cell tap did not close card',s,p,inspect(page)['selection'])
+                assert inspect(page)['selection'] is None
+                tap(page,p,mobile)
+                assert page.locator('#selection-card').is_visible()
+                again=inspect(page)['selection']
+                assert again==s,('tapping again did not reselect same tile',again,s)
+                assert not collisions(page),collisions(page)
+                screenshot('selection')
+                page.locator('#debug-toggle').click()
+                assert page.locator('#debug-panel').is_visible()
+                assert not collisions(page),collisions(page)
+                screenshot('selection-debug')
+                page.locator('#debug-toggle').click()
+                assert page.locator('#selection-card').is_visible()
+                page.locator('#selection-close').click()
+                assert page.locator('#selection-card').is_hidden()
+                return {'selected':s}
+            finally:
+                page.evaluate('(speed) => __ANT_DEBUG__.game.setSpeed(speed)',prior_speed)
         test('tile card, overlays, debug and close',selection)
 
         # Fixture uses the production Game/Rooms interface and known ANT-001

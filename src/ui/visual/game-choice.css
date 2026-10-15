@@ -1,0 +1,61 @@
+/* Shared game-painted select replacement, independent of native OS pickers.
+ * Own DOM buttons + CSS for ALL #app selects except the existing room picker.
+ * Real selects remain as change-event/value sources; do not style OS popups. */
+#app select[data-game-choice="ready"]{
+  position:absolute!important;
+  width:1px!important;height:1px!important;
+  padding:0!important;margin:0!important;border:0!important;
+  opacity:0!important;clip-path:inset(50%)!important;
+  pointer-events:none!important;
+}
+.game-choice{width:100%;min-width:0;position:relative;display:block;}
+.game-choice-trigger{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;width:100%;min-width:0;min-height:44px;
+  padding:9px 10px;border-radius:7px;
+  border:1px solid var(--royal-gold,#d6b77a);
+  background:var(--royal-wood,#334736);
+  color:var(--royal-cream,#f9ebce);
+  font:700 12px/1.35 var(--sans,system-ui,sans-serif);
+  box-shadow:2px 2px 0 var(--royal-night,#0d1a15);
+  text-align:left;touch-action:manipulation;cursor:pointer;
+}
+.game-choice-value{min-width:0;overflow-wrap:anywhere;}
+.game-choice-arrow{flex:none;color:var(--royal-gold-light,#f4d488);font-size:18px;line-height:1;}
+.game-choice-trigger[aria-expanded="true"] .game-choice-arrow{transform:rotate(180deg);}
+.game-choice-options{
+  display:grid;gap:5px;max-height:min(210px,32dvh);overflow-y:auto;
+  overscroll-behavior:contain;touch-action:pan-y;
+  padding:6px;margin-top:6px;border-radius:8px;
+  border:1px solid var(--royal-gold,#d6b77a);
+  background:var(--royal-panel,#172721);
+  box-shadow:2px 2px 0 var(--royal-night,#0d1a15);
+  -webkit-overflow-scrolling:touch;
+}
+.game-choice-options[hidden]{display:none!important;}
+.game-choice-option{
+  display:flex;align-items:center;width:100%;min-height:44px;
+  padding:9px 10px;border-radius:6px;border:1px solid #8b9e8580;
+  background:var(--royal-panel,#172721);
+  color:var(--royal-cream,#f9ebce);
+  font:700 12px/1.3 var(--sans,system-ui,sans-serif);
+  text-align:left;touch-action:manipulation;cursor:pointer;
+}
+.game-choice-option[aria-selected="true"]{
+  background:var(--royal-gold-light,#f4d488);
+  color:var(--royal-brown,#322317);
+  border-color:var(--royal-gold-light,#f4d488);
+}
+.game-choice-option[aria-selected="true"]::after{content:"✓";margin-left:auto;}
+.game-choice-option:disabled{opacity:.5;cursor:not-allowed;}
+.game-choice-trigger:focus-visible,.game-choice-option:focus-visible{
+  outline:3px solid var(--royal-gold-light,#f4d488);
+  outline-offset:2px;
+}
+@media(max-width:355px){
+  .game-choice-trigger{padding:8px 6px;font-size:11px;}
+  .game-choice-option{font-size:11px;padding:7px 6px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .game-choice-arrow{transition:none;}
+}
