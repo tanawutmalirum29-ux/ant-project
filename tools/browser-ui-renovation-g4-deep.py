@@ -175,7 +175,16 @@ def run(page,engine,w,h):
     }""")
     assert point['valid']['ok'],(engine,w,h,'building-site fixture invalid',point)
     hit=page.evaluate('p=>document.elementFromPoint(p.sx,p.sy)?.id',point)
-    assert hit=='game-canvas',(engine,w,h,'room map blocked',point,hit)
+    if hit!='game-canvas':
+        actual=page.evaluate("""p=>{
+           const el=document.elementFromPoint(p.sx,p.sy);
+           const parents=[];for(let e=el,i=0;e&&i<6;e=e.parentElement,i++)
+             parents.push({tag:e.tagName,id:e.id,cls:e.className,rect:e.getBoundingClientRect().toJSON()});
+           return {parents,roomPanel:document.querySelector('.ui05-root')?.getBoundingClientRect().toJSON(),
+             nurseryReopen:document.querySelector('.ui04-reopen')?.getBoundingClientRect().toJSON(),
+             mode:window.__ANT_DEBUG__.ui.tool};
+          }""",point)
+        raise AssertionError((engine,w,h,'room map blocked',point,hit,actual))
     if touch:page.touchscreen.tap(point['sx'],point['sy'])
     else:page.mouse.click(point['sx'],point['sy'])
     built=state(page)
