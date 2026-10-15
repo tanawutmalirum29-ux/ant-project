@@ -1,47 +1,40 @@
-# UI RENOVATION V1 — OWNER RELAY / THREE ENGINEER ORDERS
+# UI RENOVATION V1 — GitHub Issue-first Relay
 
-**STATUS: READY_TO_PREPARE / IMPLEMENTATION_HOLD UNTIL G1 FREEZE**  
-This is a copyable assignment sheet. Relaying these messages does not spawn agents or make them aware of other chats automatically. Each Engineer needs the OWNER to actually relay it.
+**Only Issues and Pull Requests are required.** No M00000, Receipt, Ledger or lengthy repeated appointment script. Governance: https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/RULES.md
 
-**Coordinator:** this same chat, [Issue #138](https://github.com/tanawutmalirum29-ux/ant-project/issues/138).  
-**Integration:** [Draft PR #146](https://github.com/tanawutmalirum29-ux/ant-project/pull/146); branch `feat/ui-renovation-v1-integration`.  
-**Plans:** [Master](UI_RENOVATION_V1_MASTER_PLAN.md), [Architecture](UI_RENOVATION_V1_CONTRACT.md), [Wireframes](UI_RENOVATION_V1_WIREFRAMES.md), [QA](UI_RENOVATION_V1_QA.md).
+## OWNER's complete relay format
 
-## OWNER → ENGINEER-A | MAIN HUD + SETTINGS
+First appointment in a separate chat:
+- ENGINEER-A: AP-ROLE #139 https://github.com/tanawutmalirum29-ux/ant-project/issues/139
+- ENGINEER-B: AP-ROLE #140 https://github.com/tanawutmalirum29-ux/ant-project/issues/140
+- ENGINEER-C: AP-ROLE #142 https://github.com/tanawutmalirum29-ux/ant-project/issues/142
+- QA REVIEWER: AP-ROLE #145 https://github.com/tanawutmalirum29-ux/ant-project/issues/145
 
-**Role:** ENGINEER-A (Engineer-1)  
-**Tasks:** [UI-01 #139](https://github.com/tanawutmalirum29-ux/ant-project/issues/139) and [UI-06 #144](https://github.com/tanawutmalirum29-ux/ant-project/issues/144).  
-**Goal:** Completely redesign main game screen (resource/time/speed/layer/tools/milestone/status) for all viewports, plus Settings and safe Seed/world-reset flow. **OWNER design decision: remove the separate permanent surface/underground 2-button bar. Use ONE toggle in the existing primary tool row (inspect/dig/build/layer/menu), with current-layer icon+label, one-tap transition, ≥44px target, full accessible label and no extra bottom row.** On landscape/tablet/desktop place the same single action in tool rail. Preserve existing `UI.switchLayer` game semantics, map pan, dig/room button behavior, normal Seed typing and world generation. UI must be native-popup free, CSS/DOM, accessible and responsive.
+Every later update: just **MN #139**, **MN #140**, **MN #142** or **MN #145** to the relevant existing chat. The AI must read Issue description/latest comments and write its real acknowledgement/report/question to that Issue when it has permission. An Issue comment never automatically summons another ChatGPT chat.
 
-**Exclusive new files:** `src/ui/renovation/home.js`, `home.css`, `settings.js`, `settings.css`, related focused tests; split into two PRs.  
-**PROHIBITED shared edits:** `index.html`, `src/ui/app.js`, `src/ui/combat-controls.js`, `src/styles.css`, `src/ui/visual/*`, game core, shell. Request shared-file adapters from COORDINATOR.  
-**Gate:** Read the complete plan. **Do not start implementation before Coordinator posts G1_FROZEN with integration SHA and final module API.** Then branch from that SHA, make each feature PR target `feat/ui-renovation-v1-integration` (never main).
-**Finish report:** PR links, SHA, files, native/build tests, Chromium/WebKit screenshots for 320×568,390×844,568×320,844×390,768×1024,1440×900, real touch/keyboard/IME and Seed reset behavior, errors and unresolved UX issues. Handoff to OWNER for forwarding; do not report success without evidence.
+## Responsibilities and issue pairs
 
-## OWNER → ENGINEER-B | MILITARY + ANT MANAGEMENT
+| Role | First task | Second task | Shared constraints |
+|---|---|---|---|
+| Coordinator | #138 shell / overlay / adapters | PR #146 integration / QA | Only Coordinator modifies app.js, index.html, legacy CSS and common shell |
+| ENGINEER-A | #139 HUD / one-button layer toggle | #144 Settings / Seed | Exclusive home.js/home.css/settings.js/settings.css and focused tests |
+| ENGINEER-B | #140 Military Squad A/B | #141 Ant roster | Exclusive military.js/military.css/ants.js/ants.css and focused tests |
+| ENGINEER-C | #142 Nursery / eggs | #143 Rooms / dig | Exclusive nursery.js/nursery.css/rooms.js/rooms.css and focused tests |
+| QA Reviewer | #145 independent matrix and visual test | independent final release review | No false hardware-certification, no self-approval |
 
-**Role:** ENGINEER-B (Engineer-2)  
-**Tasks:** [UI-02 #140](https://github.com/tanawutmalirum29-ux/ant-project/issues/140) and [UI-03 #141](https://github.com/tanawutmalirum29-ux/ant-project/issues/141).  
-**Goal:** Fully redesign military A/B management (HP, real roster, squad switch/transfer, defend/rally/retreat, target Cancel and map following) and ant management/inspector (Starter and five permanent professions Lv1–5, real tasks/states, multi-ant tile, follow, dead ant). Never reintroduce worker percentages or fake recruitment.
+Technical materials: [Master Plan](UI_RENOVATION_V1_MASTER_PLAN.md) · [G1 Contract](UI_RENOVATION_V1_CONTRACT.md) · [Wireframes](UI_RENOVATION_V1_WIREFRAMES.md) · [QA Matrix](UI_RENOVATION_V1_QA.md).
 
-**Exclusive new files:** `src/ui/renovation/military.js`, `military.css`, `ants.js`, `ants.css`, related focused tests; two separate PRs.
-**PROHIBITED shared edits:** `src/ui/combat-controls.js`, legacy `combat.css`, `src/ui/ant-inspector.js`, `src/ui/app.js`, `index.html`, game core, shell. Ask Coordinator for integration adapters.
-**Gate:** **WAIT FOR G1_FROZEN**, then branch from frozen SHA and target Integration.
-**Finish report:** PR SHA, test cases 0/1/150 soldiers/ants, A/B targeting, squad transfer, keyboard and touch, screenshot for narrow/landscape/tablet/desktop, negative states, overlay geometry and unresolved items. Notify OWNER for relay; no direct main merge.
+## Engineer response pattern — a comment in their Issue
 
-## OWNER → ENGINEER-C | NURSERY + CONSTRUCTION
+**Design review:** ROLE / DESIGN_REVIEW_COMPLETE / risks / API requests / evidence / no code yet.
 
-**Role:** ENGINEER-C (Engineer-3)  
-**Tasks:** [UI-04 #142](https://github.com/tanawutmalirum29-ux/ant-project/issues/142) and [UI-05 #143](https://github.com/tanawutmalirum29-ux/ant-project/issues/143).  
-**Goal:** Fully redesign Nursery room sheet (5 professions × Lv1–5, 4 real slots, costs, queue status, pickup/transport/incubation, legal cancellation, all blocked reasons) plus construction/excavation flow (room picker, 2×2 footprint, cost/path, build/blocked/cancel, dig drag add/remove). Preserve simulation and mobile canvas gestures.
+**Implementation:** ROLE / PR URL / full tested SHA / modified files / native+browser QA / remaining failures / RESULT or BLOCKED.
 
-**Exclusive new files:** `src/ui/renovation/nursery.js`, `nursery.css`, `rooms.js`, `rooms.css`, related focused tests; two PRs.
-**PROHIBITED shared edits:** `src/ui/app.js`, `index.html`, `src/ui/visual/nursery.css`, `room-picker.js`, `game-choice.js/css`, `src/core/*`, shell. Ask Coordinator for needed adapters.
-**Gate:** **WAIT FOR G1_FROZEN**, branch from its SHA; target Integration.
-**Finish report:** exact PR/SHA, state variants (queen dead/room blocked/stock/150-cap/4-full), queue/cancel/refund, 25 choices, valid/invalid build/cancel, dig drag and tap targets, all viewport screenshots/QA; handoff via OWNER only.
+**Coordinator answer:** FROM COORDINATOR / TO ROLE / action+API+scope / target branch / START or HOLD / exact G1_FROZEN SHA.
 
-## COORDINATOR HANDOFF STEP
+## Status and safety
 
-After the Coordinator implements #138, posts the actual G1_FROZEN SHA/API, and confirms baseline QA, OWNER may forward the above orders (or updated ones) to their three independent engineer chats. The Engineers must not claim work began based only on this file's existence.
-
-After the first feature PRs, the Coordinator alone integrates the six views, migrates legacy DOM/CSS, runs all cross-panel and full regression checks; independent reviewer handles #145 before any PR #146 main merge. At end, close issues and review branch cleanup. **No work has been implemented in the new UI by this planning sheet.**
+- The A/B/C design reports are relayed in Issues #139, #140, #141, #142, #143, #144. These are sourced from OWNER-supplied reports; Coordinator does not impersonate another agent.
+- **Currently:** G1_PENDING / DESIGN_COMPLETE / ALL ENGINEER IMPLEMENTATION_HOLD. Existing integration SHA is a design reference, NOT G1_FROZEN.
+- Start requires real tested shell, frozen adapter signatures, tested SHA and explicit START comment in Issue #138 and each worker Issue. No new feature code/branch/PR before that authorization.
+- Engineer code PRs target **feat/ui-renovation-v1-integration**. Only after complete independent QA may PR #146 be merged into main.
