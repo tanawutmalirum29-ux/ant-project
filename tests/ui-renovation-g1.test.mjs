@@ -52,7 +52,7 @@ test('G1 overlay closing popover then sheet, modal exclusion and focus restorati
  assert.equal(ctrl.isOpen('modal'),true);
  assert.equal(ctrl.openPanel('popup').ok,false);
  assert.equal(ctrl.closeTop(),true);
- assert.equal(owner.focused,1);
+ assert.equal(owner.focused,2); // Popup Escape and final modal close each restore initiating focus.
  endSheet();
  ctrl.dispose();assert.equal(doc.listeners.has('keydown'),false);
 });
