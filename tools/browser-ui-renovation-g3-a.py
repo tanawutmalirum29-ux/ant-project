@@ -32,6 +32,8 @@ try:
                 errs=[]
                 page.on('pageerror',lambda e: errs.append(str(e)))
                 page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                page.wait_for_timeout(500)
+                if errs: print('G3-A startup browser errors:',repr(errs),flush=True)
                 page.wait_for_function('Boolean(window.__ANT_DEBUG__?.renovationA)',timeout=25000)
                 assert page.locator('#ui-renovation-root').is_hidden(),(engine.name,w,'premature live rollout')
                 assert page.locator('#game-canvas').is_visible()
