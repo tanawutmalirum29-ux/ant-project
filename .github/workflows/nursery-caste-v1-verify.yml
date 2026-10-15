@@ -1,0 +1,23 @@
+name: Nursery Caste V1 - Focused Integration Check
+on:
+  push:
+    branches:
+      - feat/nursery-caste-v1-integration
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nursery-core-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: New Nursery/Caste invariants
+        run: node --test tests/nursery-caste.test.mjs
+      - name: Production build
+        run: npm run build
