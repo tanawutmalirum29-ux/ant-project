@@ -350,27 +350,16 @@ def audit_view(browser,html,spec,artifacts):
             assert inspect(page)['rooms']==before_orders
             page.locator('#workforce-open').click()
             assert page.locator('#colony-panel').is_visible()
-            # Separate close controls must also clear the HUD toggle state.
-            def slide(kind,value):
-                page.locator('#alloc-'+kind).evaluate("""(el,val)=>{
-                  el.value=String(val);el.dispatchEvent(new Event('input',{bubbles:true}));
-                }""",value)
-            state=page.evaluate('''() => ({...__ANT_DEBUG__.game.workforce.shares})''')
-            assert state=={'forage':40,'nurse':20,'soldier':20},state
-            slide('forage',50)
-            assert page.evaluate('() => __ANT_DEBUG__.game.workforce.shares.forage')==50
-            assert inspect(page)['foragers']==page.evaluate('() => __ANT_DEBUG__.game.workforce.plan().forage')
-            slide('forage',40)
-            slide('nurse',30)
-            assert inspect(page)['nurses']==page.evaluate('() => __ANT_DEBUG__.game.workforce.plan().nurse')
-            slide('nurse',20)
+            # The new roster reads permanent castes, not percentage quotas.
+            assert page.locator('#caste-report table tbody tr').count()==6
+            assert '5' in page.locator('#caste-report .starter-row').inner_text()
+            assert not page.locator('.workforce-editor').is_visible()
             assert inspect(page)['foragers']==before['foragers']
             assert inspect(page)['nurses']==before['nurses']
-            assert page.locator('#alloc-general-label').inner_text().startswith('20%')
             page.locator('#close-colony').click()
             assert page.locator('#workforce-open').get_attribute('aria-expanded')=='false'
-            return {'foragers':before['foragers'],'nurses':before['nurses'],'percentages':state}
-        test('automatic workforce percentage allocation, quota sum and HUD',staff)
+            return {'foragers':before['foragers'],'nurses':before['nurses'],'castes':'permanent'}
+        test('permanent caste roster and HUD toggle are non-mutating',staff)
 
         def room_picker():
             page.locator('#tool-dig').click()
@@ -560,34 +549,21 @@ def audit_view(browser,html,spec,artifacts):
                 assert page.locator('#u6-roster .u6-unit.is-soldier').count()==initial
                 assert page.locator('#u6-roster button[data-action="recruit"]').count()==0
                 assert page.locator('#u6-roster button[data-action="demobilize"]').count()==0
-                # No per-unit micromanagement: percentage specifies a target while
-                # existing diggers, nurses and carriers finish assigned work.
-                before=page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')
-                target=min(100-page.evaluate('''() => {
-                  const s=__ANT_DEBUG__.game.workforce.shares;
-                  return s.forage+s.nurse;
-                }'''),before+10)
-                slider=page.locator('#u6-percent')
-                slider.evaluate("""(el,value)=>{
-                    el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
-                }""",target)
-                assert page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')==target
-                assert inspect(page)['slots']==page.evaluate('''() => __ANT_DEBUG__.game.workforce.plan().soldier''')
-                slider.evaluate("""(el,value)=>{
-                    el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
-                }""",before)
-                assert page.evaluate('''() => __ANT_DEBUG__.game.workforce.shares.soldier''')==before
+                # Permanent soldiers come from hatch orders, not hidden percentage sliders.
+                assert not page.locator('.u6-percent-control').is_visible()
+                assert inspect(page)['slots']==initial
+                assert page.evaluate("""() => __ANT_DEBUG__.game.colony.workers.every(
+                  ant=>ant.profession!=='soldier' || ant.combatRole==='soldier')""")
                 box=dialog.bounding_box()
                 assert box and box['x']>=-1 and box['y']>=-1 and box['x']+box['width']<=w+1 and box['y']+box['height']<=h+1,box
                 screenshot('military')
-                return {'units':count,'soldiers':initial,'dialog':box,
-                        'percent_before':before,'percent_probe':target}
+                return {'units':count,'soldiers':initial,'dialog':box,'castes':'permanent'}
             finally:
                 if dialog.evaluate('(el)=>el.open'):
                     page.locator('#u6-close').click()
                 assert dialog.is_hidden() and not dialog.evaluate('(el)=>el.open')
 
-        test('combat roster auto allocation and military modal bounds',army)
+        test('permanent soldier roster and military modal bounds',army)
 
         def styled_army_inspector():
             dialog=page.locator('#u6-dialog')
