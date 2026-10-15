@@ -9,9 +9,8 @@ import { createResourceNodes } from '../world/resources.js';
 import { ResourceEcology } from './resource-ecology.js';
 import { Weather } from './weather.js';
 import { MilestoneTracker } from './milestones.js';
-/** Worker assignment policy: editable shares plus a protected general-work remainder.
- * Only real workers count (not queen or brood). All integer quotas sum to N via
- * deterministic largest-remainder apportionment, stable on birth/death. */
+/** Compatibility adapter: percentage settings are no longer profession quotas.
+ * Actual jobs and troop headcounts derive only from permanent ant professions. */
 export class WorkforcePolicy {
   constructor(game) {
     this.game=game;
@@ -53,18 +52,16 @@ export class WorkforcePolicy {
     return counts;
   }
   reconcile() {
-    const n=this.game.colony.workers.length;
-    if(!this.dirty && n===this.lastPopulation)return;
-    const targets=this.plan(n);
     const {colony,lifecycle,combat}=this.game;
-    // Existing in-progress digging, resource trips, carried brood and construction
-    // are not cancelled by quotas. The original schedulers decide safe turnover.
-    if(!this.manual.has('forage')&&colony.forageSlots!==targets.forage)
-      colony.setForageSlots(targets.forage,true);
-    if(!this.manual.has('nurse')&&lifecycle.nurseSlots!==targets.nurse)
-      lifecycle.setNurseSlots(targets.nurse,true);
-    if(!this.manual.has('soldier')&&combat.soldierSlots!==targets.soldier)
-      combat.setSoldierSlots(targets.soldier,true);
+    const n=colony.workers.length;
+    const starters=colony.workers.filter(a=>a.profession==='starter'||!a.profession);
+    const nurses=colony.workers.filter(a=>a.profession==='nurse').length;
+    // No fixed specialist is ever reassigned, and no quota drafts soldiers.
+    // Recheck every tick: the caste mix can change without population changing.
+    if(!this.manual.has('nurse'))
+      lifecycle.nurseSlots=Math.min(n,nurses||(starters.length?1:colony.emergencyWorker('nurse')?1:0));
+    if(!this.manual.has('forage'))colony.forageSlots=Math.min(starters.length,2);
+    combat.soldierSlots=combat.soldiers.length;
     this.lastPopulation=n;this.dirty=false;
   }
 }

@@ -26,10 +26,49 @@ export class Colony {
     this.workers = offsets.map(([dx,dy],i) => {
       const x = center.x+dx, y=center.y+dy;
       if (!isWalkable(layer,x,y)) throw new Error('Worker spawned inside a wall');
-      return { id:`worker-${i+1}`, caste:'worker', layer:UNDERGROUND, x,y, facing:i%4, next:null, motion:0, path:[], orderId:null, state:'idle' };
+      return { id:`worker-${i+1}`, caste:'worker',profession:'starter',level:1, layer:UNDERGROUND, x,y, facing:i%4, next:null, motion:0, path:[], orderId:null, state:'idle' };
     });
   }
-  isForager(ant) { return this.forageSlots > 0 && this.workers.indexOf(ant) >= Math.max(0,this.workers.length-this.forageSlots); }
+  // At most one emergency substitute per missing civilian profession.
+  // Prefer surplus castes and never change the ant's permanent profession.
+  emergencyWorker(job) {
+    if(!['miner','forager','builder','nurse'].includes(job))return null;
+    if(this.workers.some(a=>a.profession===job||a.profession==='starter'||!a.profession))return null;
+    const eligible=this.workers.filter(a=>a.profession!=='soldier'&&a.combatRole!=='soldier');
+    const counts=new Map();
+    for(const ant of eligible)counts.set(ant.profession,(counts.get(ant.profession)||0)+1);
+    return eligible.reduce((best,ant)=>{
+      if(!best)return ant;
+      const a=counts.get(ant.profession),b=counts.get(best.profession);
+      return a>b||(a===b&&String(ant.id)>String(best.id))?ant:best;
+    },null);
+  }
+  isForager(ant) {
+    if(!this.workers.includes(ant)||ant.combatRole==='soldier'||ant.profession==='soldier')return false;
+    if(ant.profession==='forager')return true;
+    if(this.workers.some(a=>a.profession==='forager'))return false;
+    if(ant.profession==='starter'||!ant.profession){
+      const general=this.workers.filter(a=>!a.combatRole&&(!a.profession||a.profession==='starter'));
+      return this.forageSlots>0&&general.indexOf(ant)>=Math.max(0,general.length-this.forageSlots);
+    }
+    return this.emergencyWorker('forager')===ant;
+  }
+  canWork(ant,job){
+    if(!this.workers.includes(ant)||!['miner','forager','builder','nurse','soldier'].includes(job))return false;
+    if(job==='soldier')return ant.profession==='soldier';
+    if(ant.profession==='soldier'||ant.combatRole==='soldier')return false;
+    if(ant.profession==='starter'||!ant.profession)return true;
+    if(ant.profession===job)return true;
+    return this.emergencyWorker(job)===ant;
+  }
+  workRate(ant,job){
+    const level=Math.max(1,Math.min(5,ant.level||1));
+    const main=ant.profession===job;
+    if(!main&&ant.profession!=='starter')return this.canWork(ant,job)?0.5:0;
+    if(job==='miner')return 1+0.2*(level-1);
+    if(job==='builder')return 1+0.25*(level-1);
+    return 1;
+  }
   setForageSlots(count,fromPolicy=false) { if (!Number.isInteger(count) || count<0 || count>this.workers.length) throw new RangeError('Invalid forager count'); if(!fromPolicy)this.workforce?.disableAuto('forage'); this.forageSlots=count; }
   get population() { return this.workers.length + (this.queen.alive ? 1 : 0); }
   get pendingCount() { return this.orders.size; }
@@ -100,7 +139,7 @@ export class Colony {
     const layer=this.world.layers[UNDERGROUND];
     if(this.orders.size>=MAX_ORDERS||[...this.orders.values()].some(job=>job.auto))return false;
     const targets=[...this.orders.values()].filter(job=>!job.auto);
-    const workers=this.workers.filter(ant=>ant.layer===UNDERGROUND&&!this.isForager(ant)&&ant.state==='idle');
+    const workers=this.workers.filter(ant=>ant.layer===UNDERGROUND&&!this.isForager(ant)&&ant.state==='idle'&&this.canWork(ant,'miner'));
     if(!targets.length||!workers.length)return false;
     const route=findExcavationRoute(layer,workers,targets);
     if(!route){this.accessBlocked=true;return false;}
@@ -189,7 +228,7 @@ export class Colony {
     this.release(ant);
   }
   chooseOrder(ant) {
-    if (ant.state!=='idle' || this.isForager(ant)) return;
+    if (ant.state!=='idle' || this.isForager(ant)||!this.canWork(ant,'miner')) return;
     const layer=this.world.layers[UNDERGROUND], reach=reachablePaths(layer,ant);
     if(!reach) return;
     let best=null;
@@ -221,7 +260,7 @@ export class Colony {
         if(ant.orderId==null) continue;
       }
       const job=this.ordersById.get(ant.orderId);
-      if(!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.abandonOrder(ant,job);continue;}
+      if(ant.profession==='soldier'||ant.combatRole==='soldier'||!job || job.workerId!==ant.id || !isDiggable(layer,job.x,job.y)) {this.abandonOrder(ant,job);continue;}
       if(ant.path.length || ant.next) {
         ant.state='walking';
         if(!ant.next) {
@@ -251,7 +290,7 @@ export class Colony {
       if(distance!==1 || !isWalkable(layer,ant.x,ant.y)) {
         this.abandonOrder(ant,job);continue;
       }
-      ant.state='digging';job.status='digging';job.progress++;
+      ant.state='digging';job.status='digging';job.progress+=this.workRate(ant,'miner');
       if(job.progress>=digTicks(job.terrain)) {
         writeCell(layer,job.x,job.y,TERRAINS.TUNNEL);
         this.orders.delete(key(job.x,job.y));this.ordersById.delete(job.id);

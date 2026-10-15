@@ -42,10 +42,12 @@ export function antAtPointer(game,camera,p,width,height) {
   return nearest;
 }
 export function antRole(ant) {
-  return ant.caste==='queen'?'นางพญา':
-    ant.combatRole==='soldier'?`มดทหาร · กอง ${ant.squadId==='B'?'B':'A'}`:
-    ant.state==='nursing'?'มดพี่เลี้ยง':
-    ant.state?.startsWith('forage-')?'มดหาอาหาร':'มดงาน';
+  if(ant.caste==='queen')return 'นางพญา';
+  const names={starter:'มดเริ่มต้น',miner:'มดขุด',forager:'มดหาอาหาร',
+    builder:'มดช่าง',nurse:'มดพี่เลี้ยง',soldier:'มดทหาร'};
+  const name=names[ant.profession]||
+    (ant.combatRole==='soldier'?'มดทหาร':ant.state==='nursing'?'มดพี่เลี้ยง':'มดงาน');
+  return name+' · Lv.'+(ant.level||1)+(ant.combatRole==='soldier'?' · กอง '+(ant.squadId==='B'?'B':'A'):'');
 }
 export function antState(ant) {
   if(ant.caste==='queen')return ant.alive?'ประจำรัง':'สิ้นชีวิต';
@@ -59,7 +61,10 @@ function title(ant) {
 }
 function details(game,ant) {
   const parts=[antRole(ant),antState(ant),`ตำแหน่ง ${ant.x}, ${ant.y}`];
-  if(ant.combatRole==='soldier') parts.push(`HP ${Math.max(0,ant.combatHP??16)}/16`);
+  if(ant.combatRole==='soldier') {
+    const max=game.combat?.maxHP?.(ant)??16;
+    parts.push(`HP ${Math.max(0,Math.min(max,ant.combatHP??max))}/${max}`);
+  }
   if(ant.caste==='queen' && game.combat) parts.push(`HP ${game.combat.queenHP}/48`);
   if(ant.cargo?.amount)parts.push(`ขน${CARGO[ant.cargo.type]??'ทรัพยากร'} ${ant.cargo.amount}`);
   if(ant.broodCargo)parts.push('กำลังขนตัวอ่อน');

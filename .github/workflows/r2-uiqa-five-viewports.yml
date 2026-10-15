@@ -1,6 +1,9 @@
 name: R2 Browser QA - Five Real Viewports
 
 on:
+  push:
+    branches:
+      - feat/nursery-caste-v1-integration
   pull_request:
     branches: [main]
     paths:

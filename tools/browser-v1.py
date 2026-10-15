@@ -34,7 +34,7 @@ with sync_playwright() as p:
         page.set_content(html, wait_until='domcontentloaded')
         page.wait_for_function('window.__ANT_DEBUG__ && __ANT_DEBUG__.game.population === 6')
         assert page.locator('#game-canvas').is_visible(), name
-        assert page.locator('#forage-count').inner_text() == '40% · 2/5', name
+        assert page.locator('#forage-count').inner_text() == 'มดหาอาหาร 0', name
         assert page.evaluate('''() => {
           const r=document.querySelector('.layer-switch').getBoundingClientRect();
           return Math.abs(r.x+r.width/2-innerWidth/2)<2;
@@ -50,14 +50,11 @@ with sync_playwright() as p:
         assert page.locator('#nurse-count').is_visible(), name
         page.locator('#workforce-open').click()
         assert page.locator('#colony-panel').is_visible()
-        page.locator('#alloc-forage').evaluate('(el)=>{el.value="50";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#forage-count').inner_text() == '50% · 3/5', name
-        page.locator('#alloc-forage').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#forage-count').inner_text() == '40% · 2/5', name
-        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#nurse-count').inner_text() == '40% · 2/5', name
-        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#nurse-count').inner_text() == '20% · 1/5', name
+        assert page.locator('#caste-report').is_visible(), name
+        assert page.locator('#caste-report table tbody tr').count() == 6, name
+        assert '5' in page.locator('#caste-report .starter-row').inner_text(), name
+        assert page.locator('#forage-count').inner_text() == 'มดหาอาหาร 0', name
+        assert page.locator('#nurse-count').inner_text() == 'มดพี่เลี้ยง 0', name
         page.locator('#close-colony').click()
         page.locator('#colony-button').click()
         assert page.locator('#colony-panel').is_visible(), name

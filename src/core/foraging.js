@@ -26,6 +26,13 @@ export class Foraging {
     this.deliveryTargets = new WeakMap();
   }
   capacityFor(type) { return this.rooms ? this.rooms.capacityFor(type) : 9999; }
+  carryCapacityFor(ant){
+    if(ant.profession==='forager'){
+      const level=Number.isInteger(ant.level)?Math.max(1,Math.min(5,ant.level)):1;
+      return [3,3,4,4,5][level-1];
+    }
+    return CARRY_CAPACITY;
+  }
   get waitingCount() { return this.colony.workers.filter(a => a.state==='forage-wait-storage').length; }
   get activeCount() { return this.colony.workers.filter(a => a.state.startsWith('forage-')).length; }
   get remaining() { return this.nodes.reduce((sum,node) => sum+node.amount,0); }
@@ -127,7 +134,7 @@ export class Foraging {
       if (!Number.isFinite(free) || free<=0) continue;
       const distance=toSurface.distance(node.x,node.y);
       if (distance<0)continue;
-      const quantity=Math.min(CARRY_CAPACITY,Math.floor(free),Math.floor(space[node.type]));
+      const quantity=Math.min(this.carryCapacityFor(ant),Math.floor(free),Math.floor(space[node.type]));
       if (quantity<=0)continue;
       // Normalize stocks by real capacity, include all cargo and claims, then trade off walking.
       const saturation=(stock[node.type]+pending[node.type])/Math.max(1,this.capacityFor(node.type));
@@ -142,7 +149,8 @@ export class Foraging {
   // Preserve the original public node-selection interface for callers/tests.
   pickNode(ant) { return this.chooseSource(ant)?.node || null; }
   beginTrip(ant) {
-    if(ant.orderId!=null || ant.state!=='idle' || !this.colony.isForager(ant) ||
+    if(!this.colony.workers.includes(ant)||ant.orderId!=null || ant.state!=='idle' ||
+       !this.colony.isForager(ant)||!this.colony.canWork(ant,'forager') ||
        ant.cargo?.amount || ant.layer!==UNDERGROUND || this.tickCount<(this.retryAt.get(ant)||0))return;
     // Cosmetic ambient strolls must not own the first step of a real resource trip.
     this.colony.stopAmbient?.(ant);
@@ -248,7 +256,7 @@ export class Foraging {
         const node=this.nodes.find(n=>n.id===ant.resourceId);
         if(!node || !at(ant,node) || ant.layer!==SURFACE){this.failTrip(ant);continue;}
         if(++ant.gatherTicks<GATHER_TICKS)continue;
-        const quantity=Math.max(0,Math.min(ant.reservedAmount,node.amount,CARRY_CAPACITY));
+        const quantity=Math.max(0,Math.min(ant.reservedAmount,node.amount,this.carryCapacityFor(ant)));
         this.releaseReservation(ant);
         if(quantity<=0){this.setPhase(ant,'return-empty');continue;}
         node.amount-=quantity;

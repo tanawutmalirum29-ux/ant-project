@@ -18,7 +18,7 @@ const mass=g=>g.foraging.nodes.reduce((a,b)=>a+b.amount,0)+
  ['consumed','lost'].reduce((a,k)=>a+Object.values(g.lifecycle[k]).reduce((x,y)=>x+y,0),0)-
  Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 
-test('RESIZE-01 area-scaled cost, ticks, storage and brood capacity preserve 2x2 legacy semantics',()=>{
+test('RESIZE-01 area-scaled rooms preserve construction and bounded physical brood slots',()=>{
  const def=ROOM_CATALOG.food_store,small=roomPlan('food_store');
  assert.deepEqual(small.cost,def.cost);assert.equal(small.ticks,90);
  assert.equal(small.capacity.carbs,40);assert.equal(small.area,4);
@@ -26,7 +26,7 @@ test('RESIZE-01 area-scaled cost, ticks, storage and brood capacity preserve 2x2
  assert.deepEqual(large.cost,{carbs:6,protein:3});
  assert.equal(large.ticks,135);assert.equal(large.capacity.carbs,60);
  assert.equal(large.capacity.protein,60);
- assert.equal(roomPlan('nursery',4,3).broodSlots,24);
+ assert.equal(roomPlan('nursery',4,3).broodSlots,12);
  assert.equal(roomPlan('water_store',3,4).capacity.water,150);
  assert.equal(roomPlan('guard',1,4).ticks,85);
  assert.equal(roomPlan('rest',1,1),null);
@@ -77,16 +77,20 @@ test('RESIZE-03 full rectangle validates overlap, excavation, connected reachabi
  writeCell(l,clear.x,clear.y,old);
  assert.equal(g.rooms.rooms.length,2,'invalid rectangles must not produce partial rooms');
 });
-test('RESIZE-04 large nurse floor capacity and no stacking more than two brood per tile',()=>{
+test('RESIZE-04 large nursery reserves unique physical tiles without stacking',()=>{
  const g=setup('nursery-large-floor'),q=g.colony.queen;
  const a=g.rooms.queue('nursery',q.x-4,q.y-1,2,3);
  assert.equal(a.ok,true);
- assert.equal(a.room.broodSlots,12);
+ assert.equal(a.room.broodSlots,6);
  run(g,260);
  assert.equal(a.room.status,'ready');
- assert.equal(g.rooms.broodCapacity,30);
+ assert.equal(g.rooms.broodCapacity,6);
  g.lifecycle.setNurseSlots(1);
- run(g,420);
+ const first=g.lifecycle.queueEgg(a.room.id,'miner',1);
+ const second=g.lifecycle.queueEgg(a.room.id,'forager',1);
+ assert.ok(first.ok&&second.ok);
+ assert.notDeepEqual(first.order.slot,second.order.slot);
+ run(g,520);
  const brood=g.lifecycle.brood.filter(b=>b.roomId===a.room.id);
  assert.ok(brood.length>0);
  const counts=new Map;
@@ -94,7 +98,7 @@ test('RESIZE-04 large nurse floor capacity and no stacking more than two brood p
    assert.ok(b.x>=a.room.x&&b.x<a.room.x+2&&b.y>=a.room.y&&b.y<a.room.y+3);
    const id=b.x+','+b.y;counts.set(id,(counts.get(id)||0)+1);
  }
- assert.ok([...counts.values()].every(n=>n<=2));
+ assert.ok([...counts.values()].every(n=>n<=1),'only one brood per physical tile');
 });
 test('RESIZE-05 cancel and reconnect large rooms keep materials conserved and effects gated',()=>{
  const g=setup('large-cancel'),q=g.colony.queen,x=q.x-4,y=q.y-1;

@@ -17,34 +17,54 @@ with sync_playwright() as pw:
         page.set_content(html,wait_until='domcontentloaded')
         page.wait_for_function('window.__ANT_DEBUG__?.game?.lifecycle')
         assert page.locator('#population').inner_text()=='6'
-        assert page.locator('#nurse-count').inner_text()=='20% · 1/5'
+        assert page.locator('#nurse-count').inner_text()=='มดพี่เลี้ยง 0'
         assert page.locator('#brood-summary').inner_text()=='ไข่ 0 · ตัวอ่อน 0 · ดักแด้ 0'
         page.locator('#colony-button').click()
         assert page.locator('#colony-panel').is_visible()
         assert page.locator('#report-workers').inner_text()=='5'
         page.locator('#close-colony').click()
         assert not page.locator('#colony-panel').is_visible()
+        # The permanent caste roster replaces the legacy percentage controls.
         page.locator('#workforce-open').click()
-        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#nurse-count').inner_text()=='40% · 2/5'
-        page.locator('#alloc-nurse').evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.locator('#nurse-count').inner_text()=='20% · 1/5'
+        assert page.locator('#caste-report table tbody tr').count()==6
+        assert '5' in page.locator('#caste-report .starter-row').inner_text()
+        assert not page.locator('.workforce-editor').is_visible()
         page.locator('#close-colony').click()
-        page.evaluate('''() => {const g=__ANT_DEBUG__.game;g.foraging.inventory.protein=30;g.foraging.inventory.carbs=35;g.foraging.inventory.water=30;g.colony.setForageSlots(0);for(let i=0;i<930;i++)g.update(100);__ANT_DEBUG__.ui.updateMetrics();}''')
-        births=page.evaluate('''() => __ANT_DEBUG__.game.lifecycle.births''')
-        assert births>=1,(name,births)
-        assert int(page.locator('#population').inner_text())>6
-        page.locator('#colony-button').click()
-        assert int(page.locator('#report-workers').inner_text())>=6
-        assert int(page.locator('#report-births').inner_text().split('/')[0].strip())>=1
-        page.locator('#close-colony').click()
-        assert 'ไข่' in page.locator('#brood-summary').inner_text()
-        assert page.locator('#queen-status').inner_text()
-        page.evaluate('''() => {const {game,ui}=__ANT_DEBUG__;ui.select({layer:'underground',x:game.colony.queen.x,y:game.colony.queen.y});}''')
-        assert page.locator('#selection-brood').is_visible()
-        assert 'ตัวอ่อน' in page.locator('#selection-brood').inner_text()
+        # No automatic eggs or births can occur in the absence of manual Nursery orders.
+        page.evaluate('''() => {
+          const g=__ANT_DEBUG__.game;
+          g.colony.setForageSlots(0);
+          for(let i=0;i<930;i++)g.update(100);
+          __ANT_DEBUG__.ui.updateMetrics();
+        }''')
+        births=page.evaluate('() => __ANT_DEBUG__.game.lifecycle.births')
+        assert births==0,(name,births,'auto birth regressed')
+        # Queue and cancel a real hatch order with a connected Nursery in a browser fixture.
+        page.evaluate('''() => {
+          const {game,ui}=__ANT_DEBUG__,q=game.colony.queen;
+          game.foraging.inventory={carbs:24,protein:24,water:24};
+          game.rooms.syncInventory();
+          const room={id:'u4-browser-nursery',type:'nursery',x:q.x-4,y:q.y,
+            width:2,height:2,status:'ready',connected:true,progress:65,ticks:65,
+            workerId:null,broodSlots:4,stock:{carbs:0,protein:0,water:0},
+            cost:{carbs:3,protein:2},capacity:{}};
+          game.rooms.rooms.push(room);game.rooms.updateConnectivity();
+          ui.select({layer:'underground',x:room.x,y:room.y});
+        }''')
+        assert page.locator('#nursery-panel').is_visible(),name
+        page.locator('#nursery-profession').select_option('miner')
+        page.locator('#nursery-level').select_option('1')
+        page.locator('#nursery-queue').click()
+        assert page.evaluate('__ANT_DEBUG__.game.lifecycle.eggOrders.length')==1,name
+        assert 'รอนางพญา' in page.locator('#nursery-orders').inner_text()
+        page.locator('#nursery-orders button[data-egg-id]').click()
+        assert page.evaluate('__ANT_DEBUG__.game.lifecycle.eggOrders.length')==0,name
+        # The Nursery drawer intentionally hides the older selection card;
+        # close the drawer first so the selection close action is tappable.
+        page.locator('#nursery-close').click()
+        assert page.locator('#selection-card').is_visible(),name
         page.locator('#selection-close').click()
-        assert not page.locator('#selection-card').is_visible()
+        assert page.locator('#queen-status').inner_text()
         page.locator('#surface-button').click()
         assert page.locator('#region-name').inner_text()=='เหนือผืนป่า'
         page.locator('#underground-button').click()

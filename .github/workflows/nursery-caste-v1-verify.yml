@@ -1,0 +1,54 @@
+name: Nursery Caste V1 - Focused Integration Check
+on:
+  push:
+    branches:
+      - feat/nursery-caste-v1-integration
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nursery-core-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: New Nursery/Caste invariants
+        run: node --test tests/nursery-caste.test.mjs
+      - name: Production build
+        run: npm run build
+  full-native-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Full game regression tests
+        run: npm test
+      - name: Production build after regressions
+        run: npm run build
+  browser-nursery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium automation
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Real browser hatch UI at 320px, 390px and desktop
+        run: python tools/browser-nursery.py

@@ -294,7 +294,9 @@ test('MILESTONE-CORE-10 real battlefield kill is observed, without spawning rewa
   const game = new Game('combat');
   game.colony.setForageSlots(0);
   game.lifecycle.setNurseSlots(0);
-  game.combat.setSoldierSlots(2);
+  game.lifecycle.promote({profession:'soldier',level:1});
+  game.lifecycle.promote({profession:'soldier',level:1});
+  game.combat.allocate();
   const enemy = game.combat.spawn('beetle', UNDERGROUND, game.colony.queen.x, game.colony.queen.y - 4);
   assert.ok(enemy, 'test arranges an actual enemy through the preexisting combat API');
   for (let i = 0; i < 300 && game.combat.defeated === 0; i++) step(game);

@@ -10,6 +10,11 @@ const run = (game, ticks = 1) => {
   for (let i = 0; i < ticks; i++) assert.equal(game.update(100), 1);
 };
 const pos = ant => ({ layer: ant.layer, x: ant.x, y: ant.y });
+const hatchSoldiers = (game, count) => {
+  for(let i=0;i<count;i++)game.lifecycle.promote({profession:'soldier',level:1,
+    x:game.colony.queen.x,y:game.colony.queen.y});
+  return game.combat.soldiers;
+};
 const distance = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 function setup(seed) {
   const game = new Game(seed);
@@ -189,7 +194,7 @@ test('P1-AI-01 A5 | forager reassignment while carrying never drops/duplicates c
   assert.ok(carrier.cargo?.amount > 0, 'precondition: a forager must have real gathered cargo');
   const cargoBefore = carrier.cargo.amount;
   game.colony.setForageSlots(0);
-  assert.equal(game.combat.setSoldierSlots(4), 4);
+  assert.equal(hatchSoldiers(game,4).length,4);
   assert.ok(!game.combat.soldiers.includes(carrier), 'busy carrier must not be conscripted');
   assert.ok(carrier.cargo.amount === cargoBefore);
   for (let i = 0; i < 240; i++) {
@@ -288,7 +293,7 @@ test('P1-AI-01 B4 | pause freezes ant, combat, job, source and clock states', ()
     before, 'simulation snapshot should be identical apart from requested speed');
 });
 
-test('P1-AI-01 C1 | individual recruit/demobilize respects busy miners and foragers', () => {
+test('P1-AI-01 C1 | busy miners/foragers cannot recruit; born soldiers cannot demobilize', () => {
   const game = setup('audit-recruit-11');
   game.colony.setForageSlots(1);
   game.colony.queueRectangle(frontier(game, 2), frontier(game, 2));
@@ -298,36 +303,36 @@ test('P1-AI-01 C1 | individual recruit/demobilize respects busy miners and forag
   assert.ok(miner);
   assert.equal(game.combat.recruit(miner), false);
   assert.equal(game.combat.recruit(forager), false);
-  const candidate = game.combat.availableRecruits[0];
+  const candidate = hatchSoldiers(game,1)[0];
   assert.ok(candidate);
-  assert.equal(game.combat.recruit(candidate), true);
+  assert.equal(candidate.squadId,'A');
   assert.equal(game.combat.recruit(candidate), false);
-  assert.equal(game.combat.demobilize(candidate), true);
   assert.equal(game.combat.demobilize(candidate), false);
-  assert.equal(candidate.state, 'idle');
+  assert.equal(candidate.state, 'combat-guard');
+  assert.equal(game.combat.soldiers.length,1);
   orderInvariants(game);
 });
 
-test('P1-AI-01 C2 | soldier target transitions 0, 1, 2, 13, 14 never manufacture ants', () => {
+test('P1-AI-01 C2 | 0, 1, 2, 13, 14 real hatched soldiers do not conscript civilians', () => {
   for (const count of [0, 1, 2, 13, 14]) {
     const game = setup('audit-soldier-target-' + count);
-    grow(game, 15);
-    const ids = game.colony.workers.map(a => a.id);
-    assert.equal(game.combat.setSoldierSlots(count), count);
-    assert.equal(game.combat.soldiers.length, count);
-    assert.deepEqual(game.colony.workers.map(a => a.id), ids);
-    assert.equal(new Set(game.combat.soldiers.map(a => a.id)).size, count);
+    const before=game.colony.workers.length;
+    assert.equal(hatchSoldiers(game,count).length,count);
+    const ids=game.colony.workers.map(a=>a.id);
+    assert.equal(ids.length,before+count);
+    assert.equal(new Set(ids).size,ids.length);
+    assert.equal(new Set(game.combat.soldiers.map(a => a.id)).size,count);
     assert.ok(game.combat.soldiers.every(a => a.orderId == null && !a.state.startsWith('forage-')));
-    assert.equal(game.combat.setSoldierSlots(0), 0);
-    assert.equal(game.combat.soldiers.length, 0);
-    assert.deepEqual(game.colony.workers.map(a => a.id), ids);
+    assert.equal(game.combat.setSoldierSlots(0),count);
+    assert.equal(game.combat.soldiers.length,count);
+    assert.deepEqual(game.colony.workers.map(a=>a.id),ids);
+    assert.equal(game.colony.workers.filter(a=>a.profession==='starter').length,5);
   }
 });
 
 test('P1-AI-01 C3 | 13 defenders get distinct reachable formation goals', () => {
   const game = setup('audit-formation-13');
-  grow(game, 15);
-  assert.equal(game.combat.setSoldierSlots(13), 13);
+  assert.equal(hatchSoldiers(game,13).length,13);
   const queen = game.colony.queen;
   assert.equal(game.combat.setRally(UNDERGROUND, queen.x, queen.y), true);
   const goals = game.combat.soldiers.map(a => game.combat.getRallyGoal(a));
@@ -337,8 +342,7 @@ test('P1-AI-01 C3 | 13 defenders get distinct reachable formation goals', () => 
 
 test('P1-AI-01 C4 | 14 defenders must not be assigned the same formation tile', () => {
   const game = setup('audit-formation-14');
-  grow(game, 15);
-  assert.equal(game.combat.setSoldierSlots(14), 14);
+  assert.equal(hatchSoldiers(game,14).length,14);
   const queen = game.colony.queen;
   assert.equal(game.combat.setRally(UNDERGROUND, queen.x, queen.y), true);
   const goals = game.combat.soldiers.map(a => game.combat.getRallyGoal(a));
@@ -348,7 +352,7 @@ test('P1-AI-01 C4 | 14 defenders must not be assigned the same formation tile', 
 
 test('P1-AI-01 C5 | surface rally uses the real portal and remains cardinal', () => {
   const game = setup('audit-surface-rally-15');
-  game.combat.setSoldierSlots(2);
+  hatchSoldiers(game,2);
   const entry = game.world.entrances[0].surface;
   assert.equal(game.combat.setRally(SURFACE, entry.x + 3, entry.y), true);
   const crossings = auditMovement(game, 160);
@@ -358,7 +362,7 @@ test('P1-AI-01 C5 | surface rally uses the real portal and remains cardinal', ()
 
 test('P1-AI-01 C6 | changing underground rally while en route does not teleport troops', () => {
   const game = setup('audit-rally-change-16');
-  game.combat.setSoldierSlots(2);
+  hatchSoldiers(game,2);
   const q = game.colony.queen;
   assert.equal(game.combat.setRally(UNDERGROUND, q.x + 3, q.y), true);
   auditMovement(game, 9);
@@ -379,9 +383,9 @@ test('P1-AI-01 C7 | disconnected rally fails and preserves valid previous select
   assert.deepEqual(game.combat.rally, previous);
 });
 
-test('P1-AI-01 C8 | surface retreat is physical; injury survives demobilization', () => {
+test('P1-AI-01 C8 | surface retreat is physical; permanent injured soldier keeps HP', () => {
   const game = setup('audit-retreat-18');
-  game.combat.setSoldierSlots(1);
+  hatchSoldiers(game,1);
   const soldier = game.combat.soldiers[0];
   const entry = game.world.entrances[0].surface;
   assert.equal(game.combat.setRally(SURFACE, entry.x + 3, entry.y), true);
@@ -393,9 +397,9 @@ test('P1-AI-01 C8 | surface retreat is physical; injury survives demobilization'
   assert.equal(soldier.layer, UNDERGROUND);
   assert.ok(soldier.combatHP >= 5 && soldier.combatHP <= COMBAT.soldierHP);
   const health = soldier.combatHP;
-  assert.equal(game.combat.demobilize(soldier), true);
+  assert.equal(game.combat.demobilize(soldier), false);
   assert.equal(soldier.combatHP, health);
-  assert.equal(game.combat.recruit(soldier), true);
+  assert.equal(game.combat.recruit(soldier), false);
   assert.equal(soldier.combatHP, health);
 });
 
