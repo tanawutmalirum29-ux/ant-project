@@ -5,6 +5,8 @@ import { UI } from './ui/app.js';
 import { CombatControls } from './ui/combat-controls.js';
 import { MilestonesPanel } from './ui/milestones-panel.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
+import { createRenovationShell } from './ui/renovation/shell.js';
+import { UIRenovationAdapter } from './ui/renovation/ui-adapter.js';
 
 // Suppress browser context menus and selection handles on game UI only.
 // Do not cancel touchstart/pointerdown: the map, scrolling panels and buttons
@@ -34,6 +36,9 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
+// G1 foundation is deliberately dormant until six feature views are integrated.
+const renovationShell = createRenovationShell();
+const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
 milestonesPanel = new MilestonesPanel(game, {
   onOpen: () => {
     // A report and an active drag/room picker must not compete for touch targets.
@@ -81,7 +86,7 @@ function frame(now) {
     steps = 0;
     statsWindowStart = now;
   }
-  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); milestonesPanel.render(); lastHud = now; }
+  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); milestonesPanel.render(); renovationAdapter.notify(); lastHud = now; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => {
@@ -89,4 +94,4 @@ document.addEventListener('visibilitychange', () => {
 });
 requestAnimationFrame(frame);
 // Opt-in diagnostics in the browser console, never a second game loop.
-window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer };
+window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter };
