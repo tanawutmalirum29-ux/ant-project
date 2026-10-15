@@ -154,8 +154,14 @@ def run(page,engine,w,h):
     assert list_rect and list_rect['width']>40 and list_rect['height']>40,(engine,w,h,'nursery scroll area absent',list_rect)
     scroll_x=min(w-10,max(10,list_rect['x']+list_rect['width']/2))
     scroll_y=min(h-10,max(10,list_rect['y']+min(list_rect['height']/2,75)))
-    page.mouse.move(scroll_x,scroll_y)
-    page.mouse.wheel(0,1250)
+    if engine=='webkit' and touch:
+        # Playwright 1.57 WebKit mobile explicitly rejects Mouse.wheel().
+        # Controlled scroll setup only; the CANCEL TAP remains a true touch
+        # gesture and is hit-tested. Do NOT count this as a touch-swipe test.
+        page.evaluate("document.querySelector('.ui04-scroll').scrollTop=10000")
+    else:
+        page.mouse.move(scroll_x,scroll_y)
+        page.mouse.wheel(0,1250)
     page.wait_for_timeout(110)
     actual_tap(page,'.ui04-order .ui04-cancel',touch)
     refunded=state(page)
