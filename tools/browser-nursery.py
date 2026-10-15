@@ -1,0 +1,62 @@
+"""Focused real-Chromium Nursery UI smoke on production HTTP ES modules."""
+import subprocess
+import time
+from urllib.request import urlopen
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+ROOT=Path(__file__).resolve().parents[1]
+proc=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
+try:
+    for _ in range(60):
+        try:
+            with urlopen('http://127.0.0.1:4173/',timeout=1) as response:
+                assert response.status==200
+            break
+        except Exception:
+            time.sleep(.2)
+    else: raise AssertionError('Node dev server failed')
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--no-sandbox'])
+        for width,height in [(320,568),(390,844),(1440,900)]:
+            page=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1)
+            errors=[]
+            page.on('pageerror',lambda e:errors.append(str(e)))
+            page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+            page.wait_for_function('Boolean(window.__ANT_DEBUG__)',timeout=20000)
+            page.evaluate('''() => {
+              const {game,ui}=__ANT_DEBUG__,q=game.colony.queen;
+              game.foraging.inventory={carbs:24,protein:24,water:24};
+              game.rooms.syncInventory();
+              const room={id:'browser-nursery',type:'nursery',x:q.x-4,y:q.y,
+                width:2,height:2,status:'ready',connected:true,progress:65,ticks:65,
+                workerId:null,broodSlots:4,stock:{carbs:0,protein:0,water:0},
+                cost:{carbs:3,protein:2},capacity:{}};
+              game.rooms.rooms.push(room);
+              game.rooms.updateConnectivity();
+              ui.select({layer:'underground',x:room.x,y:room.y});
+            }''')
+            drawer=page.locator('#nursery-panel')
+            assert drawer.is_visible(),f'Nursery drawer hidden at {width}px'
+            box=drawer.bounding_box()
+            assert box and box['x']>=0 and box['x']+box['width']<=width+1,(width,box)
+            assert box['y']>=0 and box['y']+box['height']<=height+1,(height,box)
+            page.locator('#nursery-profession').select_option('nurse')
+            page.locator('#nursery-level').select_option('3')
+            page.locator('#nursery-queue').click()
+            orders=page.evaluate('''() => __ANT_DEBUG__.game.lifecycle.eggOrders.map(o=>({profession:o.profession,level:o.level,status:o.status}))''')
+            assert orders==[{'profession':'nurse','level':3,'status':'QUEUED'}],(width,orders)
+            page.locator('#nursery-orders button[data-egg-id]').click()
+            assert page.evaluate('__ANT_DEBUG__.game.lifecycle.eggOrders.length')==0
+            page.locator('#nursery-close').click()
+            assert not drawer.is_visible(),width
+            page.locator('#colony-button').click()
+            assert page.locator('#caste-report').is_visible(),width
+            assert not errors,(width,errors)
+            print(f'Nursery browser {width}x{height}: PASS')
+            page.close()
+        browser.close()
+finally:
+    proc.terminate()
+    try:proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:proc.kill()
