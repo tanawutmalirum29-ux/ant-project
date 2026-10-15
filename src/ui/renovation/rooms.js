@@ -22,6 +22,8 @@ export function mount(container,{view,actions,overlay,subscribe}){
  if(!container||!actions||!overlay||typeof subscribe!=='function')
    throw new TypeError('UI-05 requires the G1 feature interface');
  const d=container.ownerDocument;
+ const priorPointerEvents=container.style.pointerEvents;
+ container.style.pointerEvents='none';
  const root=make(d,'section','ui05-root');root.hidden=true;
  root.setAttribute('aria-label','เครื่องมือขุดและสร้างห้อง');
  const header=make(d,'header','ui05-header');
@@ -231,5 +233,5 @@ export function mount(container,{view,actions,overlay,subscribe}){
    render();
  });
  render();
- return ()=>{disposed=true;unsubscribe();unregister();container.replaceChildren();};
+ return ()=>{disposed=true;unsubscribe();unregister();container.style.pointerEvents=priorPointerEvents;container.replaceChildren();};
 }
