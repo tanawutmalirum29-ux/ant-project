@@ -21,3 +21,20 @@ jobs:
         run: node --test tests/nursery-caste.test.mjs
       - name: Production build
         run: npm run build
+  browser-nursery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium automation
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Real browser hatch UI at 320px, 390px and desktop
+        run: python tools/browser-nursery.py
