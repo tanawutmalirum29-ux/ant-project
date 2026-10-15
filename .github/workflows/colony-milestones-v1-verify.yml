@@ -1,0 +1,542 @@
+# COLONY-MILESTONES-V1 / CEO M000070 / DIR-A M000071
+# Sole authorized author: TL-A1. This workflow belongs ONLY to the non-main integration branch.
+name: Colony Milestones V1 - Pinned Candidate QA
+on:
+  push:
+    branches:
+      - feat/colony-milestones-v1-integration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: colony-milestones-v1-integration-qa
+  cancel-in-progress: false
+
+env:
+  CORE_SHA: 7156061f5295c0278c99016297eee8ab949021eb
+  UI_SHA: 9dd4d7499e117ed725e82649d1a000d7f6fd3ad3
+  BASELINE_SHA: 18f5c65690f5f84ff7f06a0f72d8b3afb43fd386
+
+jobs:
+  pinned-native-and-real-browser-qa:
+    name: Native suites and real-browser candidate QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Checkout exact integration push commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prove checkout pin PR heads and exclusive changed files
+        id: preflight
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p qa-evidence
+          exec > >(tee qa-evidence/00-preflight.log) 2>&1
+          echo "RUN_URL=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "EVENT=$GITHUB_EVENT_NAME REF=$GITHUB_REF GITHUB_SHA=$GITHUB_SHA"
+          echo "CHECKED_OUT_SHA=$(git rev-parse HEAD)"
+          echo "NODE_VERSION=$(node --version)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = "refs/heads/feat/colony-milestones-v1-integration"
+          test "$GITHUB_REPOSITORY" = "tanawutmalirum29-ux/ant-project"
+          # GitHub may auto-delete source branches immediately after PR merge.
+          # The canonical read-only PR refs continue to name their exact heads.
+          # Fetch both PR refs (not deletable feature branch refs), then assert
+          # their SHAs; post-merge also requires both as actual ancestors below.
+          git fetch --no-tags origin refs/pull/123/head refs/pull/124/head
+          CORE_LIVE=$(git ls-remote origin refs/pull/123/head | cut -f1)
+          UI_LIVE=$(git ls-remote origin refs/pull/124/head | cut -f1)
+          test -n "$CORE_LIVE" && test "$CORE_LIVE" = "$CORE_SHA"
+          test -n "$UI_LIVE" && test "$UI_LIVE" = "$UI_SHA"
+          test "$(git rev-parse "$CORE_SHA")" = "$CORE_SHA"
+          test "$(git rev-parse "$UI_SHA")" = "$UI_SHA"
+          CORE_BRANCH_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
+          UI_BRANCH_LIVE=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
+          if test -n "$CORE_BRANCH_LIVE"; then test "$CORE_BRANCH_LIVE" = "$CORE_SHA"; fi
+          if test -n "$UI_BRANCH_LIVE"; then test "$UI_BRANCH_LIVE" = "$UI_SHA"; fi
+          # Missing former feature branches are allowed ONLY after both PR
+          # heads are ancestors of the checkout and the integrated scope passes.
+          if test -z "$CORE_BRANCH_LIVE" || test -z "$UI_BRANCH_LIVE"; then
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+          fi
+          git merge-base --is-ancestor "$BASELINE_SHA" "$GITHUB_SHA"
+          git merge-base --is-ancestor "$BASELINE_SHA" "$CORE_SHA"
+          git merge-base --is-ancestor "$BASELINE_SHA" "$UI_SHA"
+          # GitHub API unauthenticated PR GET can return HTTP 403 on shared
+          # hosted runner IPs. Compare GitHub's canonical read-only PR refs via git,
+          # in addition to actual feature branch heads; mismatch is fatal.
+          PR123_LIVE=$(git ls-remote origin refs/pull/123/head | cut -f1)
+          PR124_LIVE=$(git ls-remote origin refs/pull/124/head | cut -f1)
+          echo "PR123_LIVE=$PR123_LIVE"
+          echo "PR124_LIVE=$PR124_LIVE"
+          test "$PR123_LIVE" = "$CORE_SHA"
+          test "$PR124_LIVE" = "$UI_SHA"
+          git diff --name-only "$BASELINE_SHA" "$CORE_SHA" | sort > qa-evidence/core-paths.txt
+          git diff --name-only "$BASELINE_SHA" "$UI_SHA" | sort > qa-evidence/ui-paths.txt
+          printf '%s\n' src/core/game.js src/core/milestones.js tests/milestones-core.test.mjs | sort > qa-evidence/core-allowed.txt
+          printf '%s\n' index.html src/main.js src/ui/milestones-panel.js src/ui/visual/v3-compact.css tests/milestones-ui.test.mjs | sort > qa-evidence/ui-allowed.txt
+          diff -u qa-evidence/core-allowed.txt qa-evidence/core-paths.txt
+          diff -u qa-evidence/ui-allowed.txt qa-evidence/ui-paths.txt
+          test ! -s <(comm -12 qa-evidence/core-paths.txt qa-evidence/ui-paths.txt)
+          # Mode determination is based on true git ancestry, never a manual
+          # override, GitHub run attempt, or a green run from another SHA.
+          if git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA" &&
+             git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"; then
+            QA_MODE=POST_MERGE
+          elif ! git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA" &&
+               ! git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"; then
+            QA_MODE=PRE_MERGE
+          else
+            QA_MODE=PARTIAL_INTEGRATION
+          fi
+          echo "QA_MODE=$QA_MODE" | tee qa-evidence/qa-mode.txt
+          echo "QA_MODE=$QA_MODE" >> "$GITHUB_ENV"
+          cat qa-evidence/core-allowed.txt qa-evidence/ui-allowed.txt | sort -u > qa-evidence/candidate-allowed.txt
+          printf '%s\n' .github/workflows/colony-milestones-v1-verify.yml tools/browser-smoke.py | sort > qa-evidence/premerge-infra-allowed.txt
+          cat qa-evidence/candidate-allowed.txt qa-evidence/premerge-infra-allowed.txt | sort -u > qa-evidence/integrated-allowed.txt
+          git diff --name-only "$BASELINE_SHA" "$GITHUB_SHA" | sort > qa-evidence/integration-paths.txt
+          if test "$QA_MODE" = PRE_MERGE; then
+            # No game source may be merged while testing the local candidate.
+            diff -u qa-evidence/premerge-infra-allowed.txt qa-evidence/integration-paths.txt
+          elif test "$QA_MODE" = POST_MERGE; then
+            # Both exact feature SHAs must be in the actual checkout history.
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+            diff -u qa-evidence/integrated-allowed.txt qa-evidence/integration-paths.txt
+          else
+            echo "FAIL_CLOSED: single-PR integration is not an accepted QA state."
+            diff -u qa-evidence/integrated-allowed.txt qa-evidence/integration-paths.txt || true
+            exit 1
+          fi
+          printf '%s\n' "baseline=$BASELINE_SHA" "integration=$GITHUB_SHA" "core=$CORE_SHA" "ui=$UI_SHA" "mode=$QA_MODE" > qa-evidence/pins.txt
+
+      - name: Native npm test and build for exact Core UI and ephemeral merged candidate
+        shell: bash
+        run: |
+          set -u
+          E="$GITHUB_WORKSPACE/qa-evidence"
+          mkdir -p "$E"
+          echo "CORE_SHA=$CORE_SHA UI_SHA=$UI_SHA INTEGRATION_SHA=$GITHUB_SHA" > "$E/native-manifest.txt"
+          run_case() {
+            label="$1"; work="$2"
+            if test ! -f "$work/package.json"; then
+              echo "$label: missing checkout" > "$E/$label-test.log"
+              echo "$label: missing checkout" > "$E/$label-build.log"
+              echo "$label"_test=98 >> "$E/exit-codes.txt"
+              echo "$label"_build=98 >> "$E/exit-codes.txt"
+              return
+            fi
+            (cd "$work" && npm test) > "$E/$label-test.log" 2>&1
+            echo "$label"_test=$? >> "$E/exit-codes.txt"
+            (cd "$work" && npm run build) > "$E/$label-build.log" 2>&1
+            echo "$label"_build=$? >> "$E/exit-codes.txt"
+            echo "$label: $(git -C "$work" rev-parse HEAD)" >> "$E/native-manifest.txt"
+          }
+          CORE_WORK="$RUNNER_TEMP/ant-colony-core"
+          UI_WORK="$RUNNER_TEMP/ant-colony-ui"
+          CANDIDATE="$RUNNER_TEMP/ant-colony-candidate"
+          git worktree add --detach "$CORE_WORK" "$CORE_SHA" > "$E/core-worktree.log" 2>&1
+          core_checkout=$?
+          git worktree add --detach "$UI_WORK" "$UI_SHA" > "$E/ui-worktree.log" 2>&1
+          ui_checkout=$?
+          git worktree add --detach "$CANDIDATE" "$GITHUB_SHA" > "$E/candidate-worktree.log" 2>&1
+          candidate_checkout=$?
+          echo "core_worktree=$core_checkout" >> "$E/exit-codes.txt"
+          echo "ui_worktree=$ui_checkout" >> "$E/exit-codes.txt"
+          echo "candidate_worktree=$candidate_checkout" >> "$E/exit-codes.txt"
+          run_case core "$CORE_WORK"
+          run_case ui "$UI_WORK"
+          if test "$candidate_checkout" -eq 0; then
+            git -C "$CANDIDATE" -c user.name=Ant-CI -c user.email=ci@localhost merge --no-ff --no-edit "$CORE_SHA" > "$E/merge-core.log" 2>&1
+            cmerge=$?
+            echo "merge_core=$cmerge" >> "$E/exit-codes.txt"
+            if test "$cmerge" -eq 0; then
+              git -C "$CANDIDATE" -c user.name=Ant-CI -c user.email=ci@localhost merge --no-ff --no-edit "$UI_SHA" > "$E/merge-ui.log" 2>&1
+              umerge=$?
+            else
+              umerge=98
+            fi
+            echo "merge_ui=$umerge" >> "$E/exit-codes.txt"
+            if test "$cmerge" -eq 0 && test "$umerge" -eq 0; then
+              git -C "$CANDIDATE" diff --name-only "$GITHUB_SHA" HEAD | sort > "$E/candidate-paths.txt"
+              if test "$QA_MODE" = PRE_MERGE; then
+                # Local-only merge MUST add exactly eight authorized source files.
+                diff -u "$E/candidate-allowed.txt" "$E/candidate-paths.txt" > "$E/candidate-scope.log" 2>&1
+                scope_status=$?
+              elif test "$QA_MODE" = POST_MERGE; then
+                # Source already merged: no-op merges, and test/check the exact
+                # integration SHA rather than retesting a new ephemeral merge.
+                test "$(git -C "$CANDIDATE" rev-parse HEAD)" = "$GITHUB_SHA"
+                equality_status=$?
+                test ! -s "$E/candidate-paths.txt"
+                empty_diff_status=$?
+                git -C "$CANDIDATE" diff --name-only "$BASELINE_SHA" "$GITHUB_SHA" | sort > "$E/post-integrated-paths.txt"
+                diff -u "$E/integrated-allowed.txt" "$E/post-integrated-paths.txt" > "$E/candidate-scope.log" 2>&1
+                scope_status=$?
+                if test "$equality_status" -ne 0 || test "$empty_diff_status" -ne 0; then scope_status=1; fi
+              else
+                echo "PARTIAL_INTEGRATION never passes." > "$E/candidate-scope.log"
+                scope_status=1
+              fi
+              echo "candidate_scope=$scope_status" >> "$E/exit-codes.txt"
+              echo "qa_mode=$QA_MODE" >> "$E/native-manifest.txt"
+              echo "candidate_commit=$(git -C "$CANDIDATE" rev-parse HEAD)" >> "$E/native-manifest.txt"
+              echo "candidate_tree=$(git -C "$CANDIDATE" rev-parse HEAD^{tree})" >> "$E/native-manifest.txt"
+              git -C "$CANDIDATE" log -3 --pretty=raw > "$E/candidate-parents.txt"
+              run_case combined "$CANDIDATE"
+            else
+              echo "candidate_scope=98" >> "$E/exit-codes.txt"
+              echo "combined_test=98" >> "$E/exit-codes.txt"
+              echo "combined_build=98" >> "$E/exit-codes.txt"
+            fi
+          else
+            for key in merge_core merge_ui candidate_scope combined_test combined_build; do echo "$key=98" >> "$E/exit-codes.txt"; done
+          fi
+          echo "Native commands attempted; verdict is a separate fail-closed step."
+
+      - name: Install actual Chromium browser runner
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          E="$GITHUB_WORKSPACE/qa-evidence"
+          mkdir -p "$E"
+          python -m pip install --disable-pip-version-check playwright==1.57.0 > "$E/playwright-install.log" 2>&1
+          p=$?
+          if test "$p" -eq 0; then
+            python -m playwright install --with-deps chromium >> "$E/playwright-install.log" 2>&1
+            p=$?
+          fi
+          echo "playwright_install=$p" >> "$E/exit-codes.txt"
+          exit 0
+
+      - name: Existing browser regressions and real Milestones browser QA
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          E="$GITHUB_WORKSPACE/qa-evidence"
+          C="$RUNNER_TEMP/ant-colony-candidate"
+          mkdir -p "$E/browser"
+          if test ! -f "$C/src/core/milestones.js" || test ! -f "$C/src/ui/milestones-panel.js"; then
+            for key in existing_browser_u6 existing_browser_r2 live_milestones; do echo "$key=98" >> "$E/exit-codes.txt"; done
+            exit 0
+          fi
+          # Verify the permanent shared browser inliner has both production
+          # modules in the exact dependency order. No runner source mutation
+          # or assertion bypass. Every legacy U6/R2 browser case still runs.
+          python - "$C" "$E" <<'PY'
+          import ast,json,pathlib,subprocess,sys
+          work=pathlib.Path(sys.argv[1]); evidence=pathlib.Path(sys.argv[2])
+          harness=work/'tools/browser-smoke.py'
+          src=harness.read_text()
+          tree=ast.parse(src)
+          nodes=[n for n in ast.walk(tree) if isinstance(n,ast.Assign) and
+                 any(isinstance(t,ast.Name) and t.id=='mods' for t in n.targets)]
+          assert len(nodes)==1, 'expected exactly one static mods list'
+          mods=ast.literal_eval(nodes[0].value)
+          assert isinstance(mods,list) and len(mods)==len(set(mods)), 'duplicate modules'
+          expected=[('core/combat.js','core/milestones.js','core/game.js'),
+                    ('ui/combat-controls.js','ui/milestones-panel.js','main.js')]
+          for triplet in expected:
+              indices=[mods.index(x) for x in triplet]
+              assert indices==list(range(indices[0],indices[0]+3)), (triplet,indices)
+              for name in triplet:
+                  assert (work/'src'/name).is_file(), ('missing module',name)
+          # The GitHub checkout must contain the approved harness itself;
+          # do not patch it in a temporary directory or silently skip checks.
+          check=subprocess.run(['git','diff','--','tools/browser-smoke.py'],
+                               cwd=work,text=True,capture_output=True,check=True)
+          assert not check.stdout.strip(), 'unexpected runtime harness modifications'
+          (evidence/'browser-harness-order.json').write_text(json.dumps({
+             'verification':'static AST / exact contiguous import order, no monkey patch',
+             'core':expected[0],'ui':expected[1],
+             'source_sha':subprocess.run(['git','rev-parse','HEAD'],cwd=work,text=True,
+                                capture_output=True,check=True).stdout.strip(),
+             'ordered_mods':mods},indent=2)+'\n')
+          PY
+          echo "harness_adapter=$?" >> "$E/exit-codes.txt"
+          (cd "$C" && python tools/browser-u6.py) > "$E/browser-u6.log" 2>&1
+          echo "existing_browser_u6=$?" >> "$E/exit-codes.txt"
+          (cd "$C" && python tools/browser-phase1-ui-audit.py --artifacts "$E/browser/legacy") > "$E/browser-r2.log" 2>&1
+          echo "existing_browser_r2=$?" >> "$E/exit-codes.txt"
+          cat > "$E/live-milestones.py" <<'PY'
+          import json, os, subprocess, time, urllib.request, traceback
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          base=Path(os.environ['RUNNER_TEMP'])/'ant-colony-candidate'
+          evidence=Path(os.environ['GITHUB_WORKSPACE'])/'qa-evidence'/'browser'
+          evidence.mkdir(parents=True,exist_ok=True)
+          server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=base,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
+          results=[]
+          try:
+              for _ in range(35):
+                  try:
+                      urllib.request.urlopen('http://127.0.0.1:4173/',timeout=2).close()
+                      break
+                  except Exception:
+                      time.sleep(.4)
+              else:
+                  raise AssertionError('Production HTTP server did not start')
+              with sync_playwright() as p:
+                  browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
+                  for label,w,h in [('portrait-320',320,568),('short-landscape',844,390)]:
+                      ctx=browser.new_context(viewport={'width':w,'height':h},is_mobile=True,has_touch=True,reduced_motion='reduce')
+                      page=ctx.new_page()
+                      errors=[]
+                      page.on('pageerror',lambda e:errors.append(str(e)))
+                      page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                      page.wait_for_function('Boolean(window.__ANT_DEBUG__?.game?.milestones?.getSnapshot)',timeout=12000)
+                      before=page.evaluate('''() => {
+                        const g=__ANT_DEBUG__.game,s=g.milestones.getSnapshot();
+                        if(s.version!==1||s.tick!==g.clock.ticks||s.stages.length!==3||s.activeStage!==0)throw Error('invalid live snapshot');
+                        if(!Object.isFrozen(s)||!Object.isFrozen(s.stages[0].progress))throw Error('snapshot not immutable');
+                        g.setSpeed(0); const tick=g.clock.ticks;g.update(250);
+                        if(g.clock.ticks!==tick||g.milestones.getSnapshot().tick!==tick)throw Error('pause unexpectedly advanced');
+                        return {tick,stageIds:s.stages.map(x=>x.id),workers:g.colony.workers.length};
+                      }''')
+                      toggle=page.locator('#milestones-toggle')
+                      assert toggle.is_visible(),(label,'missing Milestones toggle')
+                      toggle.click()
+                      panel=page.locator('#milestones-panel')
+                      assert panel.is_visible() and toggle.get_attribute('aria-expanded')=='true'
+                      assert panel.locator('.milestones-stage').count()==3
+                      assert page.locator('#milestones-close').evaluate('(e)=>e===document.activeElement')
+                      bounds=panel.bounding_box()
+                      assert bounds and bounds['x']>=0 and bounds['y']>=0 and bounds['x']+bounds['width']<=w+1,(label,bounds)
+                      for selector in ['#u6-dock','#tool-dig','#selection-card']:
+                          other=page.locator(selector)
+                          if other.count() and other.is_visible():
+                              box=other.bounding_box()
+                              if box:
+                                  dx=min(bounds['x']+bounds['width'],box['x']+box['width'])-max(bounds['x'],box['x'])
+                                  dy=min(bounds['y']+bounds['height'],box['y']+box['height'])-max(bounds['y'],box['y'])
+                                  assert dx<=2 or dy<=2,(label,'overlay',selector,bounds,box)
+                      page.screenshot(path=str(evidence/(label+'.png')),full_page=True)
+                      panel.press('Escape')
+                      assert not panel.is_visible() and toggle.get_attribute('aria-expanded')=='false'
+                      page.locator('#seed-button').click()
+                      page.locator('#seed-input').fill('CI-RESET-ANT')
+                      page.locator('#create-seed').click()
+                      snap=page.evaluate('''() => {
+                        const g=__ANT_DEBUG__.game;g.setSpeed(0);
+                        return {tick:g.milestones.getSnapshot().tick,workers:g.milestones.getSnapshot().stages[1].progress.livingWorkers};
+                      }''')
+                      assert snap['tick']==0 and snap['workers']==5,(label,snap)
+                      # Exercise real simulation code paths without a mocked game.
+                      progression=page.evaluate('''() => {
+                        const g=__ANT_DEBUG__.game;g.setSpeed(1);
+                        for(let n=0;n<600;n++)g.update(100);
+                        g.setSpeed(0);
+                        const s=g.milestones.getSnapshot();
+                        return {tick:s.tick,clock:g.clock.ticks,trips:g.foraging.completedTrips,stage1:s.stages[0].progress,
+                          stage2:s.stages[1].progress,stage3:s.stages[2].progress,queen:g.colony.queen.alive};
+                      }''')
+                      assert progression['tick']==progression['clock'] and progression['tick']>=600,(label,progression)
+                      assert progression['trips']>0,(label,'no actual resource delivery',progression)
+                      assert any(progression['stage1'][x+'Seen'] for x in ('carbs','protein','water')),(label,'no delivered stock tracked')
+                      assert not errors,(label,errors)
+                      results.append({'viewport':label,'size':[w,h],'initial':before,'reset':snap,'progress':progression,'page_errors':errors,'status':'PASS'})
+                      ctx.close()
+                  # Independent actual-production Game scenarios run INSIDE real
+                  # Chromium via ES module imports over the production HTTP server.
+                  # No fake counters, room objects, inventory injection, mocking,
+                  # or changes to repository source/test files are permitted.
+                  stage_page=browser.new_page(viewport={'width':320,'height':568})
+                  stage_page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                  stage_proof=stage_page.evaluate("""async () => {
+                    const [{Game},{UNDERGROUND},{isDiggable,isWalkable}]=await Promise.all([
+                      import('/src/core/game.js'),import('/src/world/generate.js'),import('/src/world/navigation.js')]);
+                    const engine=new Game('milestone-physical-delivery');
+                    engine.setSpeed(1);
+                    const underground=engine.world.layers[UNDERGROUND];
+                    let frontier=null;
+                    for(let y=2;y<underground.height-2&&!frontier;y++)
+                      for(let x=2;x<underground.width-2&&!frontier;x++)
+                        if(isDiggable(underground,x,y) &&
+                           [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>
+                             isWalkable(underground,x+dx,y+dy)))
+                          frontier={x,y};
+                    if(!frontier)return {error:'NO_REAL_EXCAVATION_FRONTIER'};
+                    const digOrder=engine.colony.queueRectangle(frontier,frontier);
+                    if(digOrder.added!==1)return {error:'REAL_DIG_NOT_QUEUED',digOrder};
+                    let queuedRoom=null,spawnedEnemy=null,steps=0,everDelivered=false;
+                    let maxWorkers=engine.colony.workers.length;
+                    const milestones=[];
+                    // Advance solely through Game.update actual fixed ticks.
+                    // Fixed-tick iteration is deterministic; no fake resources,
+                    // fabricated enemies, ready room insertion or worker injection.
+                    for(let i=0;i<8500;i++){
+                      engine.update(100);steps++;
+                      if(engine.foraging.completedTrips>0)everDelivered=true;
+                      maxWorkers=Math.max(maxWorkers,engine.colony.workers.length);
+                      const snapshot=engine.milestones.getSnapshot();
+                      if(snapshot.stages[0].complete && !queuedRoom && i%80===0){
+                        const q=engine.colony.queen;
+                        outer:for(let y=Math.max(2,q.y-12);y<=Math.min(underground.height-4,q.y+12);y++)
+                          for(let x=Math.max(2,q.x-12);x<=Math.min(underground.width-4,q.x+12);x++){
+                            const check=engine.rooms.validate('nursery',x,y);
+                            if(check.ok){
+                              const submitted=engine.rooms.queue('nursery',x,y);
+                              if(submitted.ok){queuedRoom=submitted.room.id;break outer;}
+                            }
+                          }
+                      }
+                      if(snapshot.stages[1].complete&&!spawnedEnemy){
+                        engine.combat.setSoldierSlots(2);
+                        const q=engine.colony.queen;
+                        for(const [dx,dy] of [[0,-4],[0,4],[-4,0],[4,0],[0,-3],[3,0]]){
+                          const enemy=engine.combat.spawn('beetle',UNDERGROUND,q.x+dx,q.y+dy);
+                          if(enemy){spawnedEnemy=enemy.id;break;}
+                        }
+                      }
+                      if(i%500===0||snapshot.allComplete)
+                        milestones.push({tick:snapshot.tick,activeStage:snapshot.activeStage,
+                          stages:snapshot.stages.map(s=>({id:s.id,complete:s.complete,progress:s.progress})),
+                          workers:engine.colony.workers.length,deliveredTrips:engine.foraging.completedTrips,
+                          completedDig:engine.colony.completed,nursery:queuedRoom,defeated:engine.combat.defeated,
+                          queenAlive:engine.colony.queen.alive});
+                      if(snapshot.allComplete)break;
+                    }
+                    const result=engine.milestones.getSnapshot();
+                    return {engine:'real production Game / browser ES modules',
+                      seed:'milestone-physical-delivery',digOrder,frontier,
+                      steps,everDelivered,maxWorkers,queuedRoom,spawnedEnemy,
+                      deliveredTrips:engine.foraging.completedTrips,
+                      completedDig:engine.colony.completed,defeated:engine.combat.defeated,
+                      queenAlive:engine.colony.queen.alive,
+                      finalSnapshot:result,history:milestones};
+                  }""")
+                  (evidence/'live-stage-actions.json').write_text(json.dumps(stage_proof,ensure_ascii=False,indent=2))
+                  assert not stage_proof.get('error'),stage_proof
+                  s=stage_proof['finalSnapshot']
+                  assert stage_proof['everDelivered'] and stage_proof['completedDig']>=1,stage_proof
+                  assert s['stages'][0]['complete'] and all(s['stages'][0]['progress'][k] for k in
+                      ('carbsSeen','proteinSeen','waterSeen','digCompleted')),stage_proof
+                  assert stage_proof['queuedRoom'] and stage_proof['maxWorkers']>=8,stage_proof
+                  assert (s['stages'][1]['complete'] and s['stages'][1]['progress']['nurseryReadyConnected'] and
+                          s['stages'][1]['progress']['livingWorkers']>=8),stage_proof
+                  assert (stage_proof['spawnedEnemy'] and stage_proof['defeated']>=1 and
+                          stage_proof['queenAlive'] and s['stages'][2]['complete'] and s['allComplete']),stage_proof
+                  stage_page.screenshot(path=str(evidence/'real-completed-stages.png'),full_page=True)
+                  stage_page.close()
+                  browser.close()
+          finally:
+              server.terminate()
+              try:server.wait(timeout=5)
+              except subprocess.TimeoutExpired:server.kill()
+              (evidence/'live-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
+          # Per-viewport results must exist alongside the independent real
+          # full three-stage browser gameplay evidence written above.
+          assert len(results)==2 and all(x['status']=='PASS' for x in results)
+          assert (evidence/'live-stage-actions.json').is_file(), 'missing real gameplay proof'
+          PY
+          python "$E/live-milestones.py" > "$E/live-milestones.log" 2>&1
+          echo "live_milestones=$?" >> "$E/exit-codes.txt"
+          exit 0
+
+      - name: Recheck remote PR source HEADs after tests
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          E="$GITHUB_WORKSPACE/qa-evidence"
+          mkdir -p "$E"
+          # Post-merge source branches may be auto-deleted. Canonical PR-head
+          # refs remain exact, and the merged checkout contains both commits.
+          C=$(git ls-remote origin refs/pull/123/head | cut -f1)
+          U=$(git ls-remote origin refs/pull/124/head | cut -f1)
+          CB=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-core | cut -f1)
+          UB=$(git ls-remote origin refs/heads/feat/colony-milestones-v1-ui | cut -f1)
+          printf 'end_core_pr=%s\nend_ui_pr=%s\nend_core_branch=%s\nend_ui_branch=%s\n' "$C" "$U" "$CB" "$UB" | tee "$E/end-source-shas.txt"
+          test -n "$C" && test -n "$U" && test "$C" = "$CORE_SHA" && test "$U" = "$UI_SHA"
+          status=$?
+          if test -n "$CB" && test "$CB" != "$CORE_SHA"; then status=1; fi
+          if test -n "$UB" && test "$UB" != "$UI_SHA"; then status=1; fi
+          if test -z "$CB" || test -z "$UB"; then
+            git merge-base --is-ancestor "$CORE_SHA" "$GITHUB_SHA"
+            a=$?
+            git merge-base --is-ancestor "$UI_SHA" "$GITHUB_SHA"
+            b=$?
+            if test "$a" -ne 0 || test "$b" -ne 0; then status=1; fi
+          fi
+          echo "post_sha_check=$status" >> "$E/exit-codes.txt"
+          exit 0
+          exit 0
+
+      - name: Upload native logs browser screenshots and candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: colony-milestones-v1-qa-evidence
+          path: qa-evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail-closed verdict including required artifacts
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, pathlib,sys
+          root=pathlib.Path('qa-evidence')
+          codes={}
+          codefile=root/'exit-codes.txt'
+          if codefile.exists():
+              for line in codefile.read_text().splitlines():
+                  if '=' in line:
+                      k,v=line.split('=',1)
+                      try:codes[k]=int(v)
+                      except ValueError:codes[k]=98
+          expected=['core_worktree','ui_worktree','candidate_worktree','core_test','core_build',
+                    'ui_test','ui_build','merge_core','merge_ui','candidate_scope',
+                    'combined_test','combined_build','playwright_install',
+                    'harness_adapter','existing_browser_u6','existing_browser_r2','live_milestones','post_sha_check']
+          required=['00-preflight.log','pins.txt','core-test.log','core-build.log','ui-test.log','ui-build.log',
+                    'combined-test.log','combined-build.log','native-manifest.txt',
+                    'candidate-parents.txt','qa-mode.txt',
+                    'integration-paths.txt','browser-harness-order.json',
+                    'browser/live-results.json',
+                    'browser/portrait-320.png','browser/short-landscape.png',
+                    'browser/live-stage-actions.json','browser/real-completed-stages.png','end-source-shas.txt']
+          missing=[x for x in expected if codes.get(x)!=0]
+          mode_line=(root/'qa-mode.txt').read_text().strip() if (root/'qa-mode.txt').exists() else 'MISSING'
+          # The evidence records an unambiguous key/value: QA_MODE=POST_MERGE.
+          # Reject malformed or partial mode text; never infer a pass mode.
+          if mode_line not in ('QA_MODE=PRE_MERGE','QA_MODE=POST_MERGE'):
+              missing.append('invalid_qa_mode_manifest')
+          mode=mode_line.removeprefix('QA_MODE=')
+          if mode=='PRE_MERGE':
+              # Local candidate must add exactly 8 source files.
+              required.append('candidate-paths.txt')
+          elif mode=='POST_MERGE':
+              # Both feature SHAs are ancestors: local merges MUST be no-ops.
+              # A nonempty candidate-paths file would indicate untested changes.
+              required.append('post-integrated-paths.txt')
+              empty_path=root/'candidate-paths.txt'
+              if not empty_path.is_file() or empty_path.stat().st_size!=0:
+                  missing.append('post_merge_candidate_diff_must_exist_and_be_empty')
+          else:
+              missing.append('unknown_or_partial_integration_mode')
+          absent=[x for x in required if not (root/x).exists() or (root/x).stat().st_size==0]
+          print('Executed exit codes:',codes)
+          print('Nonzero/missing cases:',missing)
+          print('Missing required evidence:',absent)
+          print('Exact source:',os.environ['GITHUB_SHA'],'Core:',os.environ['CORE_SHA'],'UI:',os.environ['UI_SHA'])
+          if missing or absent:
+              print('FAIL / NOT_VERIFIED: integration and release remain HOLD')
+              sys.exit(1)
+          print('Exact-mode native/browser QA evidence complete; independent DIR-A QA, governance and CEO release remain separate gates')
+          PY

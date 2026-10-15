@@ -18,7 +18,7 @@ def bundle_html():
     inspector='<link rel="stylesheet" href="./src/ui/visual/inspector.css" />'
     if inspector in html:
         html=html.replace(inspector,'<style>'+(root/'src/ui/visual/inspector.css').read_text()+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','main.js']
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()

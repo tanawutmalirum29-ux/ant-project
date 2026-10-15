@@ -591,3 +591,106 @@ button:disabled,input:disabled,select:disabled{opacity:.48;cursor:not-allowed}
 .dig-action-buttons button:disabled{opacity:.35;cursor:not-allowed;}
 .dig-action-buttons button:focus-visible{outline:2px solid #ffe2a1;outline-offset:2px;}
 @media(max-width:680px){.dig-tools>.dig-actions{width:min(290px,calc(100vw - 16px));}}
+
+/* Colony Milestones V1 UI: lightweight HUD, never a modal over the game tools.
+   The selection card (z7), dig dock (z8) and Squad A/B dock (z9) stay above it. */
+.milestones-toggle{
+ position:absolute;top:calc(110px + env(safe-area-inset-top));left:12px;z-index:4;
+ display:inline-flex;align-items:center;justify-content:center;
+ min-height:36px;max-width:calc(100vw - 24px);padding:7px 12px;
+ border:1px solid var(--hud-line);border-radius:9px;
+ background:var(--royal-panel);color:var(--royal-cream);
+ box-shadow:var(--hud-shadow);font:700 12px/1.35 system-ui,sans-serif;
+ cursor:pointer;touch-action:manipulation;
+}
+.milestones-toggle[aria-expanded="true"]{
+ background:var(--royal-gold-light);color:var(--royal-brown);
+}
+.milestones-panel{
+ position:absolute;top:calc(152px + env(safe-area-inset-top));left:12px;
+ z-index:4;width:min(312px,calc(100vw - 24px));
+ max-height:min(45dvh,390px);overflow-y:auto;overscroll-behavior:contain;
+ padding:10px;border:1px solid var(--hud-line);border-radius:10px;
+ background:var(--royal-panel);color:var(--royal-cream);
+ box-shadow:var(--hud-shadow);scrollbar-width:thin;pointer-events:auto;
+}
+.milestones-panel[hidden]{display:none!important}
+.milestones-panel-head{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.milestones-panel h2{
+ margin:0;color:var(--royal-gold-light);font:800 14px/1.4 system-ui,sans-serif;
+}
+.milestones-panel-head button{
+ min-width:36px;min-height:36px;border:1px solid var(--hud-line);
+ border-radius:7px;background:var(--royal-night);color:var(--royal-cream);
+ font:700 20px/1 system-ui,sans-serif;cursor:pointer;
+}
+.milestones-summary{margin:7px 0 2px;font:700 11px/1.5 system-ui,sans-serif}
+.milestones-tick{margin:0 0 9px;color:var(--royal-gold-light);font:500 10px/1.4 system-ui,sans-serif}
+.milestones-list{display:grid;gap:7px;list-style:none;margin:0;padding:0}
+.milestones-stage{
+ min-width:0;padding:8px;border:1px solid var(--hud-line);border-radius:8px;
+ background:var(--royal-night);color:var(--royal-cream);
+ font:500 11px/1.45 system-ui,sans-serif;overflow-wrap:anywhere;
+}
+.milestones-stage.is-active{border-color:var(--royal-gold-light)}
+.milestones-stage.is-complete{border-color:#91bd91}
+.milestones-stage-head{display:flex;justify-content:space-between;align-items:start;gap:8px}
+.milestones-stage-head strong{font-size:11px;font-weight:750}
+.milestones-stage-status{
+ flex:none;font-size:10px;color:var(--royal-gold-light);text-align:right;
+}
+.milestones-stage.is-complete .milestones-stage-status{color:#bce0b5}
+.milestones-progress{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
+.milestones-progress li{display:flex;justify-content:space-between;gap:6px}
+.milestones-progress li span:last-child{color:var(--royal-gold-light);text-align:right}
+.milestones-completed-tick{display:block;margin-top:6px;color:#bce0b5;font-size:10px}
+.milestones-toggle:focus-visible,.milestones-panel button:focus-visible{
+ outline:3px solid var(--royal-gold-light);outline-offset:2px;
+}
+@media (max-width:680px) and (min-height:501px){
+ .milestones-toggle{top:calc(126px + env(safe-area-inset-top));left:8px;min-height:36px;font-size:11px;padding:5px 9px}
+ .milestones-panel{
+  top:calc(168px + env(safe-area-inset-top));left:8px;
+  width:min(280px,calc(100vw - 16px));
+  max-height:min(36dvh,calc(100dvh - 318px));padding:8px;
+ }
+ .milestones-stage-head{gap:4px;flex-wrap:wrap}
+ .milestones-stage-status{font-size:9px}
+}
+@media (max-width:355px) and (min-height:501px){
+ /* Leave room for the right-hand Squad A/B dock even at 320px.
+    The panel can scroll vertically; it never expands across the military hit targets. */
+ .milestones-panel{width:min(216px,calc(100vw - 112px));max-height:min(34dvh,calc(100dvh - 318px))}
+ .milestones-progress li{font-size:10px}
+}
+@media (max-height:500px) and (orientation:landscape){
+ .milestones-toggle{top:calc(84px + env(safe-area-inset-top));left:8px;min-height:32px}
+ .milestones-panel{
+  top:calc(122px + env(safe-area-inset-top));left:8px;
+  width:min(220px,35vw);
+  /* At 844x390 the dig dock starts at y=300; keep the panel bottom at y<=291.
+     Use top+bottom instead of a min-height that could push into the tool row. */
+  bottom:calc(99px + env(safe-area-inset-bottom));
+  max-height:none;
+  padding:7px;
+ }
+ .milestones-stage{padding:6px}
+ .milestones-stage-head{flex-wrap:wrap;gap:3px}
+ .milestones-progress li{flex-wrap:wrap;gap:0}
+}
+@media (prefers-reduced-motion:reduce){
+ .milestones-panel,.milestones-toggle{scroll-behavior:auto}
+}
+
+/* The inspector, dig selection, and room picker take precedence over the
+   Milestones report if they become visible through a keyboard shortcut.
+   The JavaScript panel controller also closes on new map interactions. */
+@media (max-width:680px) and (min-height:501px){
+ .milestones-panel{
+  /* Reserve 104px along the right edge for the soldier dock and its gap.
+     Do not allow the 320px fallback to restore the old 304px full width. */
+  width:min(280px,calc(100vw - 112px));
+ }
+}
