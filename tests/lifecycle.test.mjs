@@ -16,43 +16,64 @@ function mass(g) {
   return sources+stock+inHand+eaten+lost;
 }
 
-test('U4.1 queen lays real eggs only with deposited protein; brood is separate from adults',()=>{
- const g=new Game();g.colony.setForageSlots(0);run(g,LIFE.layInterval*3);
- assert.equal(g.lifecycle.brood.length,0);assert.equal(g.population,6);
- g.foraging.inventory.protein=2;
- run(g,LIFE.layInterval);assert.equal(g.lifecycle.eggs,1);
- assert.equal(g.lifecycle.consumed.protein,1);assert.equal(g.population,6);
+function readyNursery(g){
+ const q=g.colony.queen;
+ const room={id:'test-nursery',type:'nursery',x:q.x-4,y:q.y,width:2,height:2,
+   status:'ready',connected:true,progress:65,ticks:65,workerId:null,broodSlots:4,
+   cost:{carbs:3,protein:2},capacity:{},stock:{carbs:0,protein:0,water:0}};
+ g.rooms.rooms.push(room);g.rooms.updateConnectivity();
+ assert.equal(room.status,'ready');
+ return room;
+}
+
+test('U4.1 nursery order is mandatory and laid brood stays separate from adults',()=>{
+ const g=new Game('u4-nursery-explicit');g.colony.setForageSlots(0);
+ Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});g.rooms.syncInventory();
+ run(g,LIFE.layInterval*2);
+ assert.equal(g.lifecycle.brood.length,0);
+ const room=readyNursery(g),res=g.lifecycle.queueEgg(room.id,'miner',1);
+ assert.ok(res.ok);
+ run(g,LIFE.layInterval);
+ assert.equal(g.lifecycle.eggOrders.length,1);
+ assert.equal(g.lifecycle.brood.length,1);
+ assert.equal(g.lifecycle.eggSpent.protein,1);
+ assert.equal(g.population,6);
 });
-test('U4.2 egg -> larva -> pupa -> worker with nursing and protein paid exactly once',()=>{
+test('U4.2 physical nursery incubation with care and real larval feeding yields adult',()=>{
  const g=new Game('newborn');g.colony.setForageSlots(0);
- g.foraging.inventory.protein=20;g.foraging.inventory.carbs=20;g.foraging.inventory.water=20;
- const start=g.population;
- run(g,850);
- assert.ok(g.lifecycle.births>=1,'no adult emerged');
- assert.ok(g.population>start);
- assert.ok(g.lifecycle.consumed.protein>=g.lifecycle.births*2);
- assert.ok(g.colony.workers.some(a=>a.id==='worker-6'));
+ Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});
+ const room=readyNursery(g),start=g.population;
+ assert.ok(g.lifecycle.queueEgg(room.id,'miner',1).ok);
+ run(g,1200);
+ assert.equal(g.lifecycle.births,1);
+ assert.equal(g.population,start+1);
+ assert.ok(g.lifecycle.consumed.protein>=1,'real larval food must be consumed');
+ assert.ok(g.colony.workers.some(a=>a.id==='worker-6'&&a.profession==='miner'));
  assert.ok(g.colony.workers.every(a=>isWalkable(g.world.layers[a.layer],a.x,a.y)));
 });
-test('U4.3 nurses must travel through tunnels to chamber and cannot perform two jobs',()=>{
- const g=new Game();g.colony.setForageSlots(0);g.foraging.inventory.protein=12;
+test('U4.3 nurse walks for brood pickup, delivery and care without double assignment',()=>{
+ const g=new Game('u4-nurse');g.colony.setForageSlots(0);
+ Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});
+ const room=readyNursery(g);assert.ok(g.lifecycle.queueEgg(room.id,'nurse',1).ok);
  run(g,LIFE.layInterval+10);
  const nurses=g.colony.workers.filter(a=>a.state==='nursing');
  assert.equal(nurses.length,1);
- assert.ok(nurses.every(a=>a.orderId===null && a.layer===UNDERGROUND));
- run(g,200);
- assert.ok(g.lifecycle.brood.some(b=>b.care>0));
+ assert.ok(nurses.every(a=>a.orderId===null&&a.layer===UNDERGROUND));
+ run(g,270);
+ assert.ok(g.lifecycle.brood.some(b=>b.roomId===room.id&&b.care>0));
  g.lifecycle.setNurseSlots(0);
- assert.equal(g.lifecycle.nurseCount,0);
- assert.ok(g.colony.workers.every(a=>a.state!=='nursing'));
+ assert.ok(g.colony.workers.every(a=>a.state!=='nursing'||a.broodCargo));
 });
-test('U4.4 without nurses the larvae stall and eventually perish; no free workers',()=>{
- const g=new Game();g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
- g.foraging.inventory.protein=1;
- run(g,1850);
+test('U4.4 without nurses queued egg cannot teleport or mature into an adult',()=>{
+ const g=new Game('u4-no-nurse');g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+ Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});
+ const room=readyNursery(g);assert.ok(g.lifecycle.queueEgg(room.id,'builder',1).ok);
+ run(g,780);
  assert.equal(g.lifecycle.births,0);
- assert.ok(g.lifecycle.broodDeaths>=1);
- assert.equal(g.population,6);
+ assert.equal(g.lifecycle.brood.length,1);
+ assert.equal(g.lifecycle.brood[0].age,0);
+ assert.equal(g.lifecycle.brood[0].roomId,null);
+ assert.equal(g.lifecycle.eggOrders[0].roomId,room.id);
 });
 test('U4.5 hungry and thirsty workers eat from actual cache; ledger is conserved',()=>{
  const g=new Game();g.colony.setForageSlots(0);
@@ -100,7 +121,7 @@ test('U4.7 forager death releases reservation and accounts for cargo without dup
  assert.equal(g.lifecycle.lost[source.type],2);
  assert.equal(mass(g),totalSource(g)+regenerated(g));
 });
-test('U4.8 no food multiplication during 5000 ticks including growth, work, death and consumption',()=>{
+test('U4.8 no food multiplication during 5000 ticks without automatic brood',()=>{
  const g=new Game('life-mass');const initial=totalSource(g);
  for(let i=0;i<5000;i++){
    if(i%61===0)g.toggleLayer();
@@ -110,20 +131,24 @@ test('U4.8 no food multiplication during 5000 ticks including growth, work, deat
      assert.ok(g.colony.workers.every(a=>isWalkable(g.world.layers[a.layer],a.x,a.y)));
      assert.ok(Object.values(g.foraging.inventory).every(n=>n>=0&&Number.isSafeInteger(n)));
      assert.ok(g.foraging.nodes.every(n=>n.reserved>=0&&n.reserved<=n.amount));
-     assert.ok(g.lifecycle.brood.length<=LIFE.broodLimit);
+     assert.equal(g.lifecycle.brood.length,0,'no Nursery order means no eggs');
    }
  }
- assert.ok(g.lifecycle.births>=5);
- assert.ok(g.lifecycle.consumed.protein>0);
+ assert.equal(g.lifecycle.births,0);
 });
-test('U4.9 pause and world-switch freeze or preserve egg growth and hunger correctly',()=>{
- const g=new Game();g.colony.setForageSlots(0);g.foraging.inventory.protein=5;
- run(g,180);const before=JSON.stringify({brood:g.lifecycle.brood,health:[...g.lifecycle.adultHealth],consumed:g.lifecycle.consumed});
+test('U4.9 pause and world-switch freeze queued egg and adult health',()=>{
+ const g=new Game('u4-freeze');g.colony.setForageSlots(0);
+ Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});
+ const room=readyNursery(g);assert.ok(g.lifecycle.queueEgg(room.id,'forager',1).ok);
+ run(g,180);
+ const before=JSON.stringify({brood:g.lifecycle.brood,orders:g.lifecycle.eggOrders,
+   health:[...g.lifecycle.adultHealth],consumed:g.lifecycle.consumed});
  g.setSpeed(0);run(g,2000);
- assert.equal(JSON.stringify({brood:g.lifecycle.brood,health:[...g.lifecycle.adultHealth],consumed:g.lifecycle.consumed}),before);
+ assert.equal(JSON.stringify({brood:g.lifecycle.brood,orders:g.lifecycle.eggOrders,
+   health:[...g.lifecycle.adultHealth],consumed:g.lifecycle.consumed}),before);
  g.toggleLayer();g.setSpeed(4);run(g,50);
  assert.equal(g.lifecycle.tickCount,380);
- assert.ok(g.lifecycle.larvae>0);
+ assert.ok(g.lifecycle.brood.length===1);
 });
 test('U4.10 queen and workers naturally die after prolonged starvation; no negative population or ghost assignments',()=>{
  const g=new Game('famine');g.colony.setForageSlots(0);
@@ -148,20 +173,25 @@ test('U4.11 nurse/forager settings clamp on adult losses; grow back without dupl
  assert.equal(g.colony.workers.length,2);
  assert.equal(new Set(g.colony.workers.map(w=>w.id)).size,2);
 });
-test('U4.12 fresh same-seed world resets all life counters and deterministic growth',()=>{
- const before=new Game('growing');run(before,2200);
- assert.ok(before.lifecycle.births>0);
+test('U4.12 seeded reset starts empty, then deterministic same-seed hatch reproduces',()=>{
+ const before=new Game('growing');
+ Object.assign(before.foraging.inventory,{carbs:20,protein:20,water:20});
+ const room=readyNursery(before);assert.ok(before.lifecycle.queueEgg(room.id,'miner',1).ok);
+ run(before,1200);assert.equal(before.lifecycle.births,1);
  const after=new Game('growing');
  assert.equal(after.lifecycle.births,0);
  assert.equal(after.lifecycle.brood.length,0);
+ assert.equal(after.lifecycle.eggOrders.length,0);
  assert.equal(after.population,6);
  assert.deepEqual(after.foraging.nodes,new Game('growing').foraging.nodes);
- const same=new Game('growing');run(same,2200);
+ const same=new Game('growing');
+ Object.assign(same.foraging.inventory,{carbs:20,protein:20,water:20});
+ const replica=readyNursery(same);assert.ok(same.lifecycle.queueEgg(replica.id,'miner',1).ok);
+ run(same,1200);
  assert.deepEqual(before.lifecycle.brood,same.lifecycle.brood);
  assert.equal(before.lifecycle.births,same.lifecycle.births);
  assert.deepEqual(before.foraging.inventory,same.foraging.inventory);
 });
-
 test('U4.13 age-based death respects lifespan and removes workers only once',()=>{
  const g=new Game();g.colony.setForageSlots(0);const a=g.colony.workers[0];
  g.lifecycle.adultHealth.get(a.id).age=LIFE.workerMaxAge-1;
