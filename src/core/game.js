@@ -53,18 +53,16 @@ export class WorkforcePolicy {
     return counts;
   }
   reconcile() {
-    const n=this.game.colony.workers.length;
-    if(!this.dirty && n===this.lastPopulation)return;
-    const targets=this.plan(n);
     const {colony,lifecycle,combat}=this.game;
-    // Existing in-progress digging, resource trips, carried brood and construction
-    // are not cancelled by quotas. The original schedulers decide safe turnover.
-    if(!this.manual.has('forage')&&colony.forageSlots!==targets.forage)
-      colony.setForageSlots(targets.forage,true);
-    if(!this.manual.has('nurse')&&lifecycle.nurseSlots!==targets.nurse)
-      lifecycle.setNurseSlots(targets.nurse,true);
-    if(!this.manual.has('soldier')&&combat.soldierSlots!==targets.soldier)
-      combat.setSoldierSlots(targets.soldier,true);
+    const n=colony.workers.length;
+    if(!this.dirty&&n===this.lastPopulation)return;
+    const starters=colony.workers.filter(a=>!a.profession||a.profession==='starter');
+    const specialists=colony.workers.filter(a=>a.profession==='nurse');
+    // Roles are permanent: no quota may conscript, change profession or cancel a
+    // specialist's ongoing job. One starter nurses until the first nurse hatches.
+    if(!this.manual.has('nurse'))lifecycle.nurseSlots=Math.min(n,specialists.length+(specialists.length?0:starters.length?1:0));
+    if(!this.manual.has('forage'))colony.forageSlots=Math.min(starters.length,2);
+    combat.soldierSlots=combat.soldiers.length;
     this.lastPopulation=n;this.dirty=false;
   }
 }
