@@ -1,0 +1,41 @@
+name: Cross-Platform Game Choice QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - index.html
+      - src/ui/visual/game-choice.js
+      - src/ui/visual/game-choice.css
+      - src/ui/visual/room-picker.js
+      - tools/browser-game-choice.py
+      - tools/browser-nursery.py
+      - tests/game-choice.test.mjs
+      - docs/UI_CROSS_PLATFORM.md
+      - .github/workflows/game-choice-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  game-pickers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full native game regressions
+        run: npm test
+      - name: Static deploy build
+        run: npm run build
+      - name: Install Chromium and WebKit engines
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium webkit
+      - name: Verify styled game selectors on Android-like and iOS-like engines
+        run: python tools/browser-game-choice.py
+      - name: Verify Nursery drawer and actions in real Chromium
+        run: python tools/browser-nursery.py
