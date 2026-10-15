@@ -78,28 +78,22 @@ docs/GAME_SYSTEMS.md        รายละเอียดกลไกปัจ�
 docs/AMPLIFY_DEPLOY.md      คู่มือ AWS Amplify
 ```
 
-## ข้อจำกัดที่มีอยู่จริง
 
-- ยังไม่มีระบบบันทึก/โหลดเกมถาวรเมื่อรีเฟรชหน้าเว็บ
-- กองทหารยังเป็น **กองร่วมเดียว** ไม่รองรับการแยกหลายกองทัพ
-- การเดินยังไม่จำลองการชน/แย่งช่องกันของมดแต่ละตัว
-- การกินของมดยังใช้คลังทรัพยากรรวม ไม่ได้จำลองให้มดทุกตัวเดินไปกินที่คลัง
-- บางขั้นตอน เช่น ยกเลิกก่อสร้าง ใช้การคืนวัสดุทันที ไม่ได้จำลองการเดินขนคืน
-- ผลทดสอบในเครื่อง/CI ไม่ใช่หลักฐานการใช้งานผ่าน AWS Amplify หรือโทรศัพท์จริง
+## กฎองค์กรฉบับเดียว
 
-รายละเอียดเชิงระบบ: [docs/GAME_SYSTEMS.md](docs/GAME_SYSTEMS.md) · คู่มือ Deploy: [docs/AMPLIFY_DEPLOY.md](docs/AMPLIFY_DEPLOY.md)
+**กฎองค์กรที่มีผลบังคับใช้เพียงแห่งเดียว:** [ANT KINGDOM — OFFICIAL RULES](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/RULES.md)
 
-## รอบพัฒนาใหม่ — Round 2 (13 ตุลาคม 2026)
+กฎใหม่ทั้งหมด (CEO, ที่ปรึกษา, `NP`/`MN`/`PF`/`SIM`, การจัดทีมและ QA, `CCCC DB`, `Completed`) ให้ยึดจากไฟล์นี้เท่านั้น **ห้ามใช้คู่มือจัดทีมเก่า 17 AI, กฎ CEO/CTO เดิม, หรืองาน Round เก่าเป็นคำสั่งปัจจุบัน** เกมเก็บไว้เฉพาะคู่มือกลไกเกมจริง โค้ด และเอกสารบันทึกผลการพัฒนาที่ไม่ใช่กฎองค์กร
 
-โปรเจกต์ Ant Kingdom **พัฒนาต่อ** โดยเริ่มรอบ Gameplay Stabilization บนฐาน `main` ที่รวมงานรอบเดิมแล้ว เน้นแก้การเดิน/ขุดที่ถูกบล็อก (PATH-01), การจัด Formation ทหารมากกว่า 13 ตัว (FORM-01) และการตรวจ Browser จริงทั้ง 5 ขนาด ก่อนเพิ่มระบบใหญ่
+การเปิดแชท CEO ใหม่ใช้ [ใบแต่งตั้งปัจจุบันเพียงฉบับเดียว](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/appointments/OWNER-TO-CEO.md) หรือตามใบแต่งตั้งฉบับเต็มที่ CEO เดิมส่งหลัง `Completed` และ Owner เป็นคนส่งข้อความข้าม ChatGPT ด้วยตนเอง
 
-**แผนและการบริหารงานล่าสุด**
+## การทดสอบและสถานะจริง
 
-- [Roadmap รอบที่ 2 และเฟสถัดไป](docs/development/ROUND_02_ROADMAP.md)
-- [Round 2 Work Board — งาน AI-1, AI-2, AI-3 และขอบเขตไฟล์](docs/development/ROUND_02_WORK_BOARD.md)
-- [รายงานของ AI แต่ละตัวบน GitHub](docs/ai-reports/README.md)
-- [เอกสารส่งมอบหัวหน้า AI-HEAD คนใหม่](docs/development/NEXT_HEAD_HANDOFF.md)
+```bash
+npm test
+npm run build
+```
 
-สาม AI ทำงานแยก Branch และต้องบันทึกความคืบหน้าใน Issue ของตนเองพร้อมอัปเดตรายงาน Markdown ของตัวเองทุกครั้งที่ส่งงาน หัวหน้า AI-HEAD คนใหม่เป็นผู้ตรวจรวมงานตามลำดับ ห้ามถือว่า PR ที่ Merge แล้วหรือ Source ที่ผ่าน Review หมายถึง Gameplay/Browser/Deploy ผ่านโดยอัตโนมัติ
-
-**งานที่ยังมีหลักฐานค้าง:** [PATH-01 #20](https://github.com/tanawutmalirum29-ux/ant-project/issues/20), [FORM-01 #21](https://github.com/tanawutmalirum29-ux/ant-project/issues/21), [Browser QA #22](https://github.com/tanawutmalirum29-ux/ant-project/issues/22) 
+- เกมต้องทดสอบผลบน SHA ที่จะ Merge จริง และ QA อิสระตามกฎกลาง; หาก UI เปลี่ยนต้องทดสอบใน Browser จริง ไม่ใช่ใช้ผล unit test แทน
+- GitHub Issues และ PR เป็นข้อมูลภารกิจจริง ส่วนเอกสารงานวิจัย/รายงานรอบก่อนเป็นเพียงประวัติ ไม่ใช่คำสั่งองค์กรหรือสถานะของเกมในปัจจุบัน
+- [กลไกเกม](docs/GAME_SYSTEMS.md) · [คู่มือ Deploy](docs/AMPLIFY_DEPLOY.md) · [กฎองค์กรฉบับเดียว](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/RULES.md)
