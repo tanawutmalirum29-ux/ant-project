@@ -1,0 +1,35 @@
+name: Game Long-Press UX QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/main.js
+      - src/styles.css
+      - tests/game-longpress.test.mjs
+      - tools/browser-longpress.py
+      - .github/workflows/game-longpress-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  longpress-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify native tests and production bundle
+        run: |
+          npm test
+          npm run build
+      - name: Install real Chromium browser
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test long-hold suppression, text input and real taps at three viewports
+        run: python tools/browser-longpress.py
