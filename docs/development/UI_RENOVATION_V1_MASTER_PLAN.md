@@ -3,7 +3,7 @@
 **Status:** DESIGN/WORKBREAKDOWN AUTHORIZED · GAMEPLAY IMPLEMENTATION HOLD · MAIN MERGE HOLD
 **Baseline main SHA:** `b473cd678c5b8a3ac0bb87c4056c1afab15fd9f2` (16 Oct 2026 planning reference)
 **Integration branch:** `feat/ui-renovation-v1-integration`
-**Authoritative UI rules:** [UI_CROSS_PLATFORM.md](UI_CROSS_PLATFORM.md) · [UI_RENOVATION_V1_CONTRACT.md](UI_RENOVATION_V1_CONTRACT.md)
+**Authoritative UI rules:** [UI_CROSS_PLATFORM.md](../UI_CROSS_PLATFORM.md) · [UI_RENOVATION_V1_CONTRACT.md](UI_RENOVATION_V1_CONTRACT.md)
 **QA acceptance:** [UI_RENOVATION_V1_QA.md](UI_RENOVATION_V1_QA.md)
 
 ## 0. Scope and non-goals
