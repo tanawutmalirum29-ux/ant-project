@@ -50,31 +50,28 @@ test('U5R2 forager must walk from entrance into built warehouse when queen cache
  assert.ok(ant.x>=r.room.x && ant.x<r.room.x+2 && ant.y>=r.room.y && ant.y<r.room.y+2);
 });
 
-test('U5R3 nursery workers relocate brood on foot and baby location changes only with movement',()=>{
+test('U5R3 nurse physically delivers an explicitly ordered egg to its reserved Nursery tile',()=>{
  const g=new Game('u5r-nursery');fund(g);g.lifecycle.setNurseSlots(1);
  const r=place(g,'nursery',-4,0);assert.ok(r.ok);
  tick(g,180);assert.equal(r.room.status,'ready');
- const q=g.colony.queen, original=g.lifecycle.brood.filter(b=>!b.roomId).length;
- assert.ok(original>0,'queen should have laid eggs');
- let carrying=false, arrived=false, movements=0, prev=null;
- for(let i=0;i<430;i++) {
+ assert.equal(g.lifecycle.brood.length,0,'room construction must not create eggs');
+ const accepted=g.lifecycle.queueEgg(r.room.id,'miner',1);assert.equal(accepted.ok,true);
+ let carrying=false,arrived=false,movements=0,prev=null;
+ for(let i=0;i<650;i++){
    tick(g,1);
    const carrier=g.colony.workers.find(w=>w.broodCargo);
-   if(carrier) {
+   if(carrier){
      carrying=true;
-     if(prev && prev.id===carrier.id && (prev.x!==carrier.x || prev.y!==carrier.y))movements++;
+     if(prev&&prev.id===carrier.id&&(prev.x!==carrier.x||prev.y!==carrier.y))movements++;
      prev={id:carrier.id,x:carrier.x,y:carrier.y};
      const baby=g.lifecycle.brood.find(b=>b.id===carrier.broodCargo);
-     assert.ok(baby);
-     assert.equal(baby.x,carrier.x);assert.equal(baby.y,carrier.y);
+     assert.ok(baby);assert.equal(baby.x,carrier.x);assert.equal(baby.y,carrier.y);
    }
    if(g.lifecycle.brood.some(b=>b.roomId===r.room.id)){arrived=true;break;}
  }
- assert.ok(carrying,'nurse never picked up a real brood item');
- assert.ok(movements>0,'brood teleported without the nurse changing position');
- assert.ok(arrived,'no brood physically arrived in the nursery');
- assert.ok(g.lifecycle.brood.some(b=>b.roomId===r.room.id&&b.x===r.room.x&&b.y===r.room.y));
- assert.notEqual(r.room.x,q.x);
+ assert.ok(carrying);assert.ok(movements>0);assert.ok(arrived);
+ assert.ok(g.lifecycle.brood.some(b=>b.roomId===r.room.id&&
+   b.x===accepted.order.slot.x&&b.y===accepted.order.slot.y));
 });
 
 test('U5R4 disconnected warehouse retains real stock but cannot accept more or supply remote consumption',()=>{
@@ -134,14 +131,20 @@ test('U5R7 completed guard preparation sends a worker on actual entrance patrol;
  assert.ok(g.colony.workers.some(a=>a.state==='digging'||a.state==='walking'));
 });
 
-test('U5R8 newborns from relocated nursery appear at their brood location, not queen',()=>{
+test('U5R8 newborns emerge after physical Nursery delivery, not at the queen tile',()=>{
  const g=new Game('u5r-birth');fund(g);g.lifecycle.setNurseSlots(1);
  const r=place(g,'nursery',-4,0);assert.ok(r.ok);
- tick(g,800);assert.equal(r.room.status,'ready');
+ tick(g,210);assert.equal(r.room.status,'ready');
+ const accepted=g.lifecycle.queueEgg(r.room.id,'miner',1);assert.ok(accepted.ok);
+ let delivered=false;
+ for(let i=0;i<750;i++){
+   tick(g,1);
+   if(g.lifecycle.brood.some(b=>b.roomId===r.room.id))delivered=true;
+ }
+ assert.ok(delivered);
  const newborn=g.colony.workers.find(w=>Number(w.id.slice(7))>=6);
- assert.ok(newborn,'no nursery worker born after 800 ticks');
+ assert.ok(newborn,'ordered Nursery worker must hatch');
  assert.ok(g.lifecycle.births>=1);
- // A newborn may already have walked away to work; validate brood transfer and nursery care instead.
- assert.ok(g.lifecycle.brood.every(b=>Number.isInteger(b.x)&&Number.isInteger(b.y)));
+ assert.equal(newborn.profession,'miner');
  assert.ok(g.rooms.rooms.some(room=>room.type==='nursery'&&room.status==='ready'));
 });
