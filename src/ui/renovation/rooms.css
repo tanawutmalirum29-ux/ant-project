@@ -1,0 +1,34 @@
+/* UI-05 MAP_ACTION content. Structural geometry and z-layer are G1 shell-owned. */
+.ui05-root{pointer-events:auto;box-sizing:border-box;max-width:min(460px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;border:1px solid var(--ui-panel-border,#ba9b6b);border-radius:11px;background:var(--ui-panel-bg,#13251c);color:var(--ui-panel-text,#f5e9cf);box-shadow:0 5px 22px #0008;font-size:12px}
+.ui05-root *{box-sizing:border-box}
+.ui05-root[hidden],.ui05-root [hidden]{display:none!important}
+.ui05-header{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:7px 9px;border-bottom:1px solid #b7a07555}
+.ui05-title{font-size:14px}
+.ui05-body{padding:8px;display:grid;gap:8px;max-height:min(45dvh,345px);overflow:auto;overscroll-behavior:contain}
+.ui05-build,.ui05-dig,.ui05-inspect{display:grid;gap:8px;min-width:0}
+.ui05-root button{min-width:44px;min-height:44px;padding:7px 10px;font:inherit;color:inherit;background:#2a4532;border-radius:8px;border:1px solid #9e9970;cursor:pointer;touch-action:manipulation}
+.ui05-root button:disabled{opacity:.5;cursor:not-allowed}
+.ui05-root button:focus-visible{outline:3px solid #edc986;outline-offset:2px}
+.ui05-type-line{position:relative}
+.ui05-type-trigger{width:100%;text-align:left}
+.ui05-type-list{display:grid;gap:5px;overflow-y:auto;overscroll-behavior:contain;max-height:min(240px,36dvh);padding:5px;border:1px solid #b7a075;background:#1a2f22;border-radius:8px;margin-top:4px;touch-action:pan-y}
+.ui05-type-option{width:100%;text-align:left}
+.ui05-root .is-selected{background:#edc986;color:#19291f;font-weight:750}
+.ui05-shape{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ui05-dimension{display:flex;align-items:center;gap:4px;min-width:0}
+.ui05-dimension-label{flex:1}
+.ui05-dimension-value{min-width:15px;text-align:center}
+.ui05-root .ui05-step{min-width:44px;padding:3px}
+.ui05-plan,.ui05-verdict,.ui05-dig-summary,.ui05-feedback,.ui05-hint{margin:0;overflow-wrap:anywhere;line-height:1.4}
+.ui05-plan{color:#f2d69e}
+.ui05-verdict[data-state="valid"],.ui05-feedback[data-state="success"]{color:#b2edae}
+.ui05-verdict[data-state="invalid"],.ui05-feedback[data-state="error"]{color:#ffbd9d}
+.ui05-root .ui05-primary{background:#446c49;font-weight:750}
+.ui05-root .ui05-danger{background:#713f39}
+.ui05-actions{display:flex;flex-wrap:wrap;gap:6px}
+.ui05-inspect{border-top:1px solid #b7a07555;padding-top:5px}
+.ui05-room-status{font-size:12px}
+.ui05-hint{font-size:11px;color:#d2c5a8}
+@media(max-width:355px){.ui05-root{max-width:100%;font-size:11px}.ui05-body{padding:6px;gap:5px}.ui05-shape{grid-template-columns:1fr}.ui05-root button{padding:5px 7px}.ui05-dimension-label{min-width:37px}}
+@media(max-height:500px) and (orientation:landscape){.ui05-root{max-width:min(350px,76%);max-height:calc(100dvh - 55px)}.ui05-body{max-height:min(57dvh,245px);padding:5px}.ui05-header{padding:4px 7px}}
+@media(prefers-reduced-motion:reduce){.ui05-root *{animation:none!important;transition:none!important}}
