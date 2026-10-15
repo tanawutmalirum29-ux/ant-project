@@ -93,11 +93,12 @@
         (buttons.find(b => b.dataset.value === select.value && !b.disabled) || buttons.find(b => !b.disabled))?.focus();
       } else if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopPropagation(); // Escape only closes this dropdown, not Nursery drawer.
         close(true);
       }
     });
     list.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { event.preventDefault(); close(true); return; }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); return; }
       const active = buttons.filter(b => !b.disabled);
       const index = active.indexOf(document.activeElement);
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
