@@ -116,6 +116,8 @@ function domStub(){
       if(!elements.has(id))elements.set(id,{
         textContent:'',classList:{
           states:new Set(),
+          add(name){this.states.add(name);},
+          remove(name){this.states.delete(name);},
           toggle(name,on){if(on)this.states.add(name);else this.states.delete(name);},
           contains(name){return this.states.has(name);}
         }
