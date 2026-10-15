@@ -98,3 +98,22 @@
 @media(prefers-reduced-motion:reduce){
  .ui-renovation-shell,.ui-renovation-shell *{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}
 }
+
+/* G3 QA opt-in only. Production defaults to the original interface.
+   Never remove legacy DOM: it still owns map input and must retain its
+   authoritative hidden room picker/selection control until final migration. */
+#app[data-ui-renovation-qa="true"] > .topbar,
+#app[data-ui-renovation-qa="true"] > .left-overlay,
+#app[data-ui-renovation-qa="true"] > .dig-tools,
+#app[data-ui-renovation-qa="true"] > .right-controls,
+#app[data-ui-renovation-qa="true"] > .bottom-bar,
+#app[data-ui-renovation-qa="true"] > .colony-panel,
+#app[data-ui-renovation-qa="true"] > .selection-card,
+#app[data-ui-renovation-qa="true"] > .nursery-panel,
+#app[data-ui-renovation-qa="true"] > .milestones-toggle,
+#app[data-ui-renovation-qa="true"] > .milestones-panel,
+#app[data-ui-renovation-qa="true"] > #u6-dock,
+#app[data-ui-renovation-qa="true"] > .debug-panel { display:none!important; }
+/* Map command wrapper must never intercept taps outside its real controls. */
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] {pointer-events:none;}
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]) {pointer-events:auto;}

@@ -33,29 +33,20 @@ try:
                 page=ctx.new_page()
                 errs=[]
                 page.on('pageerror',lambda e: errs.append(str(e)))
-                page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                page.goto('http://127.0.0.1:4173/?ui=renovation',wait_until='domcontentloaded')
                 page.wait_for_timeout(500)
                 if errs: print('G3-A startup browser errors:',repr(errs),flush=True)
                 page.wait_for_function('Boolean(window.__ANT_DEBUG__?.renovationA)',timeout=25000)
-                assert page.locator('#ui-renovation-root').is_hidden(),(engine.name,w,'premature live rollout')
+                assert page.locator('#ui-renovation-root').is_visible(),(engine.name,w,'opt-in renovation shell missing')
                 assert page.locator('#game-canvas').is_visible()
+                assert page.locator('#app').get_attribute('data-ui-renovation-qa')=='true'
+                assert page.locator('.topbar').is_hidden(),(engine.name,w,'legacy HUD must be hidden in QA opt-in')
                 assert page.evaluate('''() => {
                     const d=window.__ANT_DEBUG__;
                     return d.renovationA.mounted.length===4 &&
                       d.renovationShell.overlay.registry.has('home-menu') &&
                       d.renovationShell.overlay.registry.has('settings');
                 }'''),(engine.name,w,'module mount missing')
-
-                # Legacy HUD isolation applies ONLY inside this ephemeral browser test.
-                page.add_style_tag(content='''body #app > .topbar,
-                    body #app > .left-overlay, body #app > .dig-tools,
-                    body #app > .right-controls,body #app > .bottom-bar,
-                    body #app > .colony-panel,body #app > .selection-card,
-                    body #app > .nursery-panel,body #app > .milestones-toggle,
-                    body #app > .milestones-panel,body #u6-dock,
-                    body #app > .debug-panel {display:none!important;}''')
-                page.evaluate('__ANT_DEBUG__.renovationShell.preview(true)')
-                assert page.locator('#ui-renovation-root').is_visible()
                 assert page.locator('.ui-home-toolbar .ui-home-action').count()==5
                 assert page.locator('.ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"] .ui-home-action[data-home-action="layer"]').count()==1
                 assert page.locator('.ui-home-hud').is_visible()

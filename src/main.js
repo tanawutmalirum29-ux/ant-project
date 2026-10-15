@@ -36,7 +36,11 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   ui.game = game;
   ui.cameras = cameras;
   milestonesPanel?.setGame(game);
-  try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
+  try {
+    const search = new URLSearchParams({seed});
+    if (query.get('ui') === 'renovation') search.set('ui','renovation');
+    history.replaceState(null, '', `${location.pathname}?${search.toString()}`);
+  } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
 // G1 foundation is deliberately dormant until six feature views are integrated.
@@ -46,6 +50,14 @@ const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:ren
 const renovationA = mountEngineerA(renovationShell,renovationAdapter);
 const renovationB = mountEngineerB(renovationShell,renovationAdapter);
 const renovationC = mountEngineerC(renovationShell,renovationAdapter);
+// G3 QA ONLY: opt-in to the complete staged shell without changing the default
+// player interface. Exact real-pointer/browser evidence gates normal rollout.
+const renovationQaActive = query.get('ui') === 'renovation';
+if (renovationQaActive) {
+  gameRoot.dataset.uiRenovationQa = 'true';
+  renovationShell.preview(true);
+}
+
 milestonesPanel = new MilestonesPanel(game, {
   onOpen: () => {
     // A report and an active drag/room picker must not compete for touch targets.
