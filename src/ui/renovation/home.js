@@ -163,8 +163,8 @@ function mountMenu(container,{view,actions,overlay,subscribe}){
     });
     actionsArea.append(b);
   };
-  addAction('มดในอาณาจักร',()=>overlay.openPanel('ants'));
-  addAction('กองทหาร A/B',()=>overlay.openPanel('military'));
+  addAction('มดในอาณาจักร',()=>overlay.openPanel('ui03-ants'));
+  addAction('กองทหาร A/B',()=>overlay.openPanel('ui02-military'));
   addAction('ตั้งค่าและ Seed',()=>overlay.openPanel('settings'));
   addAction('ความเร็ว ×1',()=>actions.setSpeed(1));
   addAction('ความเร็ว ×2',()=>actions.setSpeed(2));

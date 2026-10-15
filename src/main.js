@@ -8,6 +8,7 @@ import { SURFACE, UNDERGROUND } from './world/generate.js';
 import { createRenovationShell } from './ui/renovation/shell.js';
 import { UIRenovationAdapter } from './ui/renovation/ui-adapter.js';
 import { mountEngineerA } from './ui/renovation/integrate-a.js';
+import { mountEngineerB } from './ui/renovation/integrate-b.js';
 
 // Suppress browser context menus and selection handles on game UI only.
 // Do not cancel touchstart/pointerdown: the map, scrolling panels and buttons
@@ -42,6 +43,7 @@ const renovationShell = createRenovationShell();
 const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
 // Stage actual A modules against real gameplay without exposing an incomplete UI.
 const renovationA = mountEngineerA(renovationShell,renovationAdapter);
+const renovationB = mountEngineerB(renovationShell,renovationAdapter);
 milestonesPanel = new MilestonesPanel(game, {
   onOpen: () => {
     // A report and an active drag/room picker must not compete for touch targets.
@@ -97,4 +99,4 @@ document.addEventListener('visibilitychange', () => {
 });
 requestAnimationFrame(frame);
 // Opt-in diagnostics in the browser console, never a second game loop.
-window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter, renovationA };
+window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter, renovationA, renovationB };
