@@ -138,7 +138,18 @@ body[data-ui-renovation-qa="true"] > #u6-dock{display:none!important;pointer-eve
 /* Keep the authoritative cancel-target handler reachable after its original
    tip is moved from the hidden dock to BODY. Never clone the action listener. */
 body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
+  /* U6 tactical CSS normally positions the tip *absolutely relative to the
+     old dock*. Once lifted out of the hidden dock, restore a true on-screen
+     fixed placement so its authoritative Cancel action remains reachable. */
+  position:fixed;inset:auto;top:calc(86px + env(safe-area-inset-top,0px));
+  left:50%;right:auto;bottom:auto;transform:translateX(-50%);
+  width:max-content;max-width:min(460px,calc(100vw - 20px));
   z-index:120;pointer-events:none;
+}
+@media(max-height:500px) and (orientation:landscape){
+  body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
+    top:calc(52px + env(safe-area-inset-top,0px));
+  }
 }
 body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-target{
   pointer-events:auto;min-width:64px;min-height:44px;
