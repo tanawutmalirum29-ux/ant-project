@@ -34,3 +34,6 @@
  .uiv1-a{padding:7px;gap:5px}
  .uiv1-a-list{max-height:29dvh}
 }
+
+/* Keep Close reachable while the roster or short-landscape sheet scrolls. */
+.uiv1-a-head{position:sticky;top:0;z-index:1;padding-block:4px;background:var(--ui-panel-bg,#13251c)}
