@@ -45,7 +45,16 @@ def actual_tap(page,locator,touch):
       const target=document.querySelector(p.selector),under=document.elementFromPoint(p.x,p.y);
       return !!target&&!!under&&(under===target||target.contains(under));}""",
       {'selector':locator,'x':x,'y':y})
-    assert hit,(locator,'button obscured',box)
+    if not hit:
+        blocking=page.evaluate("""p=>{
+          const el=document.elementFromPoint(p.x,p.y);
+          const parents=[];for(let e=el,i=0;e&&i<6;e=e.parentElement,i++)parents.push({tag:e.tagName,id:e.id,cls:e.className});
+          return {tag:el?.tagName,id:el?.id,classes:el?.className,
+            ancestors:parents,
+            nurseryReopen:document.querySelector('.ui04-reopen')?.getBoundingClientRect().toJSON(),
+            roomsRoot:document.querySelector('.ui05-root')?.getBoundingClientRect().toJSON(),
+            overlay:window.__ANT_DEBUG__.renovationShell.overlay.active};}""",{'x':x,'y':y})
+        raise AssertionError((locator,'button obscured',box,blocking))
     if touch:page.touchscreen.tap(x,y)
     else:page.mouse.click(x,y)
 def open_menu_domain(page,label,touch):
