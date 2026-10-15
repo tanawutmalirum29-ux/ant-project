@@ -21,7 +21,10 @@ def bundle_html():
     nursery='<link rel="stylesheet" href="./src/ui/visual/nursery.css" />'
     if nursery in html:
         html=html.replace(nursery,'<style>'+(root/'src/ui/visual/nursery.css').read_text()+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','main.js']
+    g1='<link rel="stylesheet" href="./src/ui/renovation/shell.css" />'
+    if g1 in html:
+        html=html.replace(g1,'<style>'+(root/'src/ui/renovation/shell.css').read_text()+'</style>')
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','ui/renovation/shell.js','ui/renovation/ui-adapter.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()
