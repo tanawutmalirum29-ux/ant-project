@@ -45,8 +45,9 @@ export class Lifecycle {
   get totalPopulation() { return this.colony.population+this.brood.length+this.eggOrders.filter(o=>o.status==='QUEUED').length; }
   eggCost(profession,level) {
     const table={miner:[1,1],forager:[1,1],builder:[2,1],nurse:[1,2],soldier:[2,3]};
+    if(typeof profession!=='string'||!Object.hasOwn(table,profession)||
+       !Number.isInteger(level)||level<1||level>5)return null;
     const row=table[profession];
-    if(!row||!Number.isInteger(level)||level<1||level>5)return null;
     return {carbs:row[0]*level,protein:row[1]*level};
   }
   nurseryStatus(roomId) {
@@ -61,7 +62,8 @@ export class Lifecycle {
     if(!cost)return {ok:false,reason:'invalid-choice'};
     const room=this.rooms?.rooms.find(r=>r.id===roomId&&r.type==='nursery');
     if(!room)return {ok:false,reason:'invalid-room'};
-    if(room.status!=='ready'||!room.connected)return {ok:false,reason:'nursery-unavailable'};
+    if(room.status!=='ready'||!room.connected||!this.rooms.reachable(room))
+      return {ok:false,reason:'nursery-unavailable'};
     if(!this.colony.queen.alive)return {ok:false,reason:'queen-dead'};
     if(this.totalPopulation>=LIFE.maxPopulation)return {ok:false,reason:'population-cap'};
     const status=this.nurseryStatus(roomId);
@@ -72,8 +74,9 @@ export class Lifecycle {
       let need=qty,parts=[];
       for(const {room:source} of this.rooms.storageSlots(type)){
         if(!source.connected)continue;
-        const count=Math.min(need,source.stock?.[type]||0);
-        if(count){parts.push({sourceRoomId:source.id,type,amount:count});need-=count;}
+        const stored=source.stock?.[type];
+        const count=Math.min(need,Number.isSafeInteger(stored)&&stored>0?stored:0);
+        if(count>0){parts.push({sourceRoomId:source.id,type,amount:count});need-=count;}
         if(!need)break;
       }
       if(need)return {ok:false,reason:'insufficient-resources'};
@@ -100,9 +103,10 @@ export class Lifecycle {
   cancelEgg(orderId) {
     const order=this.eggOrders.find(o=>o.id===orderId&&o.status==='QUEUED');
     if(!order)return false;
+    // Never partially refund or redistribute when an original depot is missing.
+    if(order.pickups.some(p=>!this.rooms.rooms.some(r=>r.id===p.sourceRoomId)))return false;
     for(const part of order.pickups){
       const room=this.rooms.rooms.find(r=>r.id===part.sourceRoomId);
-      if(!room)throw new Error('Egg refund source room missing');
       room.stock[part.type]+=part.amount;
       this.foraging.inventory[part.type]+=part.amount;
       this.heldEgg[part.type]-=part.amount;
@@ -298,8 +302,14 @@ export class Lifecycle {
         if(!room){const order=this.orderOf(baby);if(order)order.status='WAITING_ROUTE';continue;}
         const valid=!!baby.targetTile && isWalkable(layer,baby.targetTile.x,baby.targetTile.y);
         if(!valid){const order=this.orderOf(baby);if(order)order.status='WAITING_ROUTE';continue;}
+        // Route lost while carrying: leave brood at the carrier's actual tile.
+        if(findPath(layer,ant,baby.targetTile)===null){
+          this.clearBroodCarry(ant);
+          this.releaseNurse(ant);
+          continue;
+        }
         const arrived=this.nurseWalk(ant,baby.targetTile);
-        const order=this.orderOf(baby);if(order)order.status=arrived?'INCUBATING':arrived===false?'CARRYING':'WAITING_ROUTE';
+        const order=this.orderOf(baby);if(order)order.status=arrived?'INCUBATING':'CARRYING';
         baby.x=ant.x;baby.y=ant.y;
         if(arrived) {
           baby.carrierId=null;baby.pickupBy=null;baby.roomId=room?.id||null;
@@ -315,6 +325,14 @@ export class Lifecycle {
       for(const baby of this.brood) {
         if(baby.carrierId||(baby.pickupBy&&baby.pickupBy!==ant.id))continue;
         if(!isWalkable(layer,baby.x,baby.y))continue;
+        if(findPath(layer,ant,baby)===null){
+          if(baby.pickupBy===ant.id){
+            baby.pickupBy=null;
+            const order=this.orderOf(baby);
+            if(order)order.status='WAITING_ROUTE';
+          }
+          continue;
+        }
         if(baby.pickupBy===ant.id&&baby.targetTile){moving=baby;break;}
         if(baby.roomId)continue;
         const destination=this.nurseryDestination(baby,ant);
