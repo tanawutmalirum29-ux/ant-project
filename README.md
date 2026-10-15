@@ -79,13 +79,18 @@ docs/AMPLIFY_DEPLOY.md      คู่มือ AWS Amplify
 ```
 
 
-## กฎองค์กรฉบับเดียว
+## ระบบทำงาน AI แบบง่าย — เก็บคำสั่งย่อเดิม
 
-**กฎองค์กรที่มีผลบังคับใช้เพียงแห่งเดียว:** [ANT KINGDOM — OFFICIAL RULES](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/RULES.md)
+**กฎกลางเพียงฉบับเดียว:** [RULES.md](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/RULES.md)  
+**คำสั่งย่อ:** [COMMANDS.md](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/COMMANDS.md)
 
-กฎใหม่ทั้งหมด (CEO, ที่ปรึกษา, `NP`/`MN`/`PF`/`SIM`, การจัดทีมและ QA, `CCCC DB`, `Completed`) ให้ยึดจากไฟล์นี้เท่านั้น **ห้ามใช้คู่มือจัดทีมเก่า 17 AI, กฎ CEO/CTO เดิม, หรืองาน Round เก่าเป็นคำสั่งปัจจุบัน** เกมเก็บไว้เฉพาะคู่มือกลไกเกมจริง โค้ด และเอกสารบันทึกผลการพัฒนาที่ไม่ใช่กฎองค์กร
+การพัฒนาเกมใช้ขั้นตอนง่าย ๆ: **รับงาน → แบ่งงานเท่าที่จำเป็น → เขียนโค้ดบน Branch → ทดสอบ/Review → Merge เข้า `main`** โดย CEO ดูแลการส่งมอบ และให้ Engineer 1–3 คนแยกงานเมื่อจำเป็น ไม่บังคับแต่งตั้งสภาที่ปรึกษา/ผู้บริหารหลายชั้น ไม่บังคับไฟล์ `M00000`, Receipt หรือ Signoff สำหรับงานทั่วไป
 
-การเปิดแชท CEO ใหม่ใช้ [ใบแต่งตั้งปัจจุบันเพียงฉบับเดียว](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/appointments/OWNER-TO-CEO.md) หรือตามใบแต่งตั้งฉบับเต็มที่ CEO เดิมส่งหลัง `Completed` และ Owner เป็นคนส่งข้อความข้าม ChatGPT ด้วยตนเอง
+`MN` = ดูงานใหม่แล้วดำเนินต่อ; `TR` = ตรวจเหตุผิดพลาดและลองขั้นที่ค้างใหม่อย่างปลอดภัยหนึ่งครั้ง; `ST` = รายงานสถานะ; `NX` = ข้อความที่ OWNER ต้องส่งต่อ; `CI` = ตรวจการทดสอบจริง. คำสั่งอื่นยังอยู่ใน COMMANDS.md ตามเดิม
+
+**สำคัญ:** งานที่กำลังดำเนินการและ PR ที่ยังไม่ผ่านการตรวจไม่ถูกยกเลิกหรือ Merge อัตโนมัติ ห้ามนำโค้ดที่มี Regression เข้า `main` เพียงเพื่อปิดงาน และต้องตรวจผล Native Tests/Build/Browser QA ที่จำเป็นก่อน
+
+ใบแต่งตั้ง CEO ฉบับสั้นอยู่ที่ [OWNER-TO-CEO.md](https://github.com/tanawutmalirum29-ux/appointment-CEO/blob/main/appointments/OWNER-TO-CEO.md) โดย OWNER ทำหน้าที่ส่งข้อความระหว่างแชทเมื่อจำเป็น ไม่มีการส่งข้อความไปยัง AI อีกแชทโดยอัตโนมัติ
 
 ## การทดสอบและสถานะจริง
 
