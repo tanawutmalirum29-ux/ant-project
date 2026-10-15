@@ -140,6 +140,30 @@ try:
                 assert page.evaluate('''() => __ANT_DEBUG__.game.population''')==6
                 assert page.evaluate('''() => __ANT_DEBUG__.ui.tool''')=='inspect'
                 assert 'Seed: '+intended in page.locator('.ui-home-seed').inner_text()
+                # Coordinator G3-B: real buttons/overlay navigation against the
+                # full game, not a synthetic DOM or a re-created facade.
+                assert page.evaluate('''() => {
+                    const d=__ANT_DEBUG__;
+                    return d.renovationB?.mounted?.join(',')==='military,ants' &&
+                        d.renovationShell.overlay.registry.has('ui02-military') &&
+                        d.renovationShell.overlay.registry.has('ui03-ants');
+                }'''),(engine.name,w,'B modules not mounted')
+                menu.click()
+                page.get_by_role('button',name='มดในอาณาจักร').click()
+                assert page.locator('.uiv1-a').is_visible(),(engine.name,w,'ant panel missing')
+                assert page.locator('.uiv1-a-unit').count()>=5,(engine.name,w,'ant roster empty')
+                assert page.locator('.ui-home-menu').is_hidden()
+                page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-ants.png'))
+                page.locator('.uiv1-a-head button').click()
+                assert page.locator('.uiv1-a').is_hidden()
+                menu.click()
+                page.get_by_role('button',name='กองทหาร A/B').click()
+                assert page.locator('.uiv1-b').is_visible(),(engine.name,w,'military panel missing')
+                assert page.locator('.uiv1-b-tabs button').count()==2
+                assert page.locator('.ui-home-menu').is_hidden()
+                page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-military.png'))
+                page.locator('.uiv1-b-head button').click()
+                assert page.locator('.uiv1-b').is_hidden()
                 assert not errs,(engine.name,w,h,errs)
                 print(f'G3-A PASS {engine.name} {w}x{h}: 5 true hit targets, layer 20x, sheets, outside click, Seed cancel+confirm, no JS errors')
                 ctx.close()
