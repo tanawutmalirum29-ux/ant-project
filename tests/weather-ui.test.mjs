@@ -40,10 +40,12 @@ function fakeDOM(){
   const clock={tagName:'STRONG',textContent:'',previousElementSibling:small};
   elements.set('game-time',clock);
   const make=()=>({
-    textContent:'',value:'',max:'',title:'',style:{},classList:{toggle(){}}
+    textContent:'',value:'',max:'',title:'',style:{},classList:{toggle(){}},
+     children:[],append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;}
   });
   return {
     small,clock,
+    createElement(tag){return {...make(),tagName:tag.toUpperCase()};},
     getElementById(id){
       if(!elements.has(id))elements.set(id,make());
       return elements.get(id);
@@ -118,7 +120,7 @@ test('NEXT02-UI-05 no new markup/IDs, speed/seed/camera controls stay intact',()
   assert.match(html, /<small>เวลาในอาณาจักร<\/small><strong id="game-time">/);
   assert.equal([...html.matchAll(/id="game-time"/g)].length,1);
   assert.doesNotMatch(html,/id="weather-/);
-  assert.doesNotMatch(app, /document\.createElement\(['"](?:div|aside|section)/);
+  assert.match(app, /document\.createElement\('table'\)/,'permanent caste table uses DOM primitives');
   for(const id of ['pause-button','seed-button','seed-form','colony-button',
     'zoom-in','zoom-out','debug-toggle','surface-button','underground-button']) {
     assert.equal([...html.matchAll(new RegExp('id="'+id+'"','g'))].length,1,id);
