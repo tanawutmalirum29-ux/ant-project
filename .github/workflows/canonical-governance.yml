@@ -1,0 +1,31 @@
+name: Ant Kingdom — Single Governance Source & Game Regression
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - 'docs/**'
+      - '.github/workflows/canonical-governance.yml'
+  workflow_dispatch:
+jobs:
+  canonical:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify one external organization policy and no retired manuals
+        shell: bash
+        run: |
+          grep -Fq 'appointment-CEO/blob/main/RULES.md' README.md
+          test ! -d docs/ai-org
+          test ! -f docs/development/QA_PROTOCOL.md
+          test ! -f docs/development/FILE_OWNERSHIP.md
+          echo 'Game references the one canonical governance RULES.md'
+      - name: Native game regression
+        run: npm test
+      - name: Static production build
+        run: npm run build
