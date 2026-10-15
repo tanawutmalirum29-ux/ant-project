@@ -148,3 +148,38 @@ test('CASTE-07: high population, seeds, and ticks do not silently rewrite profes
     assert.ok(g.foraging.nodes.every(n=>n.reserved>=0&&n.reserved<=n.amount));
   }
 });
+
+test('CASTE-08: Lv5 Forager physically gathers five units and delivers actual cargo',()=>{
+  const g=new Game('caste-physical-forage');
+  g.colony.setForageSlots(0); // Only the hatched specialist may forage.
+  const ant=promote(g,'forager',5);
+  const choice=g.foraging.chooseSource(ant);
+  assert.ok(choice);
+  assert.equal(choice.quantity,5);
+  for(let i=0;i<1100&&!ant.cargo?.amount;i++)tick(g);
+  assert.equal(ant.cargo?.amount,5);
+  assert.ok(ant.state.startsWith('forage-'));
+  const before=g.foraging.delivered;
+  for(let i=0;i<900&&ant.cargo?.amount;i++)tick(g);
+  assert.equal(ant.cargo,null);
+  assert.equal(g.foraging.delivered,before+5);
+  assert.ok(g.foraging.completedTrips>=1);
+});
+
+test('CASTE-09: 5,000-tick seed replay preserves capacity, role, reservation invariants',()=>{
+  const simulate=()=>{
+    const g=new Game('caste-long-run');
+    for(let i=0;i<5000;i++){
+      g.update(100);
+      if(i%500===0){
+        assert.ok(g.population<=150);
+        assert.equal(new Set(g.colony.workers.map(a=>a.id)).size,g.colony.workers.length);
+        assert.ok(g.colony.workers.every(a=>a.profession==='starter'));
+        assert.ok(g.foraging.nodes.every(n=>n.reserved>=0&&n.reserved<=n.amount));
+      }
+    }
+    return {ticks:g.clock.ticks,population:g.population,delivered:g.foraging.delivered,
+      deaths:g.lifecycle.workerDeaths,stock:{...g.foraging.inventory}};
+  };
+  assert.deepEqual(simulate(),simulate());
+});
