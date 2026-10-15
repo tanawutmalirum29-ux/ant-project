@@ -61,7 +61,10 @@ function title(ant) {
 }
 function details(game,ant) {
   const parts=[antRole(ant),antState(ant),`ตำแหน่ง ${ant.x}, ${ant.y}`];
-  if(ant.combatRole==='soldier') parts.push(`HP ${Math.max(0,ant.combatHP??16)}/${game.combat?.maxHP?.(ant)??16}`);
+  if(ant.combatRole==='soldier') {
+    const max=game.combat?.maxHP?.(ant)??16;
+    parts.push(`HP ${Math.max(0,Math.min(max,ant.combatHP??max))}/${max}`);
+  }
   if(ant.caste==='queen' && game.combat) parts.push(`HP ${game.combat.queenHP}/48`);
   if(ant.cargo?.amount)parts.push(`ขน${CARGO[ant.cargo.type]??'ทรัพยากร'} ${ant.cargo.amount}`);
   if(ant.broodCargo)parts.push('กำลังขนตัวอ่อน');

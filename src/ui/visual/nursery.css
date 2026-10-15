@@ -1,40 +1,63 @@
-/* Permanent caste roster replaces percentage workforce control. */
-.workforce-editor { display: none !important; }
-.caste-report { padding: 8px 2px; display: grid; grid-template-columns: 1fr; gap: 2px; }
-.caste-report p { margin: 0; padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.12); }
-.nursery-panel {
-  position: fixed; z-index: 45; top: max(88px,env(safe-area-inset-top,0px));
-  right: max(12px,env(safe-area-inset-right,0px)); width: min(360px,calc(100vw - 24px));
-  max-height: min(70dvh,680px); overflow-y:auto; overscroll-behavior: contain;
-  padding: 14px; box-sizing:border-box; border-radius:14px;
-  background: #172321; color: #f5f5e8; border:1px solid #6b8d6a;
-  box-shadow: 0 16px 38px rgba(0,0,0,.48);
-  font-size: 13px; line-height:1.45;
-  -webkit-overflow-scrolling: touch;
+/* Nursery UI is a non-modal, real-data game drawer. It never changes caste. */
+.workforce-editor {display:none!important;}
+.caste-report{padding:8px 0;overflow-x:auto;overscroll-behavior-x:contain;}
+.caste-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.caste-table th,.caste-table td{padding:7px 4px;text-align:center;border-bottom:1px solid #8b9e8540;}
+.caste-table thead th{font-size:10px;color:#e7d09d;}
+.caste-table tbody th{text-align:left;white-space:normal;min-width:65px;}
+.caste-table .starter-row{background:#876e3a33;}
+.nursery-panel{position:fixed;z-index:45;box-sizing:border-box;left:50%;right:auto;top:calc(76px + env(safe-area-inset-top,0px));
+ transform:translateX(-50%);width:min(390px,calc(100vw - 28px));max-height:min(78dvh,740px);
+ overflow:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-gutter:stable;
+ padding:14px;border-radius:12px;background:#172721;color:#f7f2e4;border:1px solid #8aa078;
+ box-shadow:0 14px 36px #000b;font-size:13px;line-height:1.45;-webkit-overflow-scrolling:touch;}
+.nursery-panel.hidden{display:none!important;}
+.nursery-panel *{box-sizing:border-box;}
+.nursery-head{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.nursery-head h2{font-size:17px;margin:0;}
+.nursery-panel h3{font-size:14px;margin:12px 0 7px;}
+.nursery-panel button{font:inherit;cursor:pointer;min-height:44px;color:#fff5e6;background:#385641;border:1px solid #9eaf82;border-radius:8px;padding:7px 10px;}
+.nursery-head button{min-width:44px;font-size:22px;padding:0;}
+.nursery-panel button:disabled{opacity:.5;cursor:not-allowed;}
+.nursery-panel :focus-visible,.nursery-reopen:focus-visible{outline:3px solid #f4d488;outline-offset:2px;}
+.nursery-capacity{margin:8px 0;border:1px solid #8ea47a55;padding:8px;border-radius:8px;}
+.nursery-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);align-items:center;gap:9px;}
+.nursery-form label{font-weight:700;min-width:0;}
+.nursery-form select{width:100%;min-width:0;min-height:44px;background:#253c31;border:1px solid #8ba985;
+ border-radius:8px;color:#fff3df;padding:8px;font:inherit;}
+.nursery-form p,.nursery-form button{grid-column:1/-1;margin:0;}
+.nursery-form #nursery-queue{background:#547f51;font-weight:800;}
+.nursery-cost{line-height:1.5;overflow-wrap:anywhere;}
+.nursery-blocked{font-weight:700;color:#eed7a5;}
+.nursery-blocked:empty,#nursery-feedback:empty{display:none;}
+.nursery-orders{display:grid;gap:7px;list-style:none;margin:0;padding:0;max-height:220px;overflow:auto;overscroll-behavior:contain;}
+.nursery-orders li{min-width:0;border-bottom:1px solid #92aa8c55;padding:7px 3px;display:flex;align-items:center;gap:8px;justify-content:space-between;}
+.nursery-order-content{display:grid;gap:3px;flex:1;min-width:0;}
+.nursery-order-label{font-size:12px;overflow-wrap:anywhere;}
+.nursery-order-eta{color:#cadac6;font-size:11px;}
+.nursery-order-content progress{width:100%;height:9px;accent-color:#d8bd71;}
+.nursery-order-content progress[hidden]{display:none;}
+.nursery-orders button{flex:none;min-width:65px;}
+.nursery-reopen{min-height:44px;padding:8px 12px;border:1px solid #bb9f75;background:#345341;color:#f5ebdb;border-radius:8px;}
+.nursery-reopen.hidden{display:none!important;}
+/* The selected tile remains valid; its inspector is shown again after closing. */
+body:has(.nursery-panel:not(.hidden)) #selection-card:not(.hidden){visibility:hidden;pointer-events:none;}
+/* A/B command dialog and population report always win over a non-modal drawer. */
+body:has(#u6-dialog[open]) .nursery-panel:not(.hidden),
+body:has(.colony-panel:not(.hidden)) .nursery-panel:not(.hidden){visibility:hidden;pointer-events:none;}
+@media(max-width:600px){
+ .nursery-panel{left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));
+  top:auto;bottom:calc(188px + env(safe-area-inset-bottom,0px));transform:none;width:auto;
+  max-height:min(45dvh,calc(100dvh - 215px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
+  padding:10px 11px;border-radius:10px;}
+ .nursery-orders{max-height:148px;}
 }
-.nursery-panel.hidden {display:none !important;}
-.nursery-head {display:flex; justify-content:space-between; align-items:center; gap:10px;}
-.nursery-head h2 {font-size:17px; margin:0;}
-.nursery-panel h3 {font-size:14px; margin:12px 0 8px;}
-.nursery-head button {min-width:36px; min-height:36px; font-size:22px; border-radius:8px; color:inherit; background:#34483b; border:1px solid #526c55;}
-.nursery-form {display:grid; grid-template-columns: 1fr 1fr; gap:7px; align-items:center;}
-.nursery-form label {grid-column:1; font-weight:600;}
-.nursery-form select {grid-column:2; width:100%; min-width:0; min-height:38px; padding:6px; border-radius:6px; background:#253a33; color:inherit; border:1px solid #709577;}
-.nursery-form p,.nursery-form button {grid-column:1 / -1;}
-.nursery-form button {padding:9px; min-height:42px; background:#527752; border-radius:8px; border:1px solid #88b48d; font-weight:700; color:#fff;}
-.nursery-form button:disabled {opacity:.5; cursor:not-allowed;}
-.nursery-form #nursery-feedback:empty {display:none;}
-.nursery-orders {margin:0; padding-left:22px; max-height:170px; overflow:auto;}
-.nursery-orders li {padding:7px 0; border-bottom:1px solid rgba(255,255,255,.12); display:flex; justify-content:space-between; gap:8px; align-items:center;}
-.nursery-orders button {min-height:32px; padding:4px 9px; flex-shrink:0; color:#fff; border:1px solid #9a8a69; background:#584d3d; border-radius:7px;}
-.nursery-panel :focus-visible {outline:2px solid #e9db76; outline-offset:3px;}
-@media (max-width: 600px) {
-  .nursery-panel {
-    top:auto; bottom:calc(78px + env(safe-area-inset-bottom,0px));
-    left: max(8px,env(safe-area-inset-left,0px));
-    right:max(8px,env(safe-area-inset-right,0px));
-    width:auto; max-height: min(52dvh,490px); padding:12px;
-    border-radius:12px;
-  }
-  .nursery-orders{max-height:120px;}
+@media(max-width:355px){
+ .nursery-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .nursery-head h2{font-size:15px;}
 }
+@media(max-height:500px) and (orientation:landscape){
+ .nursery-panel{top:calc(8px + env(safe-area-inset-top,0px));bottom:calc(64px + env(safe-area-inset-bottom,0px));
+ max-height:calc(100dvh - 80px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));}
+}
+@media(prefers-reduced-motion:reduce){.nursery-panel *{animation:none!important;transition:none!important;}}

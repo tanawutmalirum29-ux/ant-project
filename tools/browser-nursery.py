@@ -41,17 +41,41 @@ try:
             box=drawer.bounding_box()
             assert box and box['x']>=0 and box['x']+box['width']<=width+1,(width,box)
             assert box['y']>=0 and box['y']+box['height']<=height+1,(height,box)
+            # Drawer cannot consume physical A/B controls or the old selected tile card.
+            def intersects(a,b):
+                return a and b and a['x'] < b['x']+b['width'] and b['x'] < a['x']+a['width'] and a['y'] < b['y']+b['height'] and b['y'] < a['y']+a['height']
+            dock=page.locator('#u6-dock')
+            assert dock.is_visible(),(width,'military dock missing')
+            assert not intersects(box,dock.bounding_box()),(width,'nursery obscures squad A/B dock')
+            assert page.locator('#selection-card').evaluate("(e)=>getComputedStyle(e).visibility==='hidden'"),(width,'selection card overlap')
+            assert page.locator('#nursery-blocked').text_content().strip()=='พร้อมรับคำสั่งฟักไข่',(width,'unexpected block reason')
+            page.locator('#u6-open').click()
+            assert page.locator('#u6-dialog').evaluate('(e)=>e.open'),(width,'squad dialog not open')
+            assert page.locator('#nursery-panel').evaluate("(e)=>getComputedStyle(e).visibility==='hidden'"),(width,'squad dialog obscured')
+            page.locator('#u6-close').click()
+            assert drawer.is_visible(),width
             page.locator('#nursery-profession').select_option('nurse')
             page.locator('#nursery-level').select_option('3')
             page.locator('#nursery-queue').click()
             orders=page.evaluate('''() => __ANT_DEBUG__.game.lifecycle.eggOrders.map(o=>({profession:o.profession,level:o.level,status:o.status}))''')
             assert orders==[{'profession':'nurse','level':3,'status':'QUEUED'}],(width,orders)
+            assert page.locator('#nursery-orders li[data-id]').count()==1
+            assert 'รอนางพญา' in page.locator('#nursery-orders').inner_text()
+            assert page.locator('#nursery-orders progress').count()==1
             page.locator('#nursery-orders button[data-egg-id]').click()
             assert page.evaluate('__ANT_DEBUG__.game.lifecycle.eggOrders.length')==0
             page.locator('#nursery-close').click()
             assert not drawer.is_visible(),width
+            assert page.locator('#nursery-reopen').is_visible()
+            page.locator('#nursery-reopen').click()
+            assert drawer.is_visible()
+            page.keyboard.press('Escape')
+            assert not drawer.is_visible(),(width,'Escape failed')
             page.locator('#colony-button').click()
             assert page.locator('#caste-report').is_visible(),width
+            assert page.locator('#caste-report table tbody tr').count()==6
+            assert page.locator('#caste-report .starter-row').is_visible()
+            assert page.locator('#caste-report').locator('th').all_text_contents()[:2]==['อาชีพ','รวม']
             assert not errors,(width,errors)
             print(f'Nursery browser {width}x{height}: PASS')
             page.close()
