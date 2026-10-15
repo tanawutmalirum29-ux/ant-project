@@ -154,3 +154,20 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
 body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-target{
   pointer-events:auto;min-width:64px;min-height:44px;
 }
+
+/* G4 genuine gameplay blocker: the Nursery "reopen" button was physically
+   painted over the main five-control toolbar after the sheet was closed
+   (320x568: reopen x117..203,y514..558; Room action x130..190,y516..560).
+   Move this MAP_ACTION-only affordance up by a full control row, never make
+   the obscured toolbar button receive a synthetic/forced click. */
+@media(max-width:680px) and (min-height:501px){
+  #app[data-ui-renovation-qa="true"] .ui04-reopen:not([hidden]){
+    transform:translateY(-64px);
+  }
+}
+/* The Nursery shortcut must also not compete with the room/dig command
+   panel while either world-editing tool is active. Chromium & WebKit support
+   :has(); game semantics remain owned by the feature and G1 adapter. */
+#app[data-ui-renovation-qa="true"]:has(.ui05-root:not([hidden])) .ui04-reopen{
+  display:none!important;
+}
