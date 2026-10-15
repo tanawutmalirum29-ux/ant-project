@@ -6,8 +6,9 @@ const js=readFileSync(new URL('../src/ui/renovation/rooms.js',import.meta.url),'
 const css=readFileSync(new URL('../src/ui/renovation/rooms.css',import.meta.url),'utf8');
 test('UI-05 G1.0 uses map/room authoritative facade, not direct Engine or native UI',()=>{
  assert.equal(typeof mount,'function');
- for(const name of ['roomPlan','validateRoom','queueRoom','cancelRoom','inspectDig','queueDig','cancelDig'])
+ for(const name of ['roomPlan','validateRoom','queueRoom','cancelRoom','inspectDig','applySelectedDig','clearDigSelection'])
   assert.match(js,new RegExp('actions\\.'+name+'\\('));
+ assert.match(js,/actions\.selectRoomType\?\.\(/);
  assert.doesNotMatch(js,/\b(?:alert|confirm|prompt|showPicker|setInterval|requestAnimationFrame)\s*\(/);
  assert.doesNotMatch(js,/\.game\.|\.lifecycle\.|\.colony\.|canvas\.addEventListener/);
  assert.match(js,/unsubscribe\(\)/);
