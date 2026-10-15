@@ -11,7 +11,8 @@ const pos = ant => ({layer:ant.layer,x:ant.x,y:ant.y});
 const coord = goal => goal&&goal.layer+':'+goal.x+','+goal.y;
 function game(seed='squad-core-suite'){
   const g=new Game(seed);
-  g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);g.combat.setSoldierSlots(3);
+  g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+  for(let i=0;i<3;i++)g.lifecycle.promote({profession:'soldier',level:1,x:g.colony.queen.x,y:g.colony.queen.y});
   assert.equal(g.combat.soldiers.length,3);
   return g;
 }
@@ -61,7 +62,8 @@ test('SQUAD-03: invalid commands reject atomically; foreign and demobilized ants
   reject(c.setSquadRally('B','sky',2,3),'INVALID_RALLY');
   reject(c.setSquadRally('B',UNDERGROUND,1.2,5),'INVALID_RALLY');
   reject(c.setSquadRally('B',UNDERGROUND,-2,1),'INVALID_RALLY');
-  assert.equal(c.demobilize(ant),true);
+  assert.equal(c.demobilize(ant),false,'permanent soldiers cannot be demobilized');
+  g.lifecycle.killWorker(ant);
   assert.equal(c.transferSoldier(ant.id,'B').error.code,'NOT_ACTIVE_SOLDIER');
 });
 test('SQUAD-04: each squad owns its mode, rally and distinct formation reservations',()=>{
@@ -153,19 +155,20 @@ test('SQUAD-08: transfer during queen emergency does not abort interception',()=
   assert.deepEqual({next:ant.next,path:ant.path,motion:ant.motion,goal:ant.goal},before);
   assert.equal(c.getSquad('B').data.count,1);
 });
-test('SQUAD-09: roster death/downsize removes ghosts; former injured soldier keeps HP',()=>{
+test('SQUAD-09: permanent wounded soldier cannot demobilize; death removes B ghosts',()=>{
   const g=game('squad-casualties'),c=g.combat,ant=c.soldiers[0];
   ok(c.transferSoldier(ant.id,'B'));ant.combatHP=4;
-  assert.equal(c.demobilize(ant),true);assert.equal(ant.combatHP,4);
-  assert.equal(ok(c.getSquad('B')).count,0);
-  assert.equal(c.recruit(ant),true);assert.equal(ant.squadId,'A');assert.equal(ant.combatHP,4);
-  ok(c.transferSoldier(ant.id,'B'));
+  assert.equal(c.demobilize(ant),false);
+  assert.equal(c.recruit(ant),false);
+  assert.equal(ant.combatHP,4);
+  assert.equal(ok(c.getSquad('B')).count,1);
+  assert.equal(c.setSoldierSlots(0),3,'quota controls cannot erase soldiers');
+  assert.equal(ant.squadId,'B');
   g.lifecycle.killWorker(ant);
   assert.equal(ok(c.getSquad('B')).count,0);
   assert.equal(c.transferSoldier(ant.id,'A').error.code,'NOT_ACTIVE_SOLDIER');
+  assert.equal(c.soldiers.length,2);
   checkSnapshot(g);
-  c.setSoldierSlots(0);
-  assert.equal(c.soldiers.length,0);assert.equal(ok(c.getSquad('B')).count,0);
 });
 test('SQUAD-10: deterministic order and transfer replay with pause semantics',()=>{
   const simulate=()=>{
@@ -186,7 +189,7 @@ test('SQUAD-11: direct Combat fixture keeps all-A legacy public behavior',()=>{
   const world=createWorld('squad-legacy-core');
   const q={x:48,y:24,layer:UNDERGROUND,alive:true,caste:'queen'};
   const ants=[1,2,3].map(i=>({id:'worker-'+i,x:48,y:24+i,layer:UNDERGROUND,
-    state:'idle',orderId:null,path:[],next:null,motion:0}));
+    profession:'soldier',level:1,state:'idle',orderId:null,path:[],next:null,motion:0}));
   const colony={workers:ants,queen:q,completed:0,isForager:()=>false};
   const c=new Combat(world,colony,null,null,null);c.setSoldierSlots(3);
   assert.equal(c.setMode('defend'),'defend');
