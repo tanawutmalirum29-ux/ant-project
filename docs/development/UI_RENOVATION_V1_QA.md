@@ -46,6 +46,8 @@ Each scenario marked P0 is a hard release blocker. Run on all S0/S3/L0/L2/T0/D1 
 ### Global main HUD/map
 - [P0] First boot at Seed ANT-001, no overlap topbar/resource/status/milestones/speed/zoom/layer/nav/tactical dock.
 - [P0] Pan with mouse and touch, pinch, wheel, recenter, switch layer. No blocked canvas except intentional sheet.
+- [P0] **One-button layer switch**: 320×568 toolbar shows exactly one (not two) layer button in the existing five-control action row, **no second layer-nav row**, all five ≥44×44 and fully hit-testable. From underground tap once → surface (label/icon/aria update); tap once → underground. Verify `UI.game.layer`, map rendering and disabled dig/build semantics after both transitions, then repeat 20× without focus/selection drift. Check keyboard Enter/Space, short landscape rail, tablet/desktop. No need to open an extra menu to switch layers.
+- [P0] At 320px and safe-area inset, switching layer never compresses or obstructs the five main actions, occupies no new vertical strip, and does not trigger map dig/room/rally actions or reopen a previously dismissed sheet.
 - [P0] Inspect → dig → build → inspect, reselect mode, change layer while tool active, disabled dig/build on surface.
 - [P0] Speed pause/x1/x2/x4 visually accurate; clock and HUD update without pointer/scroll/focus jumps.
 - [P0] Expand resource/status/menu while command bar is open, outside tap, ESC, toasts.
