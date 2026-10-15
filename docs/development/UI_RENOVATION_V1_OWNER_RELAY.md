@@ -11,7 +11,7 @@ This is a copyable assignment sheet. Relaying these messages does not spawn agen
 
 **Role:** ENGINEER-A (Engineer-1)  
 **Tasks:** [UI-01 #139](https://github.com/tanawutmalirum29-ux/ant-project/issues/139) and [UI-06 #144](https://github.com/tanawutmalirum29-ux/ant-project/issues/144).  
-**Goal:** Completely redesign main game screen (resource/time/speed/layer/tools/milestone/status) for all viewports, plus Settings and safe Seed/world-reset flow. Preserve map pan, dig/room button semantics, normal Seed typing and world generation. UI must be native-popup free, CSS/DOM, accessible and responsive.
+**Goal:** Completely redesign main game screen (resource/time/speed/layer/tools/milestone/status) for all viewports, plus Settings and safe Seed/world-reset flow. **OWNER design decision: remove the separate permanent surface/underground 2-button bar. Use ONE toggle in the existing primary tool row (inspect/dig/build/layer/menu), with current-layer icon+label, one-tap transition, ≥44px target, full accessible label and no extra bottom row.** On landscape/tablet/desktop place the same single action in tool rail. Preserve existing `UI.switchLayer` game semantics, map pan, dig/room button behavior, normal Seed typing and world generation. UI must be native-popup free, CSS/DOM, accessible and responsive.
 
 **Exclusive new files:** `src/ui/renovation/home.js`, `home.css`, `settings.js`, `settings.css`, related focused tests; split into two PRs.  
 **PROHIBITED shared edits:** `index.html`, `src/ui/app.js`, `src/ui/combat-controls.js`, `src/styles.css`, `src/ui/visual/*`, game core, shell. Request shared-file adapters from COORDINATOR.  
