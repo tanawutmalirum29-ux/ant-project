@@ -69,9 +69,11 @@ export class UIOverlayController {
     // Popovers are always children of the owning panel in stack order.
     for(const child of [...this.stack.slice(at+1)].reverse())this.closePanel(child.id,reason);
     this.stack.splice(at,1);
-    panel?.hide?.(reason);
+    // Exit the native top layer BEFORE the feature hide callback restores its
+    // parent sheet and focuses its input; otherwise focus is blocked as inert.
     if(panel?.kind==='modal' && panel?.element?.tagName==='DIALOG' && panel.element.open)
       panel.element.close();
+    panel?.hide?.(reason);
     if(panel?.element) {
       panel.element.removeAttribute?.('data-ui-overlay-open');
       if(!panel.hide) panel.element.hidden=true;
