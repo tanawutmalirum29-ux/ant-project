@@ -22,6 +22,20 @@ update(view)  // optional, stable scrolling/focus
 
 The existing source `#room-type`, `#nursery-profession`, `#nursery-level`, `#u6-dialog`, `#game-canvas`, `#selection-card`, game layers, commands and `Game` APIs remain operational until coordinator explicitly migrates each with regression evidence. Never ship a visible native OS selector, `alert/confirm/prompt/showPicker`. Existing `room-picker.js` and `game-choice.js` provide a working reference; reuse/unify after regression validation, don't create a third overlapping dropdown system.
 
+## 1.1 ENGINEER A/B/C source-audit decisions — Coordinator G1 inputs
+
+The following are verified source facts, **not** frozen facade signatures or authorization to implement:
+
+- **Layer toggle (A):** UI.switchLayer(layer) handles map-layer transition and dig/build exit on surface. Legacy [data-layer] listener supports two buttons; Coordinator replaces it with ONE shared PRIMARY_COMMAND toggle without double dispatch or duplicate state.
+- **Seed reset (A):** existing Seed form calls UI.onNewWorld directly. Coordinator owns second-stage confirmation and world rebind for targeting, selection, map tool, camera, subscriptions, and overlays. Cancel never changes world, Confirm only once. Verify Unicode/IME/length handling without changing deterministic seeds.
+- **Military HP (B):** soldier details currently hardcode /16; game.combat.maxHP(ant) scales by 16 + 3 × (level−1). Real squad snapshot must expose HP/current max, level, squad, status, formation and arrived count. Coordinator registers body-mounted military dialog with centralized overlay; continuous tracking is a proposed additional camera feature, not existing guarantee.
+- **Resizable rooms (C):** roomPlan(type,width,height) supports positive integer widths/heights up to 8×8 with area ≥4, using scaled costs/ticks/capacities. Default is 2×2. Nursery capacity is min(width×height,16) and used/free is provided by lifecycle.nurseryStatus(roomId). **No assumption all Nurseries have only four slots.**
+- **Egg lifecycle (C):** lifecycle.queueEgg validates ready, connected, reachable room, live queen, population cap, stock, and capacity. lifecycle.cancelEgg only succeeds for QUEUED orders and may return false; never show false refund success. LAID/HATCHED need not persist as queue rows; waiting-for-pickup/route is not incubation progress.
+- **Dig/build (C):** Coordinator owns touch/drag/preview and state transitions. Display actual roomPlan price and validation, keep preview vs committed action distinct, and do not silently introduce a new second-confirm gameplay mechanic.
+- **Issue-first workflow:** #138 stores G1 API decisions, #139/#140/#141/#142/#143/#144 store Engineers' design reports, questions and START orders, PR #146 stores integration changes. OWNER relays only MN #issue links; no M00000 or auto-communication assumptions.
+
+**No G1_FROZEN until shell is implemented/tested and issue #138 records full SHA, final facade signatures, overlay/geometry ownership and real browser QA.**
+
 ## 2. Layout geometry contract (single system)
 
 **Only shell CSS** may place structural areas (header, nav, dock, inspector, sheet, toast, system modal, overlay mask). Feature CSS styles **inside the allocated slot** and must not use viewport-wide `position:fixed`, ad hoc `z-index:9999`, arbitrary global `body:has()` collisions, or reposition unrelated sibling panels.
