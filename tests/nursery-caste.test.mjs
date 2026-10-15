@@ -93,3 +93,16 @@ test('Starter ants and permanent Soldier are different professions',()=>{
   assert.equal(g.combat.maxHP(ant),28);
   assert.equal(g.colony.canWork(ant,'miner'),false);
 });
+
+test('Physical pickup, nursery delivery, care and incubation hatch one requested specialist',()=>{
+  const {g,room}=nurseryFixture('nursery-physical-hatch');
+  const accepted=g.lifecycle.queueEgg(room.id,'miner',1);
+  assert.equal(accepted.ok,true);
+  run(g,1200);
+  const hatch=g.colony.workers.find(a=>a.id==='worker-6');
+  assert.ok(hatch,'reserved egg must hatch via physical nursery delivery');
+  assert.equal(hatch.profession,'miner');
+  assert.equal(hatch.level,1);
+  assert.equal(g.lifecycle.eggOrders.length,0,'hatch releases one reservation');
+  assert.equal(g.lifecycle.births,1);
+});
