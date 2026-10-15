@@ -58,12 +58,13 @@ function mountHud(container,{view,actions,subscribe}){
   const tick=el(doc,'span','ui-home-tick','เวลาเกม 0 ติ๊ก');
   const seed=el(doc,'span','ui-home-seed','Seed —');
   metadata.append(tick,seed);wrap.append(stats,metadata);container.append(wrap);
-  let currentSpeed=1;
+  let currentSpeed=1,lastRunningSpeed=1;
   const refresh=snapshot=>{
     const home=snapshot?.home;if(!home)return;
     for(const name of Object.keys(resourceNodes))updateText(resourceNodes[name],pretty(home.resources?.[name]));
     updateText(populationValue,pretty(home.population)+'/'+pretty(home.maxPopulation));
     currentSpeed=home.speed;
+    if(home.speed>0)lastRunningSpeed=home.speed;
     updateText(speed,home.speed===0?'Ⅱ':'×'+home.speed);
     speed.setAttribute('aria-label',home.speed===0?'เกมหยุดอยู่ กดเพื่อเดินเวลา x1':'ความเร็ว x'+home.speed+' กดเพื่อหยุดเกม');
     speed.setAttribute('aria-pressed',String(home.speed===0));
@@ -71,7 +72,7 @@ function mountHud(container,{view,actions,subscribe}){
     updateText(seed,'Seed: '+(home.seed||'—'));
     seed.title=home.seed||'';
   };
-  speed.addEventListener('click',()=>actions.setSpeed(currentSpeed===0?1:0));
+  speed.addEventListener('click',()=>actions.setSpeed(currentSpeed===0?lastRunningSpeed:0));
   refresh(view);
   const off=subscribe(refresh);
   return ()=>{off();container.replaceChildren();};
