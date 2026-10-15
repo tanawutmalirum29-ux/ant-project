@@ -19,7 +19,7 @@ function fixture(size,{width=0,origin=UNDERGROUND}={}){
     writeCell(map,x,center.y,TERRAINS.TUNNEL);
   else map.cells.fill(TERRAINS.TUNNEL);
   const workers=Array.from({length:size},(_,i)=>({
-    id:'worker-'+(i+1),caste:'worker',layer:origin,x:origin===UNDERGROUND?center.x:64,
+    id:'worker-'+(i+1),caste:'worker',profession:'soldier',level:1,combatRole:'soldier',squadId:'A',combatHP:COMBAT.soldierHP,layer:origin,x:origin===UNDERGROUND?center.x:64,
     y:origin===UNDERGROUND?center.y:64,state:'idle',orderId:null,path:[],next:null,motion:0
   }));
   const colony={workers,queen:{...center,alive:true,caste:'queen'},completed:0,isForager:()=>false};
@@ -94,7 +94,8 @@ test('R2-FORM per-soldier origin | disconnected start is Unreachable despite fre
 test('R2-FORM portal | real paired entry required for cross-layer assignment and walking',()=>{
   const game=new Game('audit-surface-rally-15');
   game.colony.setForageSlots(0);game.lifecycle.setNurseSlots(0);
-  game.combat.setSoldierSlots(2);
+  for(let n=0;n<2;n++)game.lifecycle.promote({profession:'soldier',level:1});
+  game.combat.allocate();
   const entry=game.world.entrances[0];
   assert.equal(game.combat.setRally(SURFACE,entry.surface.x+3,entry.surface.y),true);
   assert.ok(game.combat.soldiers.every(a=>game.combat.getRallyGoal(a)?.layer===SURFACE));
@@ -129,21 +130,18 @@ test('R2-FORM no portal | a physically cut-off source cannot reserve target-laye
   assert.equal(f.combat.getFormationStatus(f.workers[0]),'Unreachable');
 });
 
-test('R2-FORM stability | recruit/demobilize/death retains valid soldier reservations',()=>{
+test('R2-FORM stability | permanent soldiers reject reassignment; death clears reservation',()=>{
   const f=fixture(8);
   const retained=new Map(f.combat.soldiers.map(a=>[a,f.combat.getRallyGoal(a)]));
   const removed=f.combat.soldiers[2];
-  assert.equal(f.combat.demobilize(removed),true);
-  assert.equal(f.combat.getRallyGoal(removed),null);
-  for(const [ant,goal] of retained)if(ant!==removed)assert.deepEqual(f.combat.getRallyGoal(ant),goal);
-  assert.equal(f.combat.recruit(removed),true);
-  assert.ok(f.combat.getRallyGoal(removed));
-  for(const [ant,goal] of retained)if(ant!==removed)assert.deepEqual(f.combat.getRallyGoal(ant),goal);
+  assert.equal(f.combat.demobilize(removed),false,'soldier caste must be permanent');
+  assert.equal(f.combat.recruit(removed),false,'already-enlisted soldier cannot be recruited twice');
+  for(const [ant,goal] of retained)assert.deepEqual(f.combat.getRallyGoal(ant),goal);
   const dead=f.combat.soldiers[4];
   f.colony.workers.splice(f.colony.workers.indexOf(dead),1);
   assert.equal(f.combat.getRallyGoal(dead),null);
   checkUnique(f);
-  for(const [ant,goal] of retained)if(ant!==removed&&ant!==dead)
+  for(const [ant,goal] of retained)if(ant!==dead)
     assert.deepEqual(f.combat.getRallyGoal(ant),goal);
 });
 
@@ -180,6 +178,7 @@ test('R2-FORM active arrival | non-rally and intercept/retreat/attack states do 
 test('R2-FORM priority | rally cannot bypass nearby attack or wounded retreat',()=>{
   const g=new Game('r2-priority');
   g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+  g.lifecycle.promote({profession:'soldier',level:1});g.combat.allocate();
   const ant=g.combat.soldiers[0],q=g.colony.queen;
   assert.equal(g.combat.setRally(UNDERGROUND,q.x,q.y),true);
   const enemy=g.combat.spawn('beetle',UNDERGROUND,ant.x,ant.y);
@@ -214,7 +213,8 @@ test('R2-FORM 1000 reads | cached plan identity stable, dig revision refreshes',
 test('R2-FORM ordered replay | matching seed and event order produces identical mapping',()=>{
   const replay=()=>{
     const f=fixture(17);
-    f.combat.demobilize(f.workers[3]);f.combat.recruit(f.workers[3]);
+    assert.equal(f.combat.demobilize(f.workers[3]),false);
+    assert.equal(f.combat.recruit(f.workers[3]),false);
     f.colony.completed++;
     f.combat.getRallyGoal(f.workers[0]);
     f.combat.setRally(UNDERGROUND,49,24);
@@ -227,6 +227,7 @@ test('R2-FORM pause | no formation progress occurs while Game clock is stopped',
   const g=new Game('r2-pause');
   g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
   const q=g.colony.queen;
+  g.lifecycle.promote({profession:'soldier',level:1});g.combat.allocate();
   assert.equal(g.combat.setRally(UNDERGROUND,q.x+3,q.y),true);
   const before=JSON.stringify({soldiers:g.combat.soldiers,tick:g.combat.tickCount,
     goals:g.combat.soldiers.map(a=>g.combat.getRallyGoal(a)),rallied:g.combat.ralliedCount});
