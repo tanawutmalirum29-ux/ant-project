@@ -1,3 +1,19 @@
+/* A game viewport is not a document: long-press should not summon text-copy
+   handles or the iOS callout over the map, HUD and action buttons. */
+#app, #app * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Preserve native caret, text selection, paste and accessibility in editors. */
+#app input, #app textarea, #app select,
+#app [contenteditable="true"], #app [contenteditable="true"] *,
+#app [contenteditable="plaintext-only"], #app [contenteditable="plaintext-only"] * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 :root {color-scheme:dark;--bg:var(--royal-night);--panel:var(--royal-panel);--gold:var(--royal-gold);--ink:var(--royal-cream);--muted:var(--royal-cream);--stroke:var(--royal-gold);--sans:Tahoma,'Noto Sans Thai',system-ui,sans-serif;--display:'Arial',var(--sans)}
 /* Opaque Royal token defaults above keep aliases valid without color-mix(). */
 @supports (color: color-mix(in srgb, red, transparent)) {
