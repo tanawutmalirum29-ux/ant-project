@@ -54,14 +54,18 @@ try:
                 data=page.evaluate('''() => {
                   const shell=__ANT_DEBUG__.renovationShell;
                   shell.preview(true);
-                  const rail=document.createElement('nav');
-                  rail.className='ui-command-grid';
-                  for(const title of ['สำรวจ','ขุด','สร้าง','ใต้ดิน','เมนู']){
-                    const b=document.createElement('button');
-                    b.className='ui-feature-action';b.type='button';b.textContent=title;
-                    rail.append(b);
+                  // G1 alone uses a synthetic five-command rail; at G3 the
+                  // actual Home rail is mounted, so never stack another row.
+                  let rail=shell.getRegion('PRIMARY_COMMAND').querySelector('.ui-home-toolbar');
+                  if(!rail){
+                    rail=document.createElement('nav');rail.className='ui-command-grid';
+                    for(const title of ['สำรวจ','ขุด','สร้าง','ใต้ดิน','เมนู']){
+                      const b=document.createElement('button');
+                      b.className='ui-feature-action';b.type='button';b.textContent=title;
+                      rail.append(b);
+                    }
+                    shell.getRegion('PRIMARY_COMMAND').append(rail);
                   }
-                  shell.getRegion('PRIMARY_COMMAND').append(rail);
                   const rect=n=>{
                     const r=shell.getRegion(n).getBoundingClientRect();
                     return {x:r.x,y:r.y,width:r.width,height:r.height};
@@ -83,7 +87,7 @@ try:
                     assert b['w']>=43.9 and b['h']>=43.9 and b['hit'],(engine.name,width,height,b)
                     assert b['x']>=-1 and b['y']>=-1 and b['x']+b['w']<=width+1 and b['y']+b['h']<=height+1,(width,height,b)
 
-                # Rendered evidence of the shell's RESERVED layout, not a fabricated completed UI.
+                # G1 reserved shell geometry, using real staged G3 rail when mounted.
                 page.screenshot(path=str(SHOT/f'{engine.name}-{width}x{height}.png'),full_page=False)
                 overlay=page.evaluate('''() => {
                   const {renovationShell:s}=__ANT_DEBUG__;
