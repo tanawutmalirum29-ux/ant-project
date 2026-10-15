@@ -146,6 +146,17 @@ def run(page,engine,w,h):
     assert queued['resources']['carbs']==before['resources']['carbs']-price['carbs']
     assert queued['resources']['protein']==before['resources']['protein']-price['protein']
     evidence(page,engine,w,h,'nursery-book-level3',before,{'cost':price})
+    # A short-landscape Nursery roster legitimately scrolls internally.
+    # Simulate an actual wheel gesture into its visible scroll area instead
+    # of expecting a below-the-fold egg row to be initially onscreen or
+    # letting Playwright's locator.click auto-scroll without verifying hits.
+    list_rect=page.locator('.ui04-scroll').bounding_box()
+    assert list_rect and list_rect['width']>40 and list_rect['height']>40,(engine,w,h,'nursery scroll area absent',list_rect)
+    scroll_x=min(w-10,max(10,list_rect['x']+list_rect['width']/2))
+    scroll_y=min(h-10,max(10,list_rect['y']+min(list_rect['height']/2,75)))
+    page.mouse.move(scroll_x,scroll_y)
+    page.mouse.wheel(0,1250)
+    page.wait_for_timeout(110)
     actual_tap(page,'.ui04-order .ui04-cancel',touch)
     refunded=state(page)
     assert refunded['eggOrders']==[]
