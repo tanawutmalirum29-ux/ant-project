@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/core/game.js';
+import { UNDERGROUND, TERRAINS, writeCell, cellAt } from '../src/world/generate.js';
 
 const run=(game,ticks)=>{for(let n=0;n<ticks;n++)game.update(100);};
 function nurseryFixture(seed='nursery-caste'){
@@ -105,4 +106,112 @@ test('Physical pickup, nursery delivery, care and incubation hatch one requested
   assert.equal(hatch.level,1);
   assert.equal(g.lifecycle.eggOrders.length,0,'hatch releases one reservation');
   assert.equal(g.lifecycle.births,1);
+});
+
+test('HATCH-A | twenty-five cost, stage and adult specialization variants',()=>{
+  const {g}=nurseryFixture('hatch-all-25');
+  const table={miner:[1,1],forager:[1,1],builder:[2,1],nurse:[1,2],soldier:[2,3]};
+  const durations=[440,560,720,900,1140];
+  for(const [job,[carbs,protein]] of Object.entries(table))for(let level=1;level<=5;level++){
+    assert.deepEqual(g.lifecycle.eggCost(job,level),{carbs:carbs*level,protein:protein*level});
+    const stages=g.lifecycle.hatchStages(level);
+    assert.equal(stages.egg+stages.larva+stages.pupa,durations[level-1]);
+    g.lifecycle.promote({profession:job,level,x:g.colony.queen.x,y:g.colony.queen.y});
+    const adult=g.colony.workers.at(-1);
+    assert.equal(adult.profession,job);
+    assert.equal(adult.level,level);
+    assert.equal(adult.caste,'worker');
+    if(job==='soldier')assert.equal(adult.squadId,'A');
+  }
+  for(const job of ['constructor','toString','__proto__','starter','invalid',null])
+    assert.equal(g.lifecycle.eggCost(job,1),null);
+  for(const level of [0,-1,6,1.5,NaN,Infinity,'1',null])
+    assert.equal(g.lifecycle.eggCost('miner',level),null);
+});
+test('HATCH-A | queen death refunds queued stock, keeps already-laid brood',()=>{
+  const {g,room}=nurseryFixture('hatch-queen-death');
+  const original={...g.foraging.inventory};
+  const first=g.lifecycle.queueEgg(room.id,'miner',1),second=g.lifecycle.queueEgg(room.id,'nurse',2);
+  assert.ok(first.ok&&second.ok);
+  run(g,180);
+  assert.equal(g.lifecycle.eggOrders.filter(o=>o.status==='QUEUED').length,1);
+  g.colony.queen.alive=false;run(g,1);
+  assert.equal(g.lifecycle.eggOrders.length,1);
+  assert.equal(g.lifecycle.eggOrders[0].id,first.order.id);
+  assert.equal(g.lifecycle.heldEgg.protein,0);
+  assert.equal(g.lifecycle.heldEgg.carbs,0);
+  assert.equal(g.lifecycle.cancelEgg(second.order.id),false);
+  assert.equal(g.foraging.inventory.protein,original.protein-1);
+});
+test('HATCH-A | disconnected nursery and pause preserve brood incubation age',()=>{
+  const {g,room}=nurseryFixture('hatch-room-pause');
+  const accepted=g.lifecycle.queueEgg(room.id,'forager',1);assert.ok(accepted.ok);
+  let order=null;
+  for(let i=0;i<420&&!order;i++){run(g,1);order=g.lifecycle.eggOrders.find(o=>o.status==='INCUBATING');}
+  assert.ok(order,'a nurse must carry the egg to its reserved room tile');
+  const baby=g.lifecycle.brood.find(b=>b.id===order.broodId);
+  const age=baby.age;g.setSpeed(0);run(g,80);assert.equal(baby.age,age);g.setSpeed(1);
+  const layer=g.world.layers[UNDERGROUND],p={x:room.x+1,y:room.y+1},old=cellAt(layer,p.x,p.y);
+  writeCell(layer,p.x,p.y,TERRAINS.ROCK);run(g,40);
+  assert.equal(room.status,'disabled');assert.equal(baby.age,age);
+  writeCell(layer,p.x,p.y,old);run(g,10);
+  assert.equal(room.status,'ready');assert.ok(baby.age>age);
+});
+test('HATCH-A | queued reservation preserves depot space for exact refund',()=>{
+  const {g,room}=nurseryFixture('hatch-refund-space');
+  const depot=g.rooms.rooms[0];
+  Object.assign(g.foraging.inventory,{carbs:24,protein:24});
+  g.rooms.syncInventory();
+  const accepted=g.lifecycle.queueEgg(room.id,'miner',1);assert.ok(accepted.ok);
+  assert.equal(g.rooms.storageSlots('carbs').find(v=>v.room===depot).space,0);
+  assert.equal(g.lifecycle.cancelEgg(accepted.order.id),true);
+  assert.equal(depot.stock.carbs,24);
+});
+
+test('HATCH-A | full physical hatch of all 25 professions and levels, exactly once',()=>{
+ const jobs=['miner','forager','builder','nurse','soldier'];
+ for(const job of jobs)for(let level=1;level<=5;level++){
+   const {g,room}=nurseryFixture('hatch-physical-'+job+'-'+level);
+   const accepted=g.lifecycle.queueEgg(room.id,job,level);
+   assert.ok(accepted.ok,job+' Lv'+level+': '+accepted.reason);
+   run(g,2050);
+   assert.equal(g.lifecycle.births,1,job+' Lv'+level+' must emerge exactly once');
+   assert.equal(g.lifecycle.eggOrders.length,0,job+' Lv'+level+' must release its slot');
+   assert.equal(g.lifecycle.brood.length,0,job+' Lv'+level+' must clear its brood record');
+   const born=g.colony.workers.find(w=>w.id==='worker-6');
+   assert.ok(born,job+' Lv'+level+' must have physical adult');
+   assert.equal(born.profession,job);
+   assert.equal(born.level,level);
+   assert.equal(born.caste,'worker');
+   if(job==='soldier'){assert.equal(born.combatRole,'soldier');assert.equal(born.squadId,'A');}
+ }
+});
+test('HATCH-A | queued population reservation stops exactly at 150',()=>{
+ const {g,room}=nurseryFixture('hatch-pop-cap');
+ // Fixture adults use distinct object identities/IDs, not new eggs.
+ for(let i=0;i<143;i++)
+   g.colony.workers.push({...g.colony.workers[0],id:'population-fixture-'+i});
+ assert.equal(g.lifecycle.totalPopulation,149);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).ok,true);
+ assert.equal(g.lifecycle.totalPopulation,150);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).reason,'population-cap');
+ assert.equal(g.lifecycle.totalPopulation,150);
+});
+test('HATCH-A | cancellation refunds disconnected original depot but cannot spend it',()=>{
+ const {g,room}=nurseryFixture('hatch-depot-disconnect');
+ const q=g.colony.queen,queenDepot=g.rooms.rooms[0];
+ const depot={id:'test-food-depot',type:'food_store',x:q.x+2,y:q.y,width:2,height:2,
+   status:'ready',connected:true,capacity:{carbs:40,protein:40},stock:{carbs:5,protein:5,water:0}};
+ queenDepot.stock.carbs=0;queenDepot.stock.protein=0;
+ g.rooms.rooms.push(depot);
+ g.foraging.inventory.carbs=5;g.foraging.inventory.protein=5;
+ const o=g.lifecycle.queueEgg(room.id,'miner',1);
+ assert.ok(o.ok);
+ assert.ok(o.order.pickups.every(p=>p.sourceRoomId===depot.id));
+ depot.status='disabled';depot.connected=false;
+ assert.equal(g.lifecycle.cancelEgg(o.order.id),true);
+ assert.equal(depot.stock.carbs,5);
+ assert.equal(depot.stock.protein,5);
+ assert.equal(g.foraging.inventory.protein,5);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).reason,'insufficient-resources');
 });

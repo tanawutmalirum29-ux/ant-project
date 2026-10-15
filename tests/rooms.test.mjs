@@ -125,7 +125,7 @@ test('U5.9 constructed water store increases only water; nursery increases brood
  assert.equal(w.room.status,'ready');assert.equal(n.room.status,'ready');
  assert.equal(g.rooms.capacityFor('water'),BASE_CAPACITY.water+50);
  assert.equal(g.rooms.capacityFor('protein'),BASE_CAPACITY.protein);
- assert.equal(g.rooms.broodCapacity,26);
+ assert.equal(g.rooms.broodCapacity,4,'2×2 Nursery has four actual physical egg slots');
  assert.equal(g.rooms.getRoom(n.room.x,n.room.y).id,n.room.id);
 });
 

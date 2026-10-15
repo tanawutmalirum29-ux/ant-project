@@ -63,9 +63,16 @@ export class Rooms {
     }
   }
   storageSlots(type) {
-    return this.rooms.filter(r=>r.status==='ready' &&
+    return this.rooms.filter(r=>r.status==='ready' && r.connected &&
       (r.type==='queen'||(type==='water'?r.type==='water_store':r.type==='food_store')))
-      .map(r=>({room:r,space:Math.max(0,(r.type==='queen'?BASE_CAPACITY[type]:(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0))-(r.stock?.[type]||0))}));
+      .map(r=>{
+        // Queued eggs retain space at their original depot for exact refunds.
+        const refundable=this.lifecycle?.eggOrders.reduce((n,o)=>
+          n+(o.status==='QUEUED'?o.pickups.reduce((v,p)=>
+            v+(p.sourceRoomId===r.id&&p.type===type?p.amount:0),0):0),0)??0;
+        const cap=r.type==='queen'?BASE_CAPACITY[type]:(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0);
+        return {room:r,space:Math.max(0,cap-(r.stock?.[type]||0)-refundable)};
+      });
   }
   // Storage requires a physical visit; source distance, destination space and
   // accessibility are computed from the worker's ACTUAL underground tile.
