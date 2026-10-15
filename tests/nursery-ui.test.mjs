@@ -32,5 +32,7 @@ test('Nursery track C: responsive and persistent profession/level roster without
  assert.match(app,/for\(const \[kind,name\] of Object\.entries\(names\)\)/);
  assert.doesNotMatch(app,/workforce\.setShare\(/);
  assert.match(browser,/intersects\(box,dock\.bounding_box\(\)\)/);
+ assert.match(browser,/has_touch=True/);
+ assert.match(browser,/page\.touchscreen\.tap/);
  for(const dimension of ['320,568','390,844','1440,900'])assert.ok(browser.includes(dimension),dimension);
 });
