@@ -14,27 +14,27 @@ with sync_playwright() as pw:
         page.on('pageerror',lambda e:errors.append(str(e)))
         page.set_content(html)
         page.wait_for_function('!!window.__ANT_DEBUG__?.game?.combat')
+        # Test fixture: real permanent soldiers are born through Lifecycle; none are drafted from starters.
+        page.evaluate('''() => {
+          const {game,ui}=__ANT_DEBUG__;
+          game.lifecycle.promote({profession:'soldier',level:1});
+          game.lifecycle.promote({profession:'soldier',level:2});
+          game.combat.allocate();
+          ui.updateMetrics();
+        }''')
         button=page.locator('#u6-open')
         assert button.is_visible() and button.is_enabled(),label
         button.click()
         assert page.locator('#u6-dialog').is_visible(),label
-        assert page.locator('#u6-roster .u6-unit').count()==5,label
-        assert page.locator('#u6-roster .u6-unit.is-soldier').count()==1,label
-        # Slider is the only normal way to set military staffing.
-        # The roster is now read-only except for location tracking.
+        assert page.locator('#u6-roster .u6-unit').count()==7,label
+        assert page.locator('#u6-roster .u6-unit.is-soldier').count()==2,label
+        # A/B roster reflects permanent hatched professions; no conscription slider.
         assert page.locator('#u6-roster button[data-action="recruit"]').count()==0,label
         assert page.locator('#u6-roster button[data-action="demobilize"]').count()==0,label
-        slider=page.locator('#u6-percent')
-        assert slider.input_value()=='20',label
-        slider.evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.evaluate('() => __ANT_DEBUG__.game.workforce.shares.soldier')==40,label
+        assert not page.locator('.u6-percent-control').is_visible(),label
         assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==2,label
         assert page.locator('#u6-soldiers').inner_text().endswith('/2'),label
         assert page.locator('#u6-roster .u6-unit.is-soldier').count()==2,label
-        slider.evaluate('(el)=>{el.value="20";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==1,label
-        slider.evaluate('(el)=>{el.value="40";el.dispatchEvent(new Event("input",{bubbles:true}))}')
-        assert page.evaluate('() => __ANT_DEBUG__.game.combat.soldierSlots')==2,label
         # The invasion simulator is an advanced action; open its visible disclosure first.
         page.locator('.u6-advanced summary').click()
         assert page.locator('#u6-alarm').is_visible(),label
