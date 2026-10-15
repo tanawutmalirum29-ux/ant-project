@@ -55,10 +55,10 @@ test('ROYAL-01 theme, favicon, DOM bindings and loading order remain stable', ()
   assert.match(html, /<meta name="theme-color" content="#0d1a15"\s*\/>/);
   assert.match(html, /<link rel="icon" href="\.\/assets\/favicon.svg" type="image\/svg\+xml"\s*\/>/);
   assert.match(html, /<div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none">/);
-  const scripts = ['./src/main.js', './src/ui/visual/page-zoom-guard.js', './src/ui/visual/room-picker.js'];
+  const scripts = ['./src/main.js', './src/ui/visual/page-zoom-guard.js', './src/ui/visual/room-picker.js', './src/ui/visual/game-choice.js'];
   const actualScripts = [...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(actualScripts, scripts);
-  const css = ['./src/styles.css', './src/ui/visual/v1.css', './src/ui/visual/v2.css', './src/ui/visual/v2-fixes.css', './src/ui/visual/v3-compact.css', './src/ui/visual/inspector.css', './src/ui/visual/nursery.css'];
+  const css = ['./src/styles.css', './src/ui/visual/v1.css', './src/ui/visual/v2.css', './src/ui/visual/v2-fixes.css', './src/ui/visual/v3-compact.css', './src/ui/visual/inspector.css', './src/ui/visual/nursery.css', './src/ui/visual/game-choice.css'];
   const actualCss = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(actualCss, css);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
