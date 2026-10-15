@@ -16,11 +16,11 @@
 │                                   │
 │ [context hint / confirm / cancel] │ ← only during active map targeting
 ├───────────────────────────────────┤
-│ [สำรวจ] [สั่งขุด] [สร้าง] [เมนู]   │ ← 44+ px touch navigation
-│ [พื้นผิว]           [ใต้ดิน]       │ ← scene mode, safe area
+│ [⌕สำรวจ] [⚒ขุด] [▣สร้าง] [⇅ใต้ดิน] [≡เมนู] │ ← ONE 5-action row, each ≥44px
 └───────────────────────────────────┘
 * selecting a tile/ant opens the single coordinated inspector sheet.
 ```
+- **No extra layer navigation bar:** `⇅ใต้ดิน` is ONE toggle displaying the CURRENT layer; tap changes to `⇅พื้นผิว`, then tap again returns underground. The underlying world state is unchanged apart from the legitimate layer switch. On 320px allow concise icon/text but keep meaningful state and accessible current/destination names; all five targets remain ≥44×44px.
 - `เมนู` reveals ant roster, military A/B, milestones, world/settings access; never a native OS select. Military can have a small contextual badge in HUD when threatened, not a permanent right-hand 3-button lane on a 320px phone.
 - In **inspect mode**, tile/ant context banner may appear; tap to expand details. In **dig/build/rally target mode**, the same context region becomes `command info + Cancel`; it never appears beneath the toolbar.
 - A heavy sheet uses a dedicated overlay: header + close fixed within sheet, content scroll, footer action accessible above safe area. It may use a 55% height compact state and expand to fit screen; it must not cover actions that remain visually enabled behind it.
@@ -36,10 +36,11 @@
 │[⌕]   │                                              │[🐜]  │
 │[⚒]   │             MAP CANVAS                       │[⚔]  │
 │[▣]   │                                              │[◫]  │
-├──────┴────────[surface] [underground]───────────────┴──────┤
+│[⇅]   │                                              │     │
+├──────┴──────────────────────────────────────────────┴──────┤
 └────────────────────────────────────────────────────────────┘
 ```
-- Use icon rail with accessible labels/title where space is restricted. The military/status shortcut moves into one small command rail entry; no buttons spanning the center of the visible map.
+- Use one compact tool rail with inspect/dig/build/**single layer-toggle** and accessible labels/title, rather than a separate bottom two-tab scene switch. The military/status shortcut moves into one small command rail entry; no buttons spanning the center of the visible map.
 - Settings, combat, eggs, ant list and room palette use a **single confined side panel** occupying at most available area with internal scroll, or a near-full-screen modal with explicit close. No viewport-exceeding menu; no offscreen submit/cancel. Height is a primary responsive input.
 - On short landscape, map target command banner is anchored to a safe reserved edge without covering the map target or scroll controls.
 
@@ -54,10 +55,10 @@
 │      │                                              │       │
 │      │                                              │       │
 ├──────┴──────────────────────────────────────────────┴───────┤
-│               layer / action status                        │
+│             contextual action status only                  │
 └─────────────────────────────────────────────────────────────┘
 ```
-- Inspector uses one fixed-width slot up to the allocated available width; it is not an overlay over the right game speed/tool column. If insufficient room, migrate to sheet automatically.
+- Single layer-toggle remains in the left tool rail on tablets; never add a two-tab footer. Inspector uses one fixed-width slot up to the allocated available width; it is not an overlay over the right game speed/tool column. If insufficient room, migrate to sheet automatically.
 - A management sheet may temporarily replace right inspector but must not create duplicate live selection controls or floating combat dock.
 
 ## 4. Desktop 1200–1920+px
@@ -71,17 +72,18 @@
 │inspect │                                     │                             │
 │dig     │                                     │                             │
 │build   │                                     │                             │
+│layer ⇅ │                                     │                             │
 │army    │                                     │                             │
-├────────┴────────────[ surface / underground ]┴─────────────────────────────┤
+├────────┴─────────────────────────────────────┴─────────────────────────────┤
 └────────────────────────────────────────────────────────────────────────────┘
 ```
-- Heavy military and settings panels use coherent CSS-styled dialogs, max-width/max-height, focus trap and scroll; not a native-looking OS sheet. Distinguish nonblocking inspector from blocking management dialog.
+- The layer toggle stays in the left command rail and changes with one click; do not restore surface/underground tabs on desktop. Heavy military and settings panels use coherent CSS-styled dialogs, max-width/max-height, focus trap and scroll; not a native-looking OS sheet. Distinguish nonblocking inspector from blocking management dialog.
 - No unbounded overlay growth on 1920px displays. All status chips should cap visual width and use readable numbers.
 
 ## 5. Feature page sketches / player journeys
 
 ### A. Main HUD
-Persistent = world/map + real essential status + clear mode indicators. Expandable = full inventory, mission details, debug, global settings. One unambiguous selected tool at a time, with selected/disabled feedback. Keyboard shortcuts never activate while an editor/dropdown/dialog owns focus.
+Persistent = world/map + real essential status + clear mode indicators, including ONE current-layer toggle integrated with tools (not a second row). Expandable = full inventory, mission details, debug, global settings. One unambiguous selected tool at a time, with selected/disabled feedback. Keyboard shortcuts never activate while an editor/dropdown/dialog owns focus.
 
 ### B. Army Command
 ```text
