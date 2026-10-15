@@ -26,7 +26,7 @@ export function roomPlan(type,width=ROOM_CATALOG[type]?.width,height=ROOM_CATALO
   return {type,width,height,area,cost:Object.fromEntries(Object.entries(def.cost).map(([k,v])=>[k,Math.ceil(v*factor)])),
     ticks:Math.ceil(def.ticks*factor),
     capacity:Object.fromEntries(Object.entries(def.capacity).map(([k,v])=>[k,Math.floor(v*factor)])),
-    broodSlots:type==='nursery'?area*2:0};
+    broodSlots:type==='nursery'?Math.min(area,16):0};
 }
 const key=(x,y)=>`${x},${y}`;
 const same=(a,b)=>a.x===b.x&&a.y===b.y;
@@ -145,7 +145,7 @@ export class Rooms {
     return BASE_CAPACITY[type]+this.rooms.reduce((sum,r)=>r.status==='ready'?sum+(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0):sum,0);
   }
   capacities() {return Object.fromEntries(RESOURCE_TYPES.map(type=>[type,this.capacityFor(type)]));}
-  get broodCapacity() {return 18+this.rooms.filter(r=>r.type==='nursery'&&r.status==='ready').reduce((total,r)=>total+(r.broodSlots??(r.width*r.height*2)),0);}
+  get broodCapacity() {return this.rooms.filter(r=>r.type==='nursery'&&r.status==='ready'&&r.connected).reduce((total,r)=>total+Math.min(r.width*r.height,16),0);}
   /** Validate the entire rectangle; no partial placement/partial payment. */
   validate(type,x,y,width=ROOM_CATALOG[type]?.width,height=ROOM_CATALOG[type]?.height) {
     const def=ROOM_CATALOG[type];
@@ -244,7 +244,7 @@ export class Rooms {
       if(room.status!=='planned'||!room.connected)continue;
       let best=null;
       for(const ant of this.colony.workers) {
-        if(ant.state!=='idle'||ant.orderId!=null||ant.layer!==UNDERGROUND||this.colony.isForager(ant))continue;
+        if(ant.state!=='idle'||ant.orderId!=null||ant.layer!==UNDERGROUND||this.colony.isForager(ant)||this.colony.canWork?.(ant,'builder')===false)continue;
         const site=this.pickWorkSite(layer,ant,room);
         if(site && (!best||site.path.length<best.site.path.length))best={ant,site};
       }
@@ -293,7 +293,7 @@ export class Rooms {
       return true;
     }
     ant.state='room-build';ant.path=[];ant.next=null;ant.motion=0;
-    room.progress++;
+    room.progress+=this.colony.workRate?.(ant,'builder')??1;
     if(room.progress>=(room.ticks??ROOM_CATALOG[room.type].ticks)) {
       for(const [kind,amount] of Object.entries(room.cost)){
         this.held[kind]-=amount;this.spent[kind]+=amount;
@@ -317,7 +317,7 @@ export class Rooms {
       (this.lifecycle?.brood.length && this.lifecycle.nurseCount<this.lifecycle.nurseSlots);
     for(const ant of this.colony.workers.filter(a=>a.state==='room-guard')){
       const station=stations.find(r=>r.id===ant.guardRoomId);
-      if(!station||busy||this.colony.isForager(ant)){
+      if(!station||busy||this.colony.isForager(ant)||this.colony.canWork?.(ant,'builder')===false){
         this.release(ant);ant.guardRoomId=null;ant.guardLeg=null;continue;
       }
       const goal=ant.guardLeg===1?entrance:{x:station.x,y:station.y};
@@ -334,8 +334,8 @@ export class Rooms {
     if(busy)return;
     for(const station of stations){
       if(this.colony.workers.some(a=>a.state==='room-guard'&&a.guardRoomId===station.id))continue;
-      let ant=this.colony.workers.find(a=>a.state==='idle'&&a.layer===UNDERGROUND&&!this.colony.isForager(a));
-      if(!ant){ant=this.colony.workers.find(a=>a.state==='room-rest'&&a.layer===UNDERGROUND&&!this.colony.isForager(a));if(ant)this.releaseRestWorker(ant);}
+      let ant=this.colony.workers.find(a=>a.state==='idle'&&a.layer===UNDERGROUND&&!this.colony.isForager(a)&&this.colony.canWork?.(a,'builder')!==false);
+      if(!ant){ant=this.colony.workers.find(a=>a.state==='room-rest'&&a.layer===UNDERGROUND&&!this.colony.isForager(a)&&this.colony.canWork?.(a,'builder')!==false);if(ant)this.releaseRestWorker(ant);}
       if(ant){ant.state='room-guard';ant.guardRoomId=station.id;ant.guardLeg=0;ant.path=[];ant.next=null;ant.motion=0;}
     }
   }
