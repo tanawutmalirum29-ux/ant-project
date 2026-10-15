@@ -359,7 +359,7 @@ test('ECO-11 paused simulation freezes source, transport, room and life ledgers'
   audit(game, 'resumed');
 });
 
-test('ECO-12 deterministic 3600-tick stress: forage, brood, deaths, construction and cancellations', () => {
+test('ECO-12 deterministic 3600-tick stress: forage, explicit brood gating, deaths, construction and cancellations', () => {
   const game = new Game('P1-ECO-01-stress');
   inject(game, { carbs: 12, protein: 12, water: 12 });
   game.colony.setForageSlots(2);
@@ -387,8 +387,10 @@ test('ECO-12 deterministic 3600-tick stress: forage, brood, deaths, construction
   assert.ok(game.foraging.completedTrips > 0);
   assert.ok(game.foraging.delivered > 0);
   assert.ok(game.lifecycle.consumed.carbs > 0);
-  assert.ok(game.lifecycle.consumed.protein > 0);
-  assert.ok(game.lifecycle.births > 0, 'life cycle must produce adult ants during long simulation');
+  // With manual Nursery orders, no free egg is created in a long unattended simulation.
+  assert.equal(game.lifecycle.eggOrders.length,0,'no automatic Nursery orders');
+  assert.equal(game.lifecycle.births,0,'no adult birth without an explicit hatch order');
+  assert.equal(game.lifecycle.consumed.protein,0,'no automatic larva-feeding cost without an ordered brood');
   assert.ok(deathObserved, 'fixture failed to exercise live worker-death cleanup');
   assert.ok(first.status === 'ready' || game.rooms.spent.carbs >= ROOM_CATALOG.food_store.cost.carbs,
     'at least one building must complete via physical work');
