@@ -167,3 +167,51 @@ test('HATCH-A | queued reservation preserves depot space for exact refund',()=>{
   assert.equal(g.lifecycle.cancelEgg(accepted.order.id),true);
   assert.equal(depot.stock.carbs,24);
 });
+
+test('HATCH-A | full physical hatch of all 25 professions and levels, exactly once',()=>{
+ const jobs=['miner','forager','builder','nurse','soldier'];
+ for(const job of jobs)for(let level=1;level<=5;level++){
+   const {g,room}=nurseryFixture('hatch-physical-'+job+'-'+level);
+   const accepted=g.lifecycle.queueEgg(room.id,job,level);
+   assert.ok(accepted.ok,job+' Lv'+level+': '+accepted.reason);
+   run(g,2050);
+   assert.equal(g.lifecycle.births,1,job+' Lv'+level+' must emerge exactly once');
+   assert.equal(g.lifecycle.eggOrders.length,0,job+' Lv'+level+' must release its slot');
+   assert.equal(g.lifecycle.brood.length,0,job+' Lv'+level+' must clear its brood record');
+   const born=g.colony.workers.find(w=>w.id==='worker-6');
+   assert.ok(born,job+' Lv'+level+' must have physical adult');
+   assert.equal(born.profession,job);
+   assert.equal(born.level,level);
+   assert.equal(born.caste,'worker');
+   if(job==='soldier'){assert.equal(born.combatRole,'soldier');assert.equal(born.squadId,'A');}
+ }
+});
+test('HATCH-A | queued population reservation stops exactly at 150',()=>{
+ const {g,room}=nurseryFixture('hatch-pop-cap');
+ // Fixture adults use distinct object identities/IDs, not new eggs.
+ for(let i=0;i<143;i++)
+   g.colony.workers.push({...g.colony.workers[0],id:'population-fixture-'+i});
+ assert.equal(g.lifecycle.totalPopulation,149);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).ok,true);
+ assert.equal(g.lifecycle.totalPopulation,150);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).reason,'population-cap');
+ assert.equal(g.lifecycle.totalPopulation,150);
+});
+test('HATCH-A | cancellation refunds disconnected original depot but cannot spend it',()=>{
+ const {g,room}=nurseryFixture('hatch-depot-disconnect');
+ const q=g.colony.queen,queenDepot=g.rooms.rooms[0];
+ const depot={id:'test-food-depot',type:'food_store',x:q.x+2,y:q.y,width:2,height:2,
+   status:'ready',connected:true,capacity:{carbs:40,protein:40},stock:{carbs:5,protein:5,water:0}};
+ queenDepot.stock.carbs=0;queenDepot.stock.protein=0;
+ g.rooms.rooms.push(depot);
+ g.foraging.inventory.carbs=5;g.foraging.inventory.protein=5;
+ const o=g.lifecycle.queueEgg(room.id,'miner',1);
+ assert.ok(o.ok);
+ assert.ok(o.order.pickups.every(p=>p.sourceRoomId===depot.id));
+ depot.status='disabled';depot.connected=false;
+ assert.equal(g.lifecycle.cancelEgg(o.order.id),true);
+ assert.equal(depot.stock.carbs,5);
+ assert.equal(depot.stock.protein,5);
+ assert.equal(g.foraging.inventory.protein,5);
+ assert.equal(g.lifecycle.queueEgg(room.id,'miner',1).reason,'insufficient-resources');
+});
