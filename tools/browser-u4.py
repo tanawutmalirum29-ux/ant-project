@@ -59,6 +59,10 @@ with sync_playwright() as pw:
         assert 'รอนางพญา' in page.locator('#nursery-orders').inner_text()
         page.locator('#nursery-orders button[data-egg-id]').click()
         assert page.evaluate('__ANT_DEBUG__.game.lifecycle.eggOrders.length')==0,name
+        # The Nursery drawer intentionally hides the older selection card;
+        # close the drawer first so the selection close action is tappable.
+        page.locator('#nursery-close').click()
+        assert page.locator('#selection-card').is_visible(),name
         page.locator('#selection-close').click()
         assert page.locator('#queen-status').inner_text()
         page.locator('#surface-button').click()
