@@ -3,6 +3,7 @@
 import { SURFACE, UNDERGROUND, TILE } from '../../world/generate.js';
 import { ROOM_CATALOG, roomPlan, ROOM_LIMITS } from '../../core/rooms.js';
 import { LIFE } from '../../core/lifecycle.js';
+import { formatGameTime } from '../../core/time.js';
 import { antById } from '../ant-inspector.js';
 
 const fail=(code,message=code)=>({ok:false,error:{code,message}});
@@ -54,7 +55,11 @@ export function makeGameView(game,ui,combatControls) {
         water:inventory.water??0}),
       selected:copyTile(ui.selection),selectedAntId:ui.selectedAntId??null,
       targeting:!!combatControls?.targeting,
-      timeTicks:game.clock?.ticks??0}),
+      timeTicks:game.clock?.ticks??0,
+      timeLabel:formatGameTime(game.clock),
+      weather:{kind:game.weather?.kind??'clear',
+        remainingTicks:game.weather?.remainingTicks??null},
+      milestones:game.milestones?.getSnapshot?.()??null}),
     ants:Object.freeze({population:game.population,capacity:LIFE.maxPopulation,
       queen:queen?copyAnt(queen,game):null,workers}),
     military:Object.freeze({squads:report,selectedSquad:combatControls?.selectedSquad??'A',
@@ -117,12 +122,15 @@ export class UIRenovationAdapter {
   _after(value){this.notify();return value;}
   switchLayer(layer){
     if(![SURFACE,UNDERGROUND].includes(layer))return fail('INVALID_LAYER');
-    this.ui.switchLayer(layer);return this._after({ok:true,layer:this.ui.game.layer});
+    this.ui.switchLayer(layer);
+    this.overlay.setWorldMode(this.combatControls?.targeting?'rally':this.ui.tool);
+    return this._after({ok:true,layer:this.ui.game.layer});
   }
   setTool(tool){
     if(!['inspect','dig','room'].includes(tool))return fail('INVALID_TOOL');
     if(tool!=='inspect'&&this.ui.game.layer!==UNDERGROUND)return fail('UNDERGROUND_ONLY');
-    this.ui.setTool(tool);this.overlay.setWorldMode(tool);
+    this.ui.setTool(tool);
+    this.overlay.setWorldMode(this.combatControls?.targeting?'rally':this.ui.tool);
     return this._after({ok:true,tool:this.ui.tool});
   }
   setSpeed(speed){
@@ -136,7 +144,10 @@ export class UIRenovationAdapter {
   recenter(){this.ui.recenter();return this._after({ok:true});}
   focusAnt(id){
     const ant=antById(this.ui.game,id);if(!ant)return fail('ANT_NOT_FOUND');
-    if(this.ui.game.layer!==ant.layer)this.ui.switchLayer(ant.layer);
+    if(this.ui.game.layer!==ant.layer){
+      this.ui.switchLayer(ant.layer);
+      this.overlay.setWorldMode(this.combatControls?.targeting?'rally':this.ui.tool);
+    }
     const camera=this.ui.cameras[ant.layer];
     camera.x=(ant.x+.5)*TILE;camera.y=(ant.y+.5)*TILE;
     camera.clamp(this.ui.game.currentLayer,...this.ui.dimensions());
@@ -197,7 +208,8 @@ export class UIRenovationAdapter {
     return this._after({ok:true,data:r});
   }
   requestWorldReset(seed){
-    if(typeof seed!=='string'||!seed.trim()||[...seed.trim()].length>40)
+    // Match input.maxLength and URL seed .slice(0,40): JavaScript UTF-16 code units.
+    if(typeof seed!=='string'||!seed.trim()||seed.trim().length>40)
       return fail('INVALID_SEED');
     const token=++this.resetSequence;
     this.pendingReset={token,seed:seed.trim()};
