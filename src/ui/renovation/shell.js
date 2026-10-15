@@ -51,6 +51,10 @@ export class UIOverlayController {
     if(panel.kind==='popover' && this.stack.some(x=>this.registry.get(x.id)?.kind==='modal'))
       return {ok:false,error:{code:'MODAL_ACTIVE'}};
     panel.show?.(context);
+    // Opening a new sheet must restore its initial, reachable close controls.
+    // Hidden scroll containers can retain scrollTop from a prior visit; relying
+    // on focus({preventScroll:true}) can strand Close above the viewport.
+    if(panel.kind==='sheet') panel.element.scrollTop=0;
     if(panel.kind==='modal' && panel.element.tagName==='DIALOG' && !panel.element.open)
       panel.element.showModal();
     if(panel.element.hidden) panel.element.hidden=false;

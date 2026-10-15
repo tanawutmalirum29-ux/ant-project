@@ -146,6 +146,11 @@ try:
                 assert_sheet_geometry(page,'.ui-settings-sheet','.ui-settings-close',engine.name,w,h)
                 assert not page.locator('.ui-home-menu').is_visible()
                 assert page.locator('.ui-renovation-backdrop').is_visible()
+                # Force a prior-visit scroll: sticky Close remains visible and a
+                # later re-open must reset scrollTop before the first button focus.
+                page.evaluate("document.querySelector('.ui-settings-sheet').scrollTop=100000")
+                assert_sheet_geometry(page,'.ui-settings-sheet','.ui-settings-close',engine.name,w,h)
+                page.evaluate("document.querySelector('.ui-settings-sheet').scrollTop=0")
                 page.screenshot(path=str(SHOTS/f'{engine.name}-{w}x{h}-settings.png'))
 
                 seed_input=page.locator('#ui-settings-seed-input')
