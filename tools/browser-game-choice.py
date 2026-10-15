@@ -21,7 +21,7 @@ try:
     with sync_playwright() as pw:
         for engine in [pw.chromium, pw.webkit]:
             browser = engine.launch(headless=True, args=['--no-sandbox'] if engine.name=='chromium' else [])
-            for width,height in [(320,568),(390,844),(1440,900)]:
+            for width,height in [(320,568),(390,844),(844,390),(1440,900)]:
                 context = browser.new_context(viewport={'width':width,'height':height},
                     has_touch=True,is_mobile=width<1440,device_scale_factor=1)
                 page = context.new_page()
