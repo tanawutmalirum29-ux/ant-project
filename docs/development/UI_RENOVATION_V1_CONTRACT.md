@@ -1,13 +1,13 @@
 # UI RENOVATION V1 — SHARED TECHNICAL CONTRACT
-**Status:** DRAFT CONTRACT / FOUNDATION GATE / NO GAMEPLAY IMPLEMENTATION YET
+**Status:** G1 IMPLEMENTED — final API G1.0 documented; SHA/CI freeze confirmation is published in Issue #138 after exact-head checks. SIX feature UIs still not implemented.
 **Source:** [MASTER PLAN](UI_RENOVATION_V1_MASTER_PLAN.md) · [QA](UI_RENOVATION_V1_QA.md)
-**Target:** branch `feat/ui-renovation-v1-integration`; all code branches PR into it. This contract is frozen only after coordinator's G1 implementation and a concrete integration head SHA are supplied to engineers.
+**Target:** branch `feat/ui-renovation-v1-integration`; all code branches PR into it. **[Concrete G1.0 module/View/Actions API](UI_RENOVATION_V1_FINAL_API.md)** supersedes the old proposed signatures below. Exact source SHA and START authorization appear only in Issue #138 and each Engineer Issue after CI.
 
 ## 1. Structure and module boundaries
 
-Coordinator creates `src/ui/renovation/shell.js` and `shell.css`, a bridge `ui-adapter.js`, and owns `index.html` plus old `src/ui/app.js` / `combat-controls.js` / legacy CSS migrations. Developers create independently scoped `home`, `military`, `ants`, `nursery`, `rooms`, `settings` modules (one .js/.css per module) and focused tests. No other team edits those files.
+Coordinator implemented `src/ui/renovation/shell.js` and `shell.css`, the `ui-adapter.js` bridge, and owns `index.html` plus old `src/ui/app.js` / `combat-controls.js` / legacy CSS migrations. Developers create independently scoped `home`, `military`, `ants`, `nursery`, `rooms`, `settings` modules (one .js/.css per module) and focused tests. No other team edits those files.
 
-Modules must **not** read game internals by inventing fields. Any needed field/command is exposed by the coordinator's read-only view models and real action adapters after examination of existing UI/game APIs. Proposed entry points to freeze at G1 (names not yet part of code):
+Modules must **not** read game internals by inventing fields. Any needed field/command is exposed by the coordinator's read-only view models and real action adapters after examination of existing UI/game APIs. **Implemented** entry point (see exact mount/integration semantics in G1 FINAL API):
 ```js
 mount(container, { view, actions, overlay, subscribe })  // returns cleanup()
 update(view)  // optional, stable scrolling/focus
@@ -24,7 +24,7 @@ The existing source `#room-type`, `#nursery-profession`, `#nursery-level`, `#u6-
 
 ## 1.1 ENGINEER A/B/C source-audit decisions — Coordinator G1 inputs
 
-The following are verified source facts, **not** frozen facade signatures or authorization to implement:
+The following are verified source facts and decisions. Actual adapter signatures are defined in [G1 FINAL API](UI_RENOVATION_V1_FINAL_API.md); no Engineer START until Issue #138 posts G1_FROZEN SHA:
 
 - **Layer toggle (A):** UI.switchLayer(layer) handles map-layer transition and dig/build exit on surface. Legacy [data-layer] listener supports two buttons; Coordinator replaces it with ONE shared PRIMARY_COMMAND toggle without double dispatch or duplicate state.
 - **Seed reset (A):** existing Seed form calls UI.onNewWorld directly. Coordinator owns second-stage confirmation and world rebind for targeting, selection, map tool, camera, subscriptions, and overlays. Cancel never changes world, Confirm only once. Verify Unicode/IME/length handling without changing deterministic seeds.
@@ -34,7 +34,7 @@ The following are verified source facts, **not** frozen facade signatures or aut
 - **Dig/build (C):** Coordinator owns touch/drag/preview and state transitions. Display actual roomPlan price and validation, keep preview vs committed action distinct, and do not silently introduce a new second-confirm gameplay mechanic.
 - **Issue-first workflow:** #138 stores G1 API decisions, #139/#140/#141/#142/#143/#144 store Engineers' design reports, questions and START orders, PR #146 stores integration changes. OWNER relays only MN #issue links; no M00000 or auto-communication assumptions.
 
-**No G1_FROZEN until shell is implemented/tested and issue #138 records full SHA, final facade signatures, overlay/geometry ownership and real browser QA.**
+**G1 source and tests are implemented.** Actual freeze requires successful exact-SHA native/build/Chromium/WebKit results and a `G1_FROZEN` comment in #138. See [G1 FINAL API](UI_RENOVATION_V1_FINAL_API.md); baseline UI remains visible until Coordinator G3 integration.
 
 ## 2. Layout geometry contract (single system)
 
@@ -92,7 +92,7 @@ Named regions: `HUD_TOP`, `PRIMARY_COMMAND`, `MAP_VIEWPORT`, `MAP_ACTION`, `CONT
 1. A screenshot-backed final wireframe in the integration PR for at least mobile 320×568, mobile 390×844, landscape 844×390, tablet 768×1024 and desktop 1440×900.
 2. A working shell with panel registry and every named slot that preserves the existing game while feature UI is not yet migrated.
 3. A deterministic overlay transition test matrix and CSS collision/hit test harness; explicit handling for `<dialog>` + body-appended military dock.
-4. Versioned, concrete module API/view-model contract committed to this document (no undocumented assumptions).
+4. Versioned, concrete module API/view-model contract in [UI_RENOVATION_V1_FINAL_API.md](UI_RENOVATION_V1_FINAL_API.md), with all published method signatures and snapshot fields.
 5. Freeze announcement: contract SHA, branch names, issue links, files exclusive to each Engineer, baseline test outcomes. No Engineer PR should be merged until this is supplied.
 
 ## 6. Review / merge / cleanup
