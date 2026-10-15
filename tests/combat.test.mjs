@@ -6,22 +6,25 @@ import { SURFACE, UNDERGROUND, TERRAINS, cellAt, writeCell } from '../src/world/
 import { isWalkable } from '../src/world/navigation.js';
 const tick=(g,n=1)=>{for(let i=0;i<n;i++)g.update(100);};
 const setup=(seed='U6')=>{const g=new Game(seed);g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);Object.assign(g.foraging.inventory,{carbs:20,protein:20,water:20});return g;};
+const hatchSoldiers=(g,n)=>{for(let i=0;i<n;i++)g.lifecycle.promote({profession:'soldier',level:1,x:g.colony.queen.x,y:g.colony.queen.y});return g.combat.soldiers;};
 const entry=(g,layer)=>g.world.entrances[0][layer];
 const isValid=(g,unit)=>isWalkable(g.world.layers[unit.layer],unit.x,unit.y);
 const mass=g=>g.foraging.nodes.reduce((s,n)=>s+n.amount,0)+Object.values(g.foraging.inventory).reduce((s,n)=>s+n,0)+g.colony.workers.reduce((s,a)=>s+(a.cargo?.amount||0),0)+['consumed','lost'].reduce((s,k)=>s+Object.values(g.lifecycle[k]).reduce((a,b)=>a+b,0),0)+['held','spent'].reduce((s,k)=>s+Object.values(g.rooms[k]).reduce((a,b)=>a+b,0),0)-Object.values(g.ecology.regenerated).reduce((a,b)=>a+b,0);
 
 test('U6.1 idle baseline preserves earlier gameplay and does not spawn early',()=>{
- const g=new Game('old-case');assert.equal(g.combat.soldierSlots,1);assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.threatCount,0);
+ const g=new Game('old-case');assert.equal(g.combat.soldierSlots,0);assert.equal(g.combat.soldiers.length,0);assert.equal(g.combat.threatCount,0);
  tick(g,230);assert.equal(g.combat.threatCount,0);assert.equal(g.colony.population,6);
 });
-test('U6.2 soldier policy recruits only eligible idle non-foragers and can demobilize',()=>{
+test('U6.2 permanent soldiers hatch separately; quota commands cannot draft or demobilize',()=>{
  const g=new Game();assert.equal(g.colony.forageSlots,2);
- assert.equal(g.combat.setSoldierSlots(5),3);
+ assert.equal(g.combat.setSoldierSlots(5),0);
+ assert.equal(g.combat.soldiers.length,0);
+ hatchSoldiers(g,3);
  assert.equal(g.combat.soldiers.length,3);
  assert.ok(g.combat.soldiers.every(a=>!g.colony.isForager(a)&&a.orderId==null));
- assert.equal(g.combat.setSoldierSlots(1),1);
- assert.equal(g.combat.soldiers.length,1);
- assert.equal(g.colony.workers.filter(a=>a.state==='idle').length,4);
+ assert.equal(g.combat.setSoldierSlots(0),3);
+ assert.equal(g.combat.soldiers.length,3);
+ assert.equal(g.colony.workers.filter(a=>a.profession==='starter').length,5);
 });
 test('U6.3 invalid soldier, strategy, and impassable pheromone commands rejected',()=>{
  const g=setup();assert.throws(()=>g.combat.setSoldierSlots(-1),RangeError);
@@ -54,7 +57,7 @@ test('U6.6 surface invader must walk to portal before crossing to real undergrou
  assert.ok(isValid(g,enemy));
 });
 test('U6.7 soldier intercepts physical threat and attack has real damage/cooldown',()=>{
- const g=setup('combat');g.combat.setSoldierSlots(2);
+ const g=setup('combat');hatchSoldiers(g,2);
  const enemy=g.combat.spawn('beetle',UNDERGROUND,g.colony.queen.x,g.colony.queen.y-4);
  assert.ok(enemy);const start=enemy.hp;let struck=false;let moved=false;
  const pos=g.combat.soldiers.map(a=>({x:a.x,y:a.y}));
@@ -67,7 +70,7 @@ test('U6.7 soldier intercepts physical threat and attack has real damage/cooldow
  assert.ok(struck);assert.ok(moved);assert.equal(g.combat.enemies.includes(enemy),false);assert.ok(g.combat.defeated>=1);
 });
 test('U6.8 no remote attack across layers or long distance',()=>{
- const g=setup('no-remote');g.combat.setSoldierSlots(1);
+ const g=setup('no-remote');hatchSoldiers(g,1);
  const enemy=g.combat.spawn('beetle',SURFACE,entry(g,SURFACE).x+11,entry(g,SURFACE).y);
  assert.ok(enemy);tick(g,1);
  assert.equal(enemy.hp,ENEMIES.beetle.hp);
@@ -94,7 +97,7 @@ test('U6.10 killed worker returns assigned dig order and resource ledger remains
  assert.equal(mass(g),m);
 });
 test('U6.11 retreat mode moves soldier to recovery and heals at real tile',()=>{
- const g=setup('healing');g.combat.setSoldierSlots(1);const ant=g.combat.soldiers[0];
+ const g=setup('healing');hatchSoldiers(g,1);const ant=g.combat.soldiers[0];
  ant.combatHP=6;ant.x+=3;
  const start={x:ant.x,y:ant.y};g.combat.setMode('retreat');
  for(let i=0;i<COMBAT.healInterval*4;i++)tick(g);
@@ -103,7 +106,7 @@ test('U6.11 retreat mode moves soldier to recovery and heals at real tile',()=>{
  assert.ok(ant.combatHP>6);assert.ok(ant.combatHP<=COMBAT.soldierHP);
 });
 test('U6.12 rally waypoint requires real movement, including surface portal crossing',()=>{
- const g=setup('rally');g.combat.setSoldierSlots(1);
+ const g=setup('rally');hatchSoldiers(g,1);
  const target={...entry(g,SURFACE),x:entry(g,SURFACE).x+4};
  assert.ok(g.combat.setRally(SURFACE,target.x,target.y));
  const ant=g.combat.soldiers[0];let travelled=false;
@@ -111,26 +114,26 @@ test('U6.12 rally waypoint requires real movement, including surface portal cros
  assert.ok(travelled);assert.deepEqual({x:ant.x,y:ant.y,layer:ant.layer},{...target,layer:SURFACE});
 });
 test('U6.13 pause freezes threats, attacks and defender movement',()=>{
- const g=setup('freeze');g.combat.setSoldierSlots(1);const enemy=g.combat.spawn('raider');
+ const g=setup('freeze');hatchSoldiers(g,1);const enemy=g.combat.spawn('raider');
  assert.ok(enemy);const snapshot=JSON.stringify({soldiers:g.combat.soldiers,enemies:g.combat.enemies,ticks:g.combat.tickCount});
  g.setSpeed(0);tick(g,120);
  assert.equal(JSON.stringify({soldiers:g.combat.soldiers,enemies:g.combat.enemies,ticks:g.combat.tickCount}),snapshot);
 });
 test('U6.14 injuries do not grant magic instant healing away from nest',()=>{
- const g=setup('no-free-health');g.combat.setSoldierSlots(1);
+ const g=setup('no-free-health');hatchSoldiers(g,1);
  const ant=g.combat.soldiers[0];ant.combatHP=5;
  assert.equal(ant.combatHP,5);
  g.combat.setMode('retreat');tick(g,1);
  assert.equal(ant.combatHP,5);
 });
 test('U6.15 seed world reset clears enemy, corpses, and soldier choices',()=>{
- const g=setup('reset');g.combat.setSoldierSlots(2);g.combat.spawn('beetle');
+ const g=setup('reset');hatchSoldiers(g,2);g.combat.spawn('beetle');
  const fresh=new Game('reset');
- assert.equal(fresh.combat.soldiers.length,1);assert.equal(fresh.combat.soldierSlots,1);assert.equal(fresh.combat.threatCount,0);
+ assert.equal(fresh.combat.soldiers.length,0);assert.equal(fresh.combat.soldierSlots,0);assert.equal(fresh.combat.threatCount,0);
  assert.equal(fresh.combat.tickCount,0);assert.equal(fresh.combat.defeated,0);
 });
 test('U6.16 long battlefield simulation respects tile collision and resource conservation',()=>{
- const g=setup('stress-u6');g.combat.setSoldierSlots(2);
+ const g=setup('stress-u6');hatchSoldiers(g,2);
  g.combat.spawn('beetle');g.combat.spawn('raider');
  const initial=mass(g);
  for(let i=0;i<900;i++){
@@ -143,16 +146,16 @@ test('U6.16 long battlefield simulation respects tile collision and resource con
  }
 });
 
-test('U6.17 demobilization and re-enlistment cannot magically heal an injured soldier',()=>{
- const g=setup('no-instant-heal');g.combat.setSoldierSlots(1);
+test('U6.17 quota requests cannot heal or demobilize an injured permanent soldier',()=>{
+ const g=setup('no-instant-heal');hatchSoldiers(g,1);
  const soldier=g.combat.soldiers[0];soldier.combatHP=4;
  g.combat.setSoldierSlots(0);
  assert.equal(soldier.combatHP,4);
  g.combat.setSoldierSlots(1);
  assert.equal(soldier.combatHP,4);
 });
-test('U6.18 damage persists if a soldier returns to ordinary worker duties',()=>{
- const g=setup('damage-persistent');g.combat.setSoldierSlots(1);
+test('U6.18 injured permanent soldier remains vulnerable when demobilization is rejected',()=>{
+ const g=setup('damage-persistent');hatchSoldiers(g,1);
  const soldier=g.combat.soldiers[0];soldier.combatHP=2;
  g.combat.setSoldierSlots(0);
  const enemy=g.combat.spawn('beetle',UNDERGROUND,soldier.x,soldier.y);
@@ -161,24 +164,27 @@ test('U6.18 damage persists if a soldier returns to ordinary worker duties',()=>
  assert.equal(g.combat.casualties,1);
 });
 
-test('U6.19 one actual defender is assigned when the world starts, without spawning extra ants',()=>{
- const g=new Game('u6-default');assert.equal(g.combat.soldierSlots,1);assert.equal(g.combat.soldiers.length,1);
+test('U6.19 first five ants are civilians; the first Soldier must hatch explicitly',()=>{
+ const g=new Game('u6-default');assert.equal(g.combat.soldierSlots,0);assert.equal(g.combat.soldiers.length,0);
  assert.equal(g.colony.workers.length,5);assert.equal(g.colony.forageSlots,2);assert.equal(g.lifecycle.nurseSlots,1);
+ hatchSoldiers(g,1);
  tick(g,50);assert.equal(g.combat.soldiers.length,1);
+ assert.equal(g.colony.workers.length,6);
 });
-test('U6.20 individual recruitment and dismissal change exactly the selected worker',()=>{
- const g=new Game('u6-roster'),candidate=g.combat.availableRecruits[0];
- assert.ok(candidate);assert.equal(g.combat.recruit(candidate),true);assert.equal(g.combat.soldiers.length,2);
- assert.equal(g.combat.demobilize(candidate),true);tick(g,10);
- assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.soldierSlots,1);
- assert.equal(g.combat.demobilize(candidate),false);
+test('U6.20 a newly hatched Soldier enlists automatically and cannot be dismissed',()=>{
+ const g=new Game('u6-roster');hatchSoldiers(g,1);
+ const candidate=g.combat.soldiers[0];
+ assert.ok(candidate);assert.equal(candidate.squadId,'A');assert.equal(g.combat.soldiers.length,1);
+ assert.equal(g.combat.recruit(candidate),false);assert.equal(g.combat.demobilize(candidate),false);
+ tick(g,10);assert.equal(g.combat.soldiers.length,1);assert.equal(g.combat.soldierSlots,1);
 });
-test('U6.21 busy foragers cannot be conscripted and injuries survive dismissal/re-enlistment',()=>{
+test('U6.21 a forager cannot be conscripted; wounded soldiers retain HP and profession',()=>{
  const g=new Game('u6-busy'),forager=g.colony.workers.at(-1);
  assert.equal(g.colony.isForager(forager),true);assert.equal(g.combat.recruit(forager),false);
+ hatchSoldiers(g,1);
  const soldier=g.combat.soldiers[0];soldier.combatHP=4;
- assert.equal(g.combat.demobilize(soldier),true);assert.equal(soldier.combatHP,4);
- assert.equal(g.combat.recruit(soldier),true);assert.equal(soldier.combatHP,4);
+ assert.equal(g.combat.demobilize(soldier),false);assert.equal(soldier.combatHP,4);
+ assert.equal(g.combat.recruit(soldier),false);assert.equal(soldier.combatHP,4);
 });
 test('U6.22 reject an open but disconnected tile as an impossible rally',()=>{
  const g=new Game('u6-isolated'),map=g.world.layers[UNDERGROUND];
@@ -186,7 +192,7 @@ test('U6.22 reject an open but disconnected tile as an impossible rally',()=>{
  assert.equal(g.combat.setRally(UNDERGROUND,1,1),false);assert.equal(g.combat.rally,null);
 });
 test('U6.23 distant enemy cannot override player rally command',()=>{
- const g=setup('u6-priority'),ant=g.combat.soldiers[0];
+ const g=setup('u6-priority');hatchSoldiers(g,1);const ant=g.combat.soldiers[0];
  const goal={x:g.colony.queen.x,y:g.colony.queen.y-4};
  assert.equal(g.combat.setRally(UNDERGROUND,goal.x,goal.y),true);
  assert.ok(g.combat.spawn('raider',SURFACE,entry(g,SURFACE).x+11,entry(g,SURFACE).y));
@@ -194,7 +200,7 @@ test('U6.23 distant enemy cannot override player rally command',()=>{
  assert.equal(ant.x,goal.x);assert.equal(ant.y,goal.y);assert.equal(g.combat.ralliedCount,1);
 });
 test('U6.24 multiple soldiers occupy unique reachable formation tiles',()=>{
- const g=setup('u6-formation');g.combat.setSoldierSlots(2);
+ const g=setup('u6-formation');hatchSoldiers(g,2);
  assert.equal(g.combat.soldiers.length,2);
  const target={x:g.colony.queen.x,y:g.colony.queen.y-4};
  assert.equal(g.combat.setRally(UNDERGROUND,target.x,target.y),true);
@@ -205,7 +211,7 @@ test('U6.24 multiple soldiers occupy unique reachable formation tiles',()=>{
  assert.ok(g.combat.soldiers.every(a=>isValid(g,a)));
 });
 test('U6.25 rally never moves any soldier while game is paused',()=>{
- const g=setup('u6-pause-garrison'),p={x:g.colony.queen.x,y:g.colony.queen.y-4};
+ const g=setup('u6-pause-garrison'),p={x:g.colony.queen.x,y:g.colony.queen.y-4};hatchSoldiers(g,2);
  assert.equal(g.combat.setRally(UNDERGROUND,p.x,p.y),true);
  const before=g.combat.soldiers.map(a=>({x:a.x,y:a.y,state:a.state}));
  g.setSpeed(0);tick(g,90);
