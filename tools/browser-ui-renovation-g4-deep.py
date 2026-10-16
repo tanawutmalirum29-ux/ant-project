@@ -287,21 +287,28 @@ def run(page,engine,w,h):
     before_dig=state(page)
     chosen=page.evaluate("""() => {
       const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen,c=d.cameras[g.layer],map=g.currentLayer;
-      c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;c.clamp(map,d.renderer.width,d.renderer.height);
-      let best=null;
-      for(let y=q.y-8;y<=q.y+8;y++)for(let x=q.x-9;x<=q.x+9;x++){
+      // The Queen room is an open chamber. On 568x320 every nearby
+      // virgin 2x2 diggable rectangle lies beyond the small visible map band.
+      // Recenter the actual camera on the nearest feasible worksite, then
+      // prove BOTH drag endpoints are real canvas hits. Never simulate
+      // a game order or force an obscured pointer event.
+      const sites=[];
+      for(let y=q.y-18;y<=q.y+18;y++)for(let x=q.x-18;x<=q.x+18;x++){
         if(x<2||y<2||x+1>=map.width-2||y+1>=map.height-2)continue;
-        const diggable=[0,1].every(dy=>[0,1].every(dx=>[10,11].includes(map.cells[(y+dy)*map.width+x+dx])));
-        if(!diggable)continue;
-        const a=c.worldToScreen((x+.5)*28,(y+.5)*28,d.renderer.width,d.renderer.height);
-        const b=c.worldToScreen((x+1.5)*28,(y+1.5)*28,d.renderer.width,d.renderer.height);
-        if([a,b].every(p=>p.x>6&&p.x<d.renderer.width-6&&p.y>82&&p.y<d.renderer.height-84&&
-            document.elementFromPoint(p.x,p.y)?.id==='game-canvas')){
-          const score=Math.abs(a.x-d.renderer.width/2)+Math.abs(a.y-d.renderer.height/2);
-          if(!best||score<best.score)best={x,y,start:a,end:b,score};
-        }
+        if([0,1].every(dy=>[0,1].every(dx=>[10,11].includes(map.cells[(y+dy)*map.width+x+dx]))))
+          sites.push({x,y,score:Math.abs(x-q.x)+Math.abs(y-q.y)});
       }
-      return best;
+      sites.sort((a,b)=>a.score-b.score);
+      for(const site of sites){
+        c.x=(site.x+1)*28;c.y=(site.y+1)*28;
+        c.clamp(map,d.renderer.width,d.renderer.height);
+        const a=c.worldToScreen((site.x+.5)*28,(site.y+.5)*28,d.renderer.width,d.renderer.height);
+        const b=c.worldToScreen((site.x+1.5)*28,(site.y+1.5)*28,d.renderer.width,d.renderer.height);
+        if([a,b].every(p=>p.x>6&&p.x<d.renderer.width-6&&p.y>55&&p.y<d.renderer.height-65&&
+          document.elementFromPoint(p.x,p.y)?.id==='game-canvas'))
+          return {...site,start:a,end:b,camera:{x:c.x,y:c.y}};
+      }
+      return null;
     }""")
     assert chosen,(engine,w,h,'no valid unobstructed two-by-two diggable map area')
     a,b=chosen['start'],chosen['end']
