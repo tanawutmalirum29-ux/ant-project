@@ -17,6 +17,7 @@ GIT_TREE_SHA=subprocess.run(['git','rev-parse','HEAD^{tree}'],
     cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
 CASES=[(320,568),(568,320),(1440,900)]
 EVIDENCE=[]
+TOUCH_TIMING=[]
 def state(page):
     return page.evaluate("""() => {
       const d=window.__ANT_DEBUG__,g=d.game,cc=d.ui.combatControls;
@@ -71,14 +72,110 @@ def cdp_touch(session,kind,points):
       'touchPoints':[{'x':round(p[0],2),'y':round(p[1],2),'id':i+1}
                      for i,p in enumerate(points)]})
 
-def cdp_touch_drag(session,a,b,steps=11,cancel=False):
+def cdp_touch_drag(session,a,b,steps=11,cancel=False,step_delay_ms=0):
     pa=(a['x'],a['y']);pb=(b['x'],b['y'])
     cdp_touch(session,'touchStart',[pa])
     for i in range(1,steps+1):
         t=i/steps
         cdp_touch(session,'touchMove',[(pa[0]+(pb[0]-pa[0])*t,
                                        pa[1]+(pb[1]-pa[1])*t)])
+        if step_delay_ms:time.sleep(step_delay_ms/1000)
     cdp_touch(session,'touchCancel' if cancel else 'touchEnd',[])
+
+def native_touch_timing_matrix(page,session,a,b,engine,w,h):
+    """Non-gating diagnostic: one FIRST touch tap only at each requested gap.
+    Any recovery is separately logged, never substituted into first-tap result.
+    This runs ONLY in Chromium mobile emulation; no hardware/WebKit claims.
+    """
+    assert state(page)['pendingDig']==0 and not state(page)['activeDigSelection']
+    page.evaluate("""() => {
+      if(window.__g4TimingInstalled)return;
+      window.__g4TimingInstalled=true;
+      window.__g4TimingEvents=[];
+      const canvas=document.getElementById('game-canvas');
+      for(const kind of ['pointerdown','pointermove','pointerup','pointercancel'])
+        canvas.addEventListener(kind,e=>{
+          if(e.pointerType==='touch'&&(kind!=='pointermove'||window.__g4TimingEvents.length<500))
+            window.__g4TimingEvents.push({target:'canvas',kind,timeMs:performance.now(),
+              trusted:e.isTrusted,pointerType:e.pointerType});
+        },{capture:true});
+      for(const kind of ['pointerdown','pointerup','click'])
+        document.addEventListener(kind,e=>{
+          if(e.target?.closest?.('.ui05-dig .ui05-danger'))
+            window.__g4TimingEvents.push({target:'cancel-button',kind,timeMs:performance.now(),
+              trusted:e.isTrusted,pointerType:e.pointerType??null});
+        },true);
+    }""")
+    for gap in [0,50,100,250,430]:
+        # Each pair of drags has realistic paced move events (18ms/step);
+        # a pause between first drag and overlap avoids compressing two
+        # separate finger gestures into one physically impossible sequence.
+        page.wait_for_timeout(470)
+        baseline=state(page)
+        assert baseline['pendingDig']==0 and not baseline['activeDigSelection'],(engine,w,h,gap,baseline)
+        page.evaluate("window.__g4TimingEvents=[]")
+        cdp_touch_drag(session,a,b,step_delay_ms=18)
+        first=state(page)
+        assert first['pendingDig']==4 and not first['activeDigSelection'],(engine,w,h,gap,'add',first)
+        page.wait_for_timeout(180)
+        cdp_touch_drag(session,a,b,step_delay_ms=18)
+        selected=state(page)
+        assert selected['pendingDig']==4 and selected['activeDigSelection'],(engine,w,h,gap,'select',selected)
+        probe=page.evaluate("""() => {
+          const btn=document.querySelector('.ui05-dig .ui05-danger');
+          const rect=btn?.getBoundingClientRect();
+          if(!rect)return null;
+          const x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+          const target=document.elementFromPoint(x,y);
+          const hits=!!target&&(target===btn||btn.contains(target));
+          const events=window.__g4TimingEvents;
+          return {x,y,hit: hits,under:{tag:target?.tagName,id:target?.id,
+            cls:target?.className},buttonDisabled:btn.disabled,
+            overlayMode:__ANT_DEBUG__.renovationShell.overlay.mode,
+            lastCanvasPointerUpMs:[...events].reverse().find(e=>e.target==='canvas'&&e.kind==='pointerup')?.timeMs??null,
+            testedAtMs:performance.now()};
+        }""")
+        assert probe and probe['hit'] and not probe['buttonDisabled'],(engine,w,h,gap,probe)
+        if gap:time.sleep(gap/1000)
+        # Single raw browser touchscreen tap. No locator, click(), auto-wait,
+        # retries, force flag or action replay for the first-tap verdict.
+        page.touchscreen.tap(probe['x'],probe['y'])
+        page.wait_for_timeout(95)
+        observed=state(page)
+        tap_events=page.evaluate("window.__g4TimingEvents")
+        btn_events=[e for e in tap_events if e['target']=='cancel-button']
+        first_down=next((e['timeMs'] for e in btn_events if e['kind']=='pointerdown'),None)
+        actual_gap=None if first_down is None or probe['lastCanvasPointerUpMs'] is None else round(
+            first_down-probe['lastCanvasPointerUpMs'],2)
+        first_success=(observed['pendingDig']==0 and not observed['activeDigSelection'])
+        screenshot=f'touch-timing-{engine}-{w}x{h}-{gap}ms.png'
+        page.screenshot(path=str(OUT/screenshot))
+        result={'engine':engine,'viewport':[w,h],'requestedGapMs':gap,
+          'input':'Chromium CDP touch drags, native touchscreen.tap first attempt',
+          'dragStepDelayMs':18,'betweenDragGapMs':180,
+          'actualPointerUpToButtonDownMs':actual_gap,
+          'buttonProbe':probe,'firstTapSucceeded':first_success,
+          'firstTapButtonEvents':btn_events,'rawTouchEvents':tap_events,
+          'before':baseline,'afterPairOfDrags':selected,'afterFirstTap':observed,
+          'screenshot':screenshot}
+        if not first_success:
+            # This is a separately identified RETRY after an extra 500ms,
+            # never counted as a first-tap PASS. Keep exact lost-tap proof.
+            page.wait_for_timeout(500)
+            page.touchscreen.tap(probe['x'],probe['y'])
+            page.wait_for_timeout(95)
+            result['recovery']={'after':state(page),
+              'buttonEvents':[e for e in page.evaluate('window.__g4TimingEvents')
+                              if e['target']=='cancel-button']}
+        else:
+            result['recovery']=None
+        TOUCH_TIMING.append(result)
+        cleaned=state(page)
+        assert cleaned['pendingDig']==0 and not cleaned['activeDigSelection'],(
+          engine,w,h,gap,'even recovery tap did not cancel queued jobs',result)
+    print('G4-TOUCH-TIMING',engine,str(w)+'x'+str(h),
+      'first-pass='+str(sum(x['firstTapSucceeded'] for x in TOUCH_TIMING if x['engine']==engine and x['viewport']==[w,h]))+'/5',
+      'intervals=0,50,100,250,430',flush=True)
 
 def open_menu_domain(page,label,touch):
     actual_tap(page,'[data-home-action="menu"]',touch)
@@ -450,6 +547,10 @@ def run(page,engine,w,h):
         evidence(page,engine,w,h,'trusted-touch-pointercancel-no-commit',cancel_before,{
           'input':'Chromium genuine touchCancel','touchEvents':cancel_log})
 
+        # Separate diagnostic suite; NOT incorporated into 23-case gated
+        # baseline nor used to hide lost first taps behind recovery clicks.
+        native_touch_timing_matrix(page,session,a,b,engine,w,h)
+
         # Actual two-finger touch should zoom the map, not create a dig job.
         midx=(a['x']+b['x'])/2;midy=(a['y']+b['y'])/2
         pts=[(midx-15,midy),(midx+15,midy)]
@@ -566,6 +667,13 @@ try:
                 finally:ctx.close()
             browser.close()
 finally:
+    (OUT/'touch-timing.json').write_text(json.dumps({
+      'sha':SHA,'source_head_sha':SOURCE_HEAD_SHA,'git_tree_sha':GIT_TREE_SHA,
+      'scope':'DIAGNOSTIC ONLY: Chromium CDP touchscreen first-tap latency; not pass/fail certification',
+      'requestedGapsMs':[0,50,100,250,430], 'trials':TOUCH_TIMING,
+      'firstTapSuccessCount':sum(x['firstTapSucceeded'] for x in TOUCH_TIMING),
+      'total':len(TOUCH_TIMING)
+    },ensure_ascii=False,indent=2))
     (OUT/'evidence.json').write_text(json.dumps({
       'sha':SHA,'source_head_sha':SOURCE_HEAD_SHA,'git_tree_sha':GIT_TREE_SHA,
       'scope':'G4 focused game-action tests; not full G4 signoff',
