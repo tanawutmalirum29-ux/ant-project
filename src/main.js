@@ -63,6 +63,14 @@ if (renovationQaActive) {
   // The existing targeting tip must remain reachable during a rally request.
   document.body.append(combatControls.tip);
   renovationShell.preview(true);
+  // The legacy canvas remains the ONLY owner of touch/pointer gesture and
+  // queue/selection mutation. Its pointerup listener ran earlier in UI.bind().
+  // Refresh renovated read-only action availability synchronously AFTER that
+  // commit, instead of waiting up to 150ms for the next HUD poll. This listener
+  // issues NO game action, pointer capture, selection edit or map command.
+  const refreshMapActionView = () => renovationAdapter.notify();
+  renderer.canvas.addEventListener('pointerup', refreshMapActionView, {passive:true});
+  renderer.canvas.addEventListener('pointercancel', refreshMapActionView, {passive:true});
 }
 
 milestonesPanel = new MilestonesPanel(game, {
