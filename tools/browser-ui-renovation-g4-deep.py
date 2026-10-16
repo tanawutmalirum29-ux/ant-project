@@ -408,6 +408,17 @@ def run(page,engine,w,h):
         touch_selected=state(page)
         assert touch_selected['activeDigSelection'] and touch_selected['pendingDig']==touch_added['pendingDig']
         evidence(page,engine,w,h,'trusted-touch-dig-overlap-selection',touch_added)
+        # Browser touch gesture recognition may suppress clicks issued in the
+        # same frame as the previous completed touch drag. This is a measured
+        # real-user action gap, not a direct call to the domain cancellation.
+        page.wait_for_timeout(430)
+        page.evaluate("""() => {
+          window.__g4ButtonTapLog=[];
+          const el=document.querySelector('.ui05-dig .ui05-danger');
+          for(const kind of ['pointerdown','pointerup','click'])el.addEventListener(kind,e=>
+            window.__g4ButtonTapLog.push({kind,isTrusted:e.isTrusted,pointerType:e.pointerType})
+          );
+        }""")
         actual_tap(page,'.ui05-dig .ui05-danger',True)
         page.wait_for_timeout(190)
         after_touch_cancel=state(page)
@@ -421,7 +432,8 @@ def run(page,engine,w,h):
         assert after_touch_cancel['pendingDig']==touch_before['pendingDig'] and not after_touch_cancel['activeDigSelection'],(
           engine,w,h,'touch-selected dig cancel did not restore original pending count',
           before_dig,touch_before,touch_added,touch_selected,after_touch_cancel,diagnostic,
-          page.evaluate('window.__g4TouchLog'))
+          {'gesture':page.evaluate('window.__g4TouchLog'),
+           'buttonTap':page.evaluate('window.__g4ButtonTapLog')})
         evidence(page,engine,w,h,'trusted-touch-dig-css-cancel',touch_selected)
 
         # Real OS-initiated input cancellation must discard the in-flight
