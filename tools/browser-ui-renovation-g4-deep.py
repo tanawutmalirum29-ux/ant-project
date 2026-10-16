@@ -12,6 +12,9 @@ ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'artifacts'/'g4-deep'
 OUT.mkdir(parents=True,exist_ok=True)
 SHA=os.environ.get('GITHUB_SHA','local-unpinned')
+SOURCE_HEAD_SHA=os.environ.get('SOURCE_HEAD_SHA',SHA)
+GIT_TREE_SHA=subprocess.run(['git','rev-parse','HEAD^{tree}'],
+    cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
 CASES=[(320,568),(568,320),(1440,900)]
 EVIDENCE=[]
 def state(page):
@@ -28,7 +31,7 @@ def state(page):
         brood:g.lifecycle.brood.length, births:g.lifecycle.births,
         population:g.population,
         squads:g.combat.getSquads().data.map(s=>({id:s.id,mode:s.mode,rally:s.rally,count:s.count})),
-        selectedSquad:cc.selectedSquad,targeting:cc.targeting,
+        selectedSquad:cc.selectedSquad,targeting:cc.targeting,armedSquad:cc.armedSquad??null,
         activeDigSelection:!!d.ui.digSelection,
         soldiers:g.combat.soldiers.map(a=>({id:a.id,level:a.level,hp:a.combatHP,
           maxHP:g.combat.maxHP(a),squad:a.squadId,state:a.state,x:a.x,y:a.y}))};
@@ -36,7 +39,8 @@ def state(page):
 def evidence(page,engine,w,h,name,before,details=None):
     shot=name+'.png'
     page.screenshot(path=str(OUT/(engine+'-'+str(w)+'x'+str(h)+'-'+shot)))
-    EVIDENCE.append({'sha':SHA,'engine':engine,'viewport':[w,h],'scenario':name,
+    EVIDENCE.append({'sha':SHA,'source_head_sha':SOURCE_HEAD_SHA,'git_tree_sha':GIT_TREE_SHA,
+      'engine':engine,'viewport':[w,h],'scenario':name,
       'before':before,'after':state(page),'details':details,
       'screenshot':engine+'-'+str(w)+'x'+str(h)+'-'+shot})
 def actual_tap(page,locator,touch):
@@ -95,6 +99,20 @@ def run(page,engine,w,h):
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.goto('http://127.0.0.1:4173/?ui=renovation',wait_until='domcontentloaded')
     page.wait_for_function('Boolean(window.__ANT_DEBUG__?.renovationC)',timeout=24000)
+    # Module-ready != first frame drawn. Read actual 2D canvas pixels and
+    # require visible textured terrain, not the blank startup/background fill.
+    # This establishes "first settled paint" only for synthetic browser QA.
+    page.wait_for_function("""() => {
+      const canvas=document.getElementById('game-canvas');
+      if(!canvas || canvas.width<100 || canvas.height<100)return false;
+      const ctx=canvas.getContext('2d');
+      const keys=new Set(),w=canvas.width,h=canvas.height;
+      for(let y=1;y<=8;y++)for(let x=1;x<=12;x++){
+        const px=ctx.getImageData(Math.floor(w*x/13),Math.floor(h*y/9),1,1).data;
+        keys.add(px[0]+','+px[1]+','+px[2]);
+      }
+      return keys.size>=5;
+    }""",timeout=15000)
     fixture=set_fixture(page)
     start=state(page)
     assert start['seed']=='ANT-001' and start['queuedRooms']==0 and start['eggOrders']==[]
@@ -143,15 +161,25 @@ def run(page,engine,w,h):
     # Start Rally from the NEW UI, then use the SAME original cancellation
     # handler, without a duplicate U6 quick-command dock.
     open_menu_domain(page,'กองทหาร A/B',touch)
+    actual_tap(page,'.uiv1-b-tabs [data-squad="B"]',touch)
     before=state(page)
+    assert before['selectedSquad']=='B'
+    assert next(s for s in before['squads'] if s['id']=='B')['count']==1
     actual_tap(page,'.uiv1-b [data-b-action="rally"]',touch)
-    assert state(page)['targeting'] is True
+    armed=state(page)
+    assert armed['targeting'] is True and armed['armedSquad']=='B',armed
+    assert armed['selectedSquad']=='B'
+    assert armed['squads']==before['squads'],(engine,w,h,'arming unexpectedly changes squad orders',armed)
+    assert 'กอง B' in page.locator('#u6-target-tip').inner_text()
     assert page.locator('#u6-dock').is_hidden()
     assert page.locator('#u6-cancel-target').is_visible()
     evidence(page,engine,w,h,'squad-b-rally-targeting',before)
     actual_tap(page,'#u6-cancel-target',touch)
-    assert state(page)['targeting'] is False
-    evidence(page,engine,w,h,'squad-b-rally-cancel',before)
+    cancelled=state(page)
+    assert cancelled['targeting'] is False and cancelled['armedSquad'] is None
+    assert cancelled['squads']==before['squads'],(engine,w,h,'cancel mutated A/B standing orders',before,cancelled)
+    assert cancelled['selectedSquad']=='B'
+    evidence(page,engine,w,h,'squad-b-rally-cancel',armed)
 
     # Re-arm B from the new CSS UI and actually tap one navigable map tile,
     # rather than only checking armed state. This tests authoritative rally
@@ -173,7 +201,7 @@ def run(page,engine,w,h):
     else:page.mouse.click(rally_point['sx'],rally_point['sy'])
     placed=state(page)
     squad_b=next(s for s in placed['squads'] if s['id']=='B')
-    assert not placed['targeting'] and squad_b['count']==1
+    assert not placed['targeting'] and placed['armedSquad'] is None and squad_b['count']==1
     assert squad_b['mode']=='rally' and squad_b['rally']=={
       'layer':rally_point['layer'],'x':rally_point['x'],'y':rally_point['y']},(engine,w,h,squad_b,rally_point)
     evidence(page,engine,w,h,'squad-b-map-rally-placed',rally_before,rally_point)
@@ -378,7 +406,8 @@ try:
             browser.close()
 finally:
     (OUT/'evidence.json').write_text(json.dumps({
-      'sha':SHA,'scope':'G4 focused game-action tests; not full G4 signoff',
+      'sha':SHA,'source_head_sha':SOURCE_HEAD_SHA,'git_tree_sha':GIT_TREE_SHA,
+      'scope':'G4 focused game-action tests; not full G4 signoff',
       'engines':['chromium','webkit'],'viewports':CASES,'events':EVIDENCE
     },ensure_ascii=False,indent=2))
     server.terminate()

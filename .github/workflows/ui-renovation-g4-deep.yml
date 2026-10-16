@@ -32,6 +32,8 @@ jobs:
           python -m pip install --disable-pip-version-check playwright==1.57.0
           python -m playwright install --with-deps chromium webkit
       - name: Focused real gameplay, screenshots and state transitions
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python tools/browser-ui-renovation-g4-deep.py
       - name: Preserve evidence even if a scenario fails
         if: always()
