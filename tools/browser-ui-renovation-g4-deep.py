@@ -28,7 +28,10 @@ def state(page):
         brood:g.lifecycle.brood.length, births:g.lifecycle.births,
         population:g.population,
         squads:g.combat.getSquads().data.map(s=>({id:s.id,mode:s.mode,rally:s.rally,count:s.count})),
-        selectedSquad:cc.selectedSquad,targeting:cc.targeting};
+        selectedSquad:cc.selectedSquad,targeting:cc.targeting,
+        activeDigSelection:!!d.ui.digSelection,
+        soldiers:g.combat.soldiers.map(a=>({id:a.id,level:a.level,hp:a.combatHP,
+          maxHP:g.combat.maxHP(a),squad:a.squadId,state:a.state,x:a.x,y:a.y}))};
     }""")
 def evidence(page,engine,w,h,name,before,details=None):
     shot=name+'.png'
@@ -97,6 +100,20 @@ def run(page,engine,w,h):
     assert start['seed']=='ANT-001' and start['queuedRooms']==0 and start['eggOrders']==[]
     evidence(page,engine,w,h,'first-boot',start,fixture)
 
+    # Two REAL authoritative military soldier entities are created using the
+    # Lifecycle.promote engine fixture API; this is a seeded roster fixture,
+    # NOT evidence of an independently completed Nursery hatch lifecycle.
+    soldiers=page.evaluate("""() => {
+      const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen;
+      for(const level of [2,3])g.lifecycle.promote({
+        profession:'soldier',level,x:q.x,y:q.y});
+      g.workforce.reconcile();d.renovationAdapter.notify();
+      return g.combat.getSquads().data.map(s=>({id:s.id,count:s.count,hp:s.hpCurrent,max:s.hpMax}));
+    }""")
+    assert next(x for x in soldiers if x['id']=='A')['count']==2
+    assert next(x for x in soldiers if x['id']=='A')['hp']>0
+    evidence(page,engine,w,h,'soldier-roster-fixture',start,{'rosterOrigin':'Lifecycle.promote fixture; not full hatch','squads':soldiers})
+
     # Real renovated military controls → authoritative Squad B mode/order.
     open_menu_domain(page,'กองทหาร A/B',touch)
     before=state(page)
@@ -107,6 +124,20 @@ def run(page,engine,w,h):
     assert next(s for s in after['squads'] if s['id']=='B')['mode']=='retreat',after
     assert next(s for s in after['squads'] if s['id']=='A')['mode']==next(s for s in before['squads'] if s['id']=='A')['mode']
     evidence(page,engine,w,h,'squad-b-retreat',before)
+    # Actual CSS troop transfer from A to B; B must be nonempty, have
+    # authoritative current/max HP, and render a real roster row.
+    actual_tap(page,'.uiv1-b-tabs [data-squad="A"]',touch)
+    page.wait_for_timeout(190)
+    soldier_before=state(page)
+    transfer_selector='.uiv1-b-unit [data-b-action="transfer"]'
+    assert page.locator(transfer_selector).count()>=2,(engine,w,h,'no real soldier transfer row')
+    page.locator(transfer_selector).first.scroll_into_view_if_needed()
+    actual_tap(page,transfer_selector,touch)
+    moved=state(page)
+    assert next(a for a in moved['squads'] if a['id']=='B')['count']==1,moved
+    assert next(a for a in moved['squads'] if a['id']=='A')['count']==1,moved
+    assert moved['soldiers'][0]['squad']=='B' and moved['soldiers'][0]['hp']>0
+    evidence(page,engine,w,h,'soldier-a-to-b-ui-transfer',soldier_before)
     actual_tap(page,'.uiv1-b-head button',touch)
 
     # Start Rally from the NEW UI, then use the SAME original cancellation
@@ -121,6 +152,31 @@ def run(page,engine,w,h):
     actual_tap(page,'#u6-cancel-target',touch)
     assert state(page)['targeting'] is False
     evidence(page,engine,w,h,'squad-b-rally-cancel',before)
+
+    # Re-arm B from the new CSS UI and actually tap one navigable map tile,
+    # rather than only checking armed state. This tests authoritative rally
+    # coordinate issuance, NONZERO B roster and the target click arbitration.
+    open_menu_domain(page,'กองทหาร A/B',touch)
+    actual_tap(page,'.uiv1-b-tabs [data-squad="B"]',touch)
+    rally_before=state(page)
+    actual_tap(page,'.uiv1-b [data-b-action="rally"]',touch)
+    rally_point=page.evaluate("""() => {
+      const d=__ANT_DEBUG__,q=d.game.colony.queen,c=d.cameras[d.game.layer];
+      c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;
+      c.clamp(d.game.currentLayer,d.renderer.width,d.renderer.height);
+      const pos=c.worldToScreen((q.x+.5)*28,(q.y+.5)*28,d.renderer.width,d.renderer.height);
+      return {sx:pos.x,sy:pos.y,x:q.x,y:q.y,layer:d.game.layer,
+        onCanvas:document.elementFromPoint(pos.x,pos.y)?.id==='game-canvas'};
+    }""")
+    assert rally_point['onCanvas'],(engine,w,h,'rally map obstructed',rally_point)
+    if touch:page.touchscreen.tap(rally_point['sx'],rally_point['sy'])
+    else:page.mouse.click(rally_point['sx'],rally_point['sy'])
+    placed=state(page)
+    squad_b=next(s for s in placed['squads'] if s['id']=='B')
+    assert not placed['targeting'] and squad_b['count']==1
+    assert squad_b['mode']=='rally' and squad_b['rally']=={
+      'layer':rally_point['layer'],'x':rally_point['x'],'y':rally_point['y']},(engine,w,h,squad_b,rally_point)
+    evidence(page,engine,w,h,'squad-b-map-rally-placed',rally_before,rally_point)
 
     # Nursery: setup only a physically connected, ready engine room; all
     # profession/level selection, booking and refund must use real CSS UI.
@@ -209,12 +265,68 @@ def run(page,engine,w,h):
     room=next(r for r in built['rooms'] if r['type']=='food_store')
     assert room['width']==2 and room['height']==2
     evidence(page,engine,w,h,'room-pointer-queue',before,point)
-    cancelled=page.evaluate("""id=>__ANT_DEBUG__.renovationAdapter.actions.cancelRoom(id)""",room['id'])
-    assert cancelled['ok'] is True
+    # Cancel via the actual Engineer C CSS UI, never by invoking
+    # adapter.actions.cancelRoom() from the test console.
+    page.wait_for_timeout(190)
+    cancel_btn=page.locator('.ui05-inspect .ui05-danger')
+    assert cancel_btn.is_visible(),(engine,w,h,'room cancel UI missing')
+    cancel_btn.scroll_into_view_if_needed()
+    actual_tap(page,'.ui05-inspect .ui05-danger',touch)
     after=state(page)
     assert after['queuedRooms']==before['queuedRooms']
     assert after['resources']==before['resources'],(engine,w,h,'room refund mismatch',before,after)
-    evidence(page,engine,w,h,'room-cancel-refund',built,{'cancelVia':'G1 authoritative action bridge'})
+    evidence(page,engine,w,h,'room-cancel-refund',built,{'cancelVia':'real CSS room-cancel button'})
+    actual_tap(page,'[data-home-action="inspect"]',touch)
+    assert state(page)['tool']=='inspect'
+
+    # A real two-step multi-tile dig/cancel lifecycle, with the historical
+    # legacy canvas owning pointer capture and exactly-once dig commitments.
+    # Mouse-pointer dragging is used in *both* Chromium and WebKit. This is
+    # a real input event, but NOT claimed to be a mobile touch-swipe/pinch test.
+    actual_tap(page,'[data-home-action="dig"]',touch)
+    before_dig=state(page)
+    chosen=page.evaluate("""() => {
+      const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen,c=d.cameras[g.layer],map=g.currentLayer;
+      c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;c.clamp(map,d.renderer.width,d.renderer.height);
+      let best=null;
+      for(let y=q.y-8;y<=q.y+8;y++)for(let x=q.x-9;x<=q.x+9;x++){
+        if(x<2||y<2||x+1>=map.width-2||y+1>=map.height-2)continue;
+        const diggable=[0,1].every(dy=>[0,1].every(dx=>[10,11].includes(map.cells[(y+dy)*map.width+x+dx])));
+        if(!diggable)continue;
+        const a=c.worldToScreen((x+.5)*28,(y+.5)*28,d.renderer.width,d.renderer.height);
+        const b=c.worldToScreen((x+1.5)*28,(y+1.5)*28,d.renderer.width,d.renderer.height);
+        if([a,b].every(p=>p.x>6&&p.x<d.renderer.width-6&&p.y>82&&p.y<d.renderer.height-84&&
+            document.elementFromPoint(p.x,p.y)?.id==='game-canvas')){
+          const score=Math.abs(a.x-d.renderer.width/2)+Math.abs(a.y-d.renderer.height/2);
+          if(!best||score<best.score)best={x,y,start:a,end:b,score};
+        }
+      }
+      return best;
+    }""")
+    assert chosen,(engine,w,h,'no valid unobstructed two-by-two diggable map area')
+    a,b=chosen['start'],chosen['end']
+    page.mouse.move(a['x'],a['y'])
+    page.mouse.down()
+    page.mouse.move(b['x'],b['y'],steps=11)
+    page.mouse.up()
+    placed_dig=state(page)
+    assert placed_dig['pendingDig']>=before_dig['pendingDig']+4,(engine,w,h,'dig drag did not commit four orders',before_dig,placed_dig,chosen)
+    evidence(page,engine,w,h,'dig-2x2-pointer-add',before_dig,{'rectangle':chosen,'input':'real mouse pointer drag, not touchscreen'})
+    page.mouse.move(a['x'],a['y'])
+    page.mouse.down()
+    page.mouse.move(b['x'],b['y'],steps=11)
+    page.mouse.up()
+    page.wait_for_timeout(180)
+    selected_dig=state(page)
+    assert selected_dig['activeDigSelection'],(engine,w,h,'existing dig tasks not selected',selected_dig)
+    assert page.locator('.ui05-dig .ui05-danger').is_enabled()
+    evidence(page,engine,w,h,'dig-select-existing-overlap',placed_dig,{'rectangle':chosen})
+    page.locator('.ui05-dig .ui05-danger').scroll_into_view_if_needed()
+    actual_tap(page,'.ui05-dig .ui05-danger',touch)
+    removed=state(page)
+    assert removed['pendingDig']==before_dig['pendingDig'],(engine,w,h,'dig cancel not exactly once',removed)
+    assert not removed['activeDigSelection']
+    evidence(page,engine,w,h,'dig-2x2-ui-cancel',selected_dig)
     actual_tap(page,'[data-home-action="inspect"]',touch)
     assert state(page)['tool']=='inspect'
 
@@ -236,7 +348,7 @@ def run(page,engine,w,h):
     assert end['targeting'] is False and len(end['rooms'])==1
     evidence(page,engine,w,h,'reset-confirm-clears-world',before)
     assert not errors,(engine,w,h,'JS errors',errors)
-    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios=10',flush=True)
+    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios=16',flush=True)
     return len(EVIDENCE)
 
 server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
