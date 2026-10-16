@@ -409,8 +409,19 @@ def run(page,engine,w,h):
         assert touch_selected['activeDigSelection'] and touch_selected['pendingDig']==touch_added['pendingDig']
         evidence(page,engine,w,h,'trusted-touch-dig-overlap-selection',touch_added)
         actual_tap(page,'.ui05-dig .ui05-danger',True)
+        page.wait_for_timeout(190)
         after_touch_cancel=state(page)
-        assert after_touch_cancel['pendingDig']==touch_before['pendingDig'] and not after_touch_cancel['activeDigSelection']
+        diagnostic=page.evaluate("""() => ({
+          uiFeedback:document.querySelector('.ui05-feedback')?.textContent,
+          legacySummary:document.querySelector('#dig-action-summary')?.textContent,
+          rootMode:__ANT_DEBUG__.renovationShell.overlay.mode,
+          selection:__ANT_DEBUG__.ui.digSelection,
+          rootVisible:!document.querySelector('.ui05-root')?.hidden
+        })""")
+        assert after_touch_cancel['pendingDig']==touch_before['pendingDig'] and not after_touch_cancel['activeDigSelection'],(
+          engine,w,h,'touch-selected dig cancel did not restore original pending count',
+          before_dig,touch_before,touch_added,touch_selected,after_touch_cancel,diagnostic,
+          page.evaluate('window.__g4TouchLog'))
         evidence(page,engine,w,h,'trusted-touch-dig-css-cancel',touch_selected)
 
         # Real OS-initiated input cancellation must discard the in-flight
