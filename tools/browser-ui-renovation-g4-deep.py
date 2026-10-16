@@ -381,9 +381,55 @@ def run(page,engine,w,h):
     end=state(page)
     assert end['seed']==seed and end['queuedRooms']==0 and end['eggOrders']==[]
     assert end['targeting'] is False and len(end['rooms'])==1
+    assert end['armedSquad'] is None and end['selectedSquad']=='A',(
+        engine,w,h,'reset published stale squad selection from old Game',end)
+    assert end['soldiers']==[] and all(s['count']==0 for s in end['squads'])
+    assert page.evaluate("""() => {
+       const d=__ANT_DEBUG__,cc=d.ui.combatControls;
+       return cc.lastGame===d.game &&
+         d.renovationAdapter.view.military.selectedSquad==='A' &&
+         d.renovationShell.overlay.mode==='inspect'
+    }"""),(engine,w,h,'reset facade and controller not synchronized')
     evidence(page,engine,w,h,'reset-confirm-clears-world',before)
+    page.wait_for_timeout(320)
+    settled=state(page)
+    assert settled['selectedSquad']=='A' and settled['armedSquad'] is None
+    assert settled['squads']==end['squads'],(engine,w,h,'squad changed after frame',end,settled)
+    evidence(page,engine,w,h,'reset-after-next-hud-tick',end)
+
+    # Exercise a SECOND real UI reset from a newly selected B, including a
+    # standing B retreat order, to detect stale Game handlers and duplicate
+    # subscriptions across world swaps. This is genuine UI, no reset API call.
+    open_menu_domain(page,'กองทหาร A/B',touch)
+    actual_tap(page,'.uiv1-b-tabs [data-squad="B"]',touch)
+    actual_tap(page,'.uiv1-b [data-b-action="mode"][data-mode="retreat"]',touch)
+    second_before=state(page)
+    assert second_before['selectedSquad']=='B'
+    assert next(s for s in second_before['squads'] if s['id']=='B')['mode']=='retreat'
+    actual_tap(page,'.uiv1-b-head button',touch)
+    open_menu_domain(page,'ตั้งค่าและ Seed',touch)
+    new_seed=seed+'-R2'
+    page.locator('#ui-settings-seed-input').fill(new_seed)
+    page.get_by_role('button',name='สร้างโลกใหม่…').click()
+    page.get_by_role('button',name='ยืนยันสร้างโลกใหม่').click()
+    second_after=state(page)
+    assert second_after['seed']==new_seed and second_after['selectedSquad']=='A'
+    assert second_after['armedSquad'] is None and second_after['targeting'] is False
+    assert all(s['count']==0 and s['rally'] is None for s in second_after['squads'])
+    assert next(s for s in second_after['squads'] if s['id']=='B')['mode']=='defend'
+    assert page.evaluate("""() => {
+      const d=__ANT_DEBUG__,cc=d.ui.combatControls;
+      return cc.lastGame===d.game &&
+        d.renovationAdapter.view.military.selectedSquad==='A' &&
+        d.renovationShell.overlay.stack.length===0
+    }""")
+    evidence(page,engine,w,h,'reset-second-from-b-to-a',second_before)
+    page.wait_for_timeout(310)
+    late=state(page)
+    assert late['selectedSquad']=='A' and late['armedSquad'] is None
+    assert late['squads']==second_after['squads']
     assert not errors,(engine,w,h,'JS errors',errors)
-    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios=16',flush=True)
+    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios=18',flush=True)
     return len(EVIDENCE)
 
 server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)

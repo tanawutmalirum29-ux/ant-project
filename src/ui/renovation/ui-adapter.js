@@ -258,6 +258,12 @@ export class UIRenovationAdapter {
     this.overlay.closeAll('world-reset');
     this.ui.setTool('inspect');this.ui.select(null);
     this.ui.onNewWorld(seed);
+    // The world swap is synchronous, so military selection and the U6
+    // authoritative controller must reset in the SAME transaction. Without
+    // this, _after() publishes a mixed snapshot: new Game + old Squad B tab
+    // until the next periodic HUD frame happens to call update().
+    this.combatControls?.update(true);
+    this.overlay.setWorldMode('inspect');
     this.ui.updateWorld();
     return this._after({ok:true,seed});
   }
