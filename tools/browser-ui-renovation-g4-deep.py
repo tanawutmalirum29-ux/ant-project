@@ -135,11 +135,23 @@ def native_touch_timing_matrix(page,session,a,b,engine,w,h):
             lastCanvasPointerUpMs:[...events].reverse().find(e=>e.target==='canvas'&&e.kind==='pointerup')?.timeMs??null,
             testedAtMs:performance.now()};
         }""")
-        assert probe and probe['hit'] and not probe['buttonDisabled'],(engine,w,h,gap,probe)
+        assert probe and probe['hit'],(engine,w,h,gap,'tap target occluded',probe)
         if gap:time.sleep(gap/1000)
+        # This second probe is intentionally adjacent to the FIRST tap:
+        # disabled immediately after drag can change on the next UI frame.
+        pre_tap=page.evaluate("""() => {
+          const btn=document.querySelector('.ui05-dig .ui05-danger');
+          const r=btn.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+          const el=document.elementFromPoint(x,y);
+          return {timeMs:performance.now(),disabled:btn.disabled,
+            hit:el===btn||btn.contains(el),
+            x,y,tool:__ANT_DEBUG__.ui.tool,
+            gameSelection:!!__ANT_DEBUG__.ui.digSelection,
+            pendingDig:__ANT_DEBUG__.game.colony.pendingCount};
+        }""")
         # Single raw browser touchscreen tap. No locator, click(), auto-wait,
         # retries, force flag or action replay for the first-tap verdict.
-        page.touchscreen.tap(probe['x'],probe['y'])
+        page.touchscreen.tap(pre_tap['x'],pre_tap['y'])
         page.wait_for_timeout(95)
         observed=state(page)
         tap_events=page.evaluate("window.__g4TimingEvents")
@@ -154,7 +166,12 @@ def native_touch_timing_matrix(page,session,a,b,engine,w,h):
           'input':'Chromium CDP touch drags, native touchscreen.tap first attempt',
           'dragStepDelayMs':18,'betweenDragGapMs':180,
           'actualPointerUpToButtonDownMs':actual_gap,
-          'buttonProbe':probe,'firstTapSucceeded':first_success,
+          'buttonProbe':probe,'preFirstTap':pre_tap,
+          'firstTapSucceeded':first_success,
+          'firstTapClassification':('CANCELLED' if first_success else
+            'DISABLED_AT_FIRST_TAP' if pre_tap['disabled'] else
+            'NO_BUTTON_POINTERDOWN' if not first_down else
+            'POINTER_DELIVERED_NO_CANCELLATION'),
           'firstTapButtonEvents':btn_events,'rawTouchEvents':tap_events,
           'before':baseline,'afterPairOfDrags':selected,'afterFirstTap':observed,
           'screenshot':screenshot}
