@@ -64,6 +64,22 @@ def actual_tap(page,locator,touch):
         raise AssertionError((locator,'button obscured',box,blocking))
     if touch:page.touchscreen.tap(x,y)
     else:page.mouse.click(x,y)
+def cdp_touch(session,kind,points):
+    """Chromium DevTools genuine browser-input touch delivery, not DOM.dispatchEvent.
+    Do not attribute this platform-specific evidence to WebKit or hardware."""
+    session.send('Input.dispatchTouchEvent',{'type':kind,
+      'touchPoints':[{'x':round(p[0],2),'y':round(p[1],2),'id':i+1}
+                     for i,p in enumerate(points)]})
+
+def cdp_touch_drag(session,a,b,steps=11,cancel=False):
+    pa=(a['x'],a['y']);pb=(b['x'],b['y'])
+    cdp_touch(session,'touchStart',[pa])
+    for i in range(1,steps+1):
+        t=i/steps
+        cdp_touch(session,'touchMove',[(pa[0]+(pb[0]-pa[0])*t,
+                                       pa[1]+(pb[1]-pa[1])*t)])
+    cdp_touch(session,'touchCancel' if cancel else 'touchEnd',[])
+
 def open_menu_domain(page,label,touch):
     actual_tap(page,'[data-home-action="menu"]',touch)
     page.get_by_role('button',name=label).click()
@@ -362,6 +378,82 @@ def run(page,engine,w,h):
     assert removed['pendingDig']==before_dig['pendingDig'],(engine,w,h,'dig cancel not exactly once',removed)
     assert not removed['activeDigSelection']
     evidence(page,engine,w,h,'dig-2x2-ui-cancel',selected_dig)
+
+    # Real browser-input touchscreen gestures through Chromium DevTools only.
+    # Playwright's WebKit transport has no equivalent trusted multi-touch API.
+    # This is emulator/browser evidence, NOT actual-hardware certification.
+    if engine=='chromium' and touch:
+        session=page.context.new_cdp_session(page)
+        page.evaluate("""() => {
+          window.__g4TouchLog=[];
+          for(const name of ['pointerdown','pointermove','pointerup','pointercancel']){
+            document.getElementById('game-canvas').addEventListener(name,e=>{
+              if(e.pointerType==='touch')window.__g4TouchLog.push({
+                name,isTrusted:e.isTrusted,pointerType:e.pointerType});
+            },{capture:true});
+          }
+        }""")
+        touch_before=state(page)
+        cdp_touch_drag(session,a,b)
+        touch_added=state(page)
+        events=page.evaluate("window.__g4TouchLog")
+        assert touch_added['pendingDig']==touch_before['pendingDig']+4,(
+            engine,w,h,'trusted touch drag failed to queue four dig orders',touch_before,touch_added,events)
+        assert any(e['name']=='pointermove' and e['isTrusted'] for e in events),events
+        assert all(e['pointerType']=='touch' and e['isTrusted'] for e in events),events
+        evidence(page,engine,w,h,'trusted-touch-dig-2x2-add',touch_before,{
+          'input':'Chromium native Input.dispatchTouchEvent','touchEvents':events})
+        page.evaluate("window.__g4TouchLog=[]")
+        cdp_touch_drag(session,a,b)
+        touch_selected=state(page)
+        assert touch_selected['activeDigSelection'] and touch_selected['pendingDig']==touch_added['pendingDig']
+        evidence(page,engine,w,h,'trusted-touch-dig-overlap-selection',touch_added)
+        actual_tap(page,'.ui05-dig .ui05-danger',True)
+        after_touch_cancel=state(page)
+        assert after_touch_cancel['pendingDig']==touch_before['pendingDig'] and not after_touch_cancel['activeDigSelection']
+        evidence(page,engine,w,h,'trusted-touch-dig-css-cancel',touch_selected)
+
+        # Real OS-initiated input cancellation must discard the in-flight
+        # rectangle; never commit a dig on pointercancel/lost capture.
+        page.evaluate("window.__g4TouchLog=[]")
+        cancel_before=state(page)
+        cdp_touch_drag(session,a,b,cancel=True)
+        page.wait_for_timeout(70)
+        cancel_after=state(page)
+        cancel_log=page.evaluate("window.__g4TouchLog")
+        assert cancel_after['pendingDig']==cancel_before['pendingDig'] and not cancel_after['activeDigSelection']
+        assert page.evaluate("__ANT_DEBUG__.ui.digPreview===null")
+        assert any(e['name']=='pointercancel' and e['isTrusted'] for e in cancel_log),cancel_log
+        evidence(page,engine,w,h,'trusted-touch-pointercancel-no-commit',cancel_before,{
+          'input':'Chromium genuine touchCancel','touchEvents':cancel_log})
+
+        # Actual two-finger touch should zoom the map, not create a dig job.
+        midx=(a['x']+b['x'])/2;midy=(a['y']+b['y'])/2
+        pts=[(midx-15,midy),(midx+15,midy)]
+        points_out=[(midx-43,midy),(midx+43,midy)]
+        ok_hit=page.evaluate("""(ps)=>ps.every(p=>{
+          const t=document.elementFromPoint(p[0],p[1]);return t?.id==='game-canvas';
+        })""",pts+points_out)
+        assert ok_hit,(engine,w,h,'pinch endpoints occluded',pts,points_out)
+        old_zoom=page.evaluate("__ANT_DEBUG__.cameras[__ANT_DEBUG__.game.layer].zoom")
+        cdp_touch(session,'touchStart',[pts[0]])
+        cdp_touch(session,'touchStart',pts)
+        for i in range(1,9):
+            t=i/8
+            cdp_touch(session,'touchMove',[
+              (pts[0][0]+(points_out[0][0]-pts[0][0])*t,midy),
+              (pts[1][0]+(points_out[1][0]-pts[1][0])*t,midy)])
+        cdp_touch(session,'touchEnd',[])
+        page.wait_for_timeout(100)
+        new_zoom=page.evaluate("__ANT_DEBUG__.cameras[__ANT_DEBUG__.game.layer].zoom")
+        pinch_after=state(page)
+        assert new_zoom>old_zoom+0.12,(engine,w,h,'native two-finger pinch did not zoom',old_zoom,new_zoom)
+        assert pinch_after['pendingDig']==cancel_after['pendingDig']
+        assert not pinch_after['activeDigSelection']
+        evidence(page,engine,w,h,'trusted-touch-pinch-no-dig-order',cancel_after,{
+          'input':'Chromium native two-finger pinch gesture','zoomBefore':old_zoom,'zoomAfter':new_zoom})
+        session.detach()
+
     actual_tap(page,'[data-home-action="inspect"]',touch)
     assert state(page)['tool']=='inspect'
 
@@ -429,7 +521,7 @@ def run(page,engine,w,h):
     assert late['selectedSquad']=='A' and late['armedSquad'] is None
     assert late['squads']==second_after['squads']
     assert not errors,(engine,w,h,'JS errors',errors)
-    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios=18',flush=True)
+    print('G4-DEEP PASS',engine,str(w)+'x'+str(h),'scenarios='+str(23 if engine=='chromium' and touch else 18),flush=True)
     return len(EVIDENCE)
 
 server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
