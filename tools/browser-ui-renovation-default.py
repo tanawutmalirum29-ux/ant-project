@@ -70,7 +70,19 @@ def main():
                     try:
                         page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
                         page.wait_for_function("Boolean(window.__ANT_DEBUG__?.renovationShell)",timeout=25000)
-                        page.wait_for_timeout(220)
+                        # Module-ready alone is not first paint. Require textured
+                        # real terrain, especially on slow WebKit 320px startup.
+                        page.wait_for_function("""() => {
+                          const canvas=document.getElementById('game-canvas');
+                          if(!canvas||canvas.width<100||canvas.height<100)return false;
+                          const ctx=canvas.getContext('2d'),keys=new Set();
+                          for(let y=1;y<=8;y++)for(let x=1;x<=12;x++){
+                            const px=ctx.getImageData(Math.floor(canvas.width*x/13),
+                              Math.floor(canvas.height*y/9),1,1).data;
+                            keys.add(px[0]+','+px[1]+','+px[2]);
+                          }
+                          return keys.size>=5;
+                        }""",timeout=20000)
                         data=audit(page,engine.name,w,h)
                         path=f'default-{engine.name}-{w}x{h}.png'
                         page.screenshot(path=str(OUT/path))
