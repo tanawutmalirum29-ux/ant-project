@@ -170,6 +170,12 @@ function mountMenu(container,{view,actions,overlay,subscribe}){
   };
   addAction('มดในอาณาจักร',()=>overlay.openPanel('ui03-ants'));
   addAction('กองทหาร A/B',()=>overlay.openPanel('ui02-military'));
+  // When home-menu is replaced, its own button becomes hidden. The always-
+  // visible five-command toolbar Menu is the correct focus restoration opener.
+  addAction('วิจัย',()=>{
+    const menuButton=doc.querySelector('[data-home-action="menu"]');
+    return overlay.openPanel('research',{opener:menuButton?.isConnected?menuButton:undefined});
+  });
   addAction('ตั้งค่าและ Seed',()=>overlay.openPanel('settings'));
   addAction('ความเร็ว ×1',()=>actions.setSpeed(1));
   addAction('ความเร็ว ×2',()=>actions.setSpeed(2));
