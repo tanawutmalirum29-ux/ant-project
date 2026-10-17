@@ -182,6 +182,8 @@ test('CP-B6 construction refund source liabilities cannot be overfilled or minte
   g.lifecycle.eggOrders.push({id:'claim-unit',status:'QUEUED',pickups:[
     {sourceRoomId:'room-queen',type:'carbs',amount:2}]});
   research.refundableFor=(roomId,type)=>roomId==='room-queen'&&type==='carbs'?3:0;
+  // Simulate the five already-reserved units (they are no longer in stock).
+  queen.stock.carbs-=5;g.foraging.inventory.carbs-=5;
   assert.equal(g.rooms.refundableForSource('room-queen','carbs'),7);
   assert.equal(g.rooms.storageSlots('carbs')[0].space,Math.max(0,24-queen.stock.carbs-7));
   // A deleted original depot must stop cancellation with zero mutation.
@@ -193,7 +195,7 @@ test('CP-B6 construction refund source liabilities cannot be overfilled or minte
   g.rooms.rooms.unshift(queen);
   assert.equal(g.rooms.cancel(r.room.id),true);
   assert.equal(g.rooms.held.carbs,0);
-  assert.equal(g.foraging.inventory.carbs,20);
+  assert.equal(g.foraging.inventory.carbs,15);
 });
 
 test('CP-B7 armor changes both squads maximum only, never current HP or damage',()=>{
