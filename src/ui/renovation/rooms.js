@@ -81,31 +81,46 @@ export function mount(container,{view,actions,overlay,subscribe}){
  const feedback=make(d,'p','ui05-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
  body.append(build,dig,inspect,feedback);root.append(header,body);container.append(root);
  const popoverId='ui05-room-options';
+ // The picker is a TEMPORARY compact replacement for the build editor,
+ // never a second full-size window stacked above that editor. Keep it at
+ // most ~one quarter of the viewport on narrow phones, while its contents
+ // remain independently scrollable to the last real room choice.
  const positionPicker=()=>{
    if(!pickerPortal || picker.hidden)return;
    const rect=typeTrigger.getBoundingClientRect();
    const vw=d.defaultView?.innerWidth??0,vh=d.defaultView?.innerHeight??0;
    if(!vw||!vh)return;
-   const gutter=8, width=Math.min(340,vw-gutter*2);
-   const left=Math.max(gutter,Math.min(rect.left,vw-width-gutter));
-   const below=vh-rect.bottom-gutter, above=rect.top-gutter;
-   // Prefer opening above the trigger when a full room list would be cut
-   // below, especially on tablets whose tool button sits near the bottom.
-   const desired=Math.min(360,picker.scrollHeight||240);
-   const useAbove=below<desired+4 && above>below;
-   const available=useAbove?above:below;
-   const height=Math.max(72,Math.min(360,available-4,vh-gutter*2));
-   const top=useAbove?Math.max(gutter,rect.top-height-4):
-     Math.max(gutter,Math.min(rect.bottom+4,vh-height-gutter));
-   Object.assign(picker.style,{left:left+'px',top:top+'px',width:width+'px',
-     maxHeight:height+'px'});
+   const gutter=8,short=vh<=500 && vw>vh;
+   const phone=vw<=680 && !short;
+   const width=Math.min(phone?280:short?210:300,
+     phone?vw-gutter*2:short?Math.max(168,vw*.37):vw-gutter*2);
+   const desired=phone?Math.min(148,vh*.235):
+     short?Math.min(174,vh-78):Math.min(210,vh*.27);
+   const height=Math.max(72,Math.min(desired,vh-gutter*2));
+   // In short landscape, dock along the right edge instead of blocking the
+   // middle of the map. In portrait keep the chooser just above the editor.
+   const left=short?vw-width-gutter:
+     Math.max(gutter,Math.min(rect.left,vw-width-gutter));
+   const top=short?Math.min(44,Math.max(gutter,vh-height-gutter)):
+     Math.max(gutter,Math.min(rect.top-height-5,vh-height-gutter));
+   Object.assign(picker.style,{left:left+'px',top:top+'px',
+     width:width+'px',maxHeight:height+'px'});
  };
  const unregister=overlay.registerPanel(popoverId,{element:picker,kind:'popover',
    show:()=>{
      picker.hidden=false;positionPicker();picker.scrollTop=0;
+     // Keep old planner's geometry stable for anchored positioning, but
+     // hide its rendering and pointer hits while choices are visible.
+     root.classList.add('ui05-picker-open');
+     root.setAttribute('aria-hidden','true');
      typeTrigger.setAttribute('aria-expanded','true');
    },
-   hide:()=>{picker.hidden=true;typeTrigger.setAttribute('aria-expanded','false');}
+   hide:()=>{
+     picker.hidden=true;
+     root.classList.remove('ui05-picker-open');
+     root.removeAttribute('aria-hidden');
+     typeTrigger.setAttribute('aria-expanded','false');
+   }
  });
  // Tapping elsewhere closes the CSS popover, including after a map action.
  const dismissPicker=event=>{
