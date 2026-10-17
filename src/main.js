@@ -2,6 +2,7 @@ import { Game } from './core/game.js';
 import { Camera } from './render/camera.js';
 import { Renderer } from './render/renderer.js';
 import { UI } from './ui/app.js';
+import { createGameOverUI } from './ui/game-over.js';
 import { CombatControls } from './ui/combat-controls.js';
 import { MilestonesPanel } from './ui/milestones-panel.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
@@ -46,6 +47,16 @@ const combatControls = new CombatControls(ui);
 // Six-domain renovation shell shares authoritative legacy game controllers.
 const renovationShell = createRenovationShell();
 const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
+// One terminal report, independent from legacy/renovation skins. Restart uses
+// the EXISTING confirmed reset facade, so it cannot leave stale controllers.
+const gameOverUI = createGameOverUI({
+  document,
+  onRestart: seed => {
+    const request=renovationAdapter.actions.requestWorldReset(seed);
+    if(!request.ok)return request;
+    return renovationAdapter.actions.confirmWorldReset(request.token);
+  }
+});
 // Mount all six feature views on the same live gameplay state.
 const renovationA = mountEngineerA(renovationShell,renovationAdapter);
 const renovationB = mountEngineerB(renovationShell,renovationAdapter);
@@ -110,6 +121,7 @@ function frame(now) {
   lastFrame = now;
   const s = performance.now();
   steps += game.update(dt);
+  gameOverUI.sync(game);
   const simMs = performance.now() - s;
   const r = performance.now();
   renderer.render(game, cameras[game.layer], ui.selection, now, ui.digPreview, ui.roomPreview, ui.tool==='room'?document.getElementById('room-type').value:null);
