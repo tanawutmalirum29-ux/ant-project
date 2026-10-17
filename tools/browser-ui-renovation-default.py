@@ -117,15 +117,32 @@ def main():
                         }""")
                         assert geometry['editorHidden'] and geometry['editorBlocked'],(
                             engine.name,w,h,'chooser still stacks above visible editor',geometry)
+                        # Real small-screen responsive design is NOT a scroll-in-scroll
+                        # shortcut. Every one of the five types must be visible in
+                        # the first chooser view without scrolling its own panel.
+                        if geometry['children']<=6:
+                            assert geometry['scrollHeight']<=geometry['clientHeight']+1,(
+                                engine.name,w,h,'room types still trapped in nested scrolling',geometry)
+                            assert geometry['height']<=164,(
+                                engine.name,w,h,'room chooser scaled like a desktop dialog',geometry)
+                        if w<=680 and w<h:
+                            assert editor['height']<=166,(engine.name,w,h,'build drawer still huge',editor)
+                        picker_fonts=picker.evaluate("""el=>{
+                          const b=el.querySelector('button');
+                          return {font:parseFloat(getComputedStyle(b).fontSize),
+                            minTouch:parseFloat(getComputedStyle(b).minHeight)};
+                        }""")
+                        assert picker_fonts['minTouch']>=43.5,(engine.name,w,h,'touch target too small',picker_fonts)
+                        if w<=680 or h<=500:
+                            assert picker_fonts['font']<=12.1,(engine.name,w,h,'room labels did not scale',picker_fonts)
+                        geometry['pickerFonts']=picker_fonts
                         assert (geometry['top']>=-1 and geometry['bottom']<=h+1 and
                                 geometry['left']>=-1 and geometry['right']<=w+1),(
                                 engine.name,w,h,'room chooser offscreen',geometry)
                         if w<=680 and w<h:
-                            assert geometry['height']<=min(148,h*.235)+2,(
-                                engine.name,w,h,'chooser too tall for phone',geometry)
-                            assert geometry['width']<=min(280,w-16)+2,(
-                                engine.name,w,h,'chooser too wide for phone',geometry)
-                            assert geometry['columns']==2,(engine.name,w,h,'not compact two-column chooser')
+                            assert geometry['height']<=164,(engine.name,w,h,'chooser too tall for phone',geometry)
+                            assert geometry['width']<=min(312,w-12)+2,(engine.name,w,h,'chooser too wide for phone',geometry)
+                            assert geometry['columns']==3,(engine.name,w,h,'not all-visible three-column chooser')
                         if h<=500 and w>h:
                             assert geometry['width']<=212 and geometry['height']<=176,(
                                 engine.name,w,h,'short landscape chooser too large',geometry)
