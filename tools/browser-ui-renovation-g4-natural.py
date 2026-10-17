@@ -81,6 +81,12 @@ def run(page):
     assert not original['nurseries'] and original['capacity']==0
     checkpoint(page,'00-no-nursery',details={'input':'genuine renovated shell; stock seeded only'})
     tap(page,'[data-home-action="room"]')
+    # The legacy native room selector initially defaults to food_store.
+    # Choose Nursery through real renovated CSS options and prove that this
+    # propagates to the authoritative canvas's existing room-type input.
+    tap(page,'.ui05-type-trigger')
+    tap(page,'.ui05-type-option[data-room-type="nursery"]')
+    assert page.evaluate("document.getElementById('room-type').value")=='nursery'
     p=page.evaluate("""()=>{
       const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen,c=d.cameras[g.layer];
       c.x=(q.x+.5)*28;c.y=(q.y+.5)*28;
