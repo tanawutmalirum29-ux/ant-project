@@ -16,7 +16,8 @@ test('G3 legacy browser inliner includes every static ESM dependency in source o
   for(const component of [
     'ui/renovation/home.js','ui/renovation/settings.js','ui/renovation/integrate-a.js',
     'ui/renovation/military.js','ui/renovation/ants.js','ui/renovation/integrate-b.js',
-    'ui/renovation/nursery.js','ui/renovation/rooms.js','ui/renovation/integrate-c.js'
+    'ui/renovation/nursery.js','ui/renovation/rooms.js','ui/renovation/integrate-c.js',
+    'core/research.js','ui/renovation/research.js'
   ]) assert.ok(modules.includes(component),component+' is required');
 
   for(const [index,module] of modules.entries()){
