@@ -192,3 +192,14 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
     max-height:calc(100dvh - 75px);
   }
 }
+
+/* A heavy Nursery sheet owns the interaction while open. Don't keep the
+   room editor floating beneath it; restore it automatically on close. */
+#app[data-ui-renovation-qa="true"]:has(.ui04-sheet:not([hidden]))
+  [data-ui-feature="rooms"] .ui05-root{display:none!important;}
+/* Still block accidental map commands, but keep enough terrain visible to
+   understand which room is selected. Applies only to the Nursery overlay. */
+.ui-renovation-shell:has(.ui04-sheet:not([hidden]))
+  .ui-renovation-backdrop:not([hidden]){
+    background:rgba(2,10,7,.40);
+}

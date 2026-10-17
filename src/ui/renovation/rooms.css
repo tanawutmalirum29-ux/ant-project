@@ -32,3 +32,18 @@
 @media(max-width:355px){.ui05-root{max-width:100%;font-size:11px}.ui05-body{padding:6px;gap:5px}.ui05-shape{grid-template-columns:1fr}.ui05-root button{padding:5px 7px}.ui05-dimension-label{min-width:37px}}
 @media(max-height:500px) and (orientation:landscape){.ui05-root{max-width:min(350px,76%);max-height:calc(100dvh - 55px)}.ui05-body{max-height:min(57dvh,245px);padding:5px}.ui05-header{padding:4px 7px}}
 @media(prefers-reduced-motion:reduce){.ui05-root *{animation:none!important;transition:none!important}}
+/* Collapsed room planner must be a small map chip, not a screen-wide bar. */
+.ui05-root:has(.ui05-body[hidden]){
+  display:table;
+  width:max-content;
+  max-width:min(230px,100%);
+  margin-left:auto;
+}
+.ui05-root:has(.ui05-body[hidden]) .ui05-header{
+  gap:10px;
+  padding:3px 5px 3px 9px;
+}
+.ui05-root:has(.ui05-body[hidden]) .ui05-title{
+  font-size:12px;
+  white-space:nowrap;
+}

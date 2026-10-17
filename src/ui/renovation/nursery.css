@@ -40,3 +40,73 @@
 @media(max-height:500px) and (orientation:landscape){.ui04-root{justify-content:flex-end;align-items:stretch}.ui04-sheet{width:min(420px,72%);max-height:calc(100% - 10px);margin:5px;border-radius:10px}.ui04-scroll{padding:8px;gap:6px}.ui04-head{padding:5px 9px}.ui04-title{font-size:14px}.ui04-subheading{margin:0}}
 @media(max-width:355px){.ui04-scroll{padding:8px;gap:7px}.ui04-form{gap:6px}.ui04-root button{padding:6px 7px;font-size:12px}.ui04-title{font-size:15px}.ui04-order{flex-wrap:wrap}.ui04-cancel{margin-left:auto}}
 @media(prefers-reduced-motion:reduce){.ui04-root *{animation:none!important;transition:none!important}}
+/* Owner iPad landscape UX rework: a Nursery sheet must fit its content.
+   Full-height stretched sheet left an enormous blank footer on 3:2 rooms. */
+.ui04-sheet{
+  flex:0 1 auto;
+  height:auto;
+  max-height:min(78dvh,700px);
+  margin:0 6px 6px;
+  border-radius:14px;
+}
+.ui04-form{
+  grid-template-columns:minmax(0,1fr);
+  gap:5px;
+}
+.ui04-form > .ui04-field-label{grid-row:auto;grid-column:1;}
+.ui04-picker{grid-column:1;}
+.ui04-form .ui04-cost,
+.ui04-form .ui04-blocked,
+.ui04-form .ui04-primary,
+.ui04-form .ui04-feedback{grid-column:1;}
+.ui04-picker-menu{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  max-height:min(218px,36dvh);
+  gap:5px;
+}
+.ui04-level-picker .ui04-picker-menu{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  max-height:none;
+}
+.ui04-picker-menu .ui04-option{
+  padding:7px 5px;
+  font-size:13px;
+  min-width:44px;
+  min-height:44px;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+.ui04-level-picker .ui04-option{white-space:nowrap;}
+.ui04-scroll{gap:8px;padding:10px;}
+.ui04-capacity{padding:8px 10px;}
+.ui04-empty{padding:8px 12px;text-align:left;color:#cec4ad;}
+.ui04-subheading{margin:2px 0 0;}
+/* Tablet and desktop: dock below the HUD, leave the map visible, never
+   stretch the empty order list to the full height of the screen. */
+@media (min-width:681px) and (min-height:501px){
+  .ui04-root{align-items:flex-start;justify-content:flex-end;}
+  .ui04-sheet{
+    width:min(398px,calc(100vw - 90px));
+    margin:calc(var(--ui-hud-height,70px) + var(--ui-safe-top,0px) + 8px) 10px 8px 0;
+    max-height:calc(100dvh - var(--ui-hud-height,70px) - var(--ui-safe-top,0px) - 20px);
+    border-radius:14px;
+  }
+  .ui04-reopen{align-self:flex-end;}
+}
+/* Short landscape: reduce the sheet footprint rather than filling the map.
+   Scrolling is internal; the close button stays outside the scroll content. */
+@media (max-height:500px) and (orientation:landscape){
+  .ui04-root{align-items:flex-start;justify-content:flex-end;}
+  .ui04-sheet{
+    width:min(360px,54vw);
+    max-height:calc(100dvh - 56px - var(--ui-safe-top,0px));
+    margin:calc(48px + var(--ui-safe-top,0px)) 6px 6px 0;
+    border-radius:12px;
+  }
+  .ui04-scroll{gap:5px;padding:7px;}
+  .ui04-head{padding:5px 8px;}
+}
+@media(max-width:355px){
+  .ui04-level-picker .ui04-picker-menu{gap:2px;padding:4px;}
+  .ui04-level-picker .ui04-option{min-width:44px;padding:6px 0;font-size:11px;}
+}
