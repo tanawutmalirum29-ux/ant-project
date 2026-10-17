@@ -232,3 +232,139 @@ test('CP-B-G3-05 real Game paid prerequisite chain; Nursery brood is physically 
   assert.ok(g.clock.ticks>incubatingTick);
   assert.ok(g.lifecycle.births>previousBirths);
 });
+
+test('CP-B-G3-06 real physical field cargo first deposits into a constructed store, then funds a multi-source Research start',()=>{
+  const {g,store}=setup();
+  const queen=g.rooms.rooms[0];
+  // EXPLICIT fixed physical stock fixture: force the *real* forager to deliver
+  // food into the physically constructed store by filling the queen depot.
+  setDepot(g,queen,{carbs:24,protein:24,water:24});
+  setDepot(g,store,{carbs:0,protein:0,water:0});
+  const initial=massSnap(g);
+  g.colony.setForageSlots(1);
+  let deliveredType=null;
+  for(let n=0;n<1000;n++){
+    step(g);invariants(g,'warehouse fill real tick '+n);
+    deliveredType=['carbs','protein'].find(t=>store.stock[t]>0);
+    if(deliveredType)break;
+  }
+  assert.ok(deliveredType,'a real node was harvested and delivered on foot into the built warehouse');
+  assert.ok(store.stock[deliveredType]>0);
+  assert.ok(g.foraging.completedTrips>=1);
+  assert.deepEqual(massSnap(g),initial,'field→cargo→room conserves each resource');
+  g.colony.setForageSlots(0);
+  const config=deliveredType==='carbs'
+    ? {carbs:3,protein:10,water:8}
+    : {carbs:10,protein:2,water:8};
+  // EXPLICIT depot withdrawal fixture makes multi-source spending unavoidable.
+  setDepot(g,queen,config);
+  const before=massSnap(g);
+  const out=g.research.start('foraging_routes');
+  assert.equal(out.ok,true);
+  const fromStore=g.research.snapshot().active.pickups.filter(p=>p.sourceRoomId===store.id);
+  assert.ok(fromStore.some(p=>p.type===deliveredType&&p.amount>0),
+    'real physically-delivered store stock funded the research');
+  invariants(g,'after paid research');
+  assert.equal(g.research.cancel(out.runId).ok,true);
+  assert.deepEqual(massSnap(g),before);
+  invariants(g,'after exact store-source refund');
+});
+
+test('CP-B-G3-07 paid live excavation and construction research alter real scheduled worker progress',()=>{
+  const g=new Game('CP-B-G3-WORK-LIVE');
+  g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+  setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+  let started=g.research.start('excavation_tools');assert.equal(started.ok,true);
+  step(g,800);assert.equal(g.research.hasCompleted('excavation_tools'),true);
+  const layer=g.world.layers[UNDERGROUND];
+  const q=g.colony.queen;
+  const neighbours=[[1,0],[-1,0],[0,1],[0,-1]];
+  const reachable=(awaitImportNotNeeded)=>null; // Local geometry below uses actual Game path scheduler.
+  let target=null,dist=Infinity;
+  for(let y=1;y<layer.height-1;y++)for(let x=1;x<layer.width-1;x++){
+    if(cellAt(layer,x,y)!==TERRAINS.SOIL)continue;
+    if(!neighbours.some(([dx,dy])=> {
+      const xx=x+dx,yy=y+dy;
+      if(xx<1||yy<1||xx>=layer.width-1||yy>=layer.height-1)return false;
+      return layer.cells[yy*layer.width+xx]!==TERRAINS.SOIL &&
+        layer.cells[yy*layer.width+xx]!==TERRAINS.HARD_SOIL &&
+        layer.cells[yy*layer.width+xx]!==TERRAINS.ROCK;
+    }))continue;
+    const d=Math.abs(q.x-x)+Math.abs(q.y-y);
+    if(d<dist){target={x,y};dist=d;}
+  }
+  assert.ok(target,'seed supplies candidate dig terrain');
+  assert.equal(g.colony.queueRectangle(target,target).added,1);
+  const job=g.colony.getOrder(target.x,target.y);
+  let sawDig=false;
+  for(let n=0;n<110;n++){
+    step(g);
+    if(job.progressUnits>0){sawDig=true;assert.ok(job.progressUnits%11500===0);}
+    if(!g.colony.getOrder(target.x,target.y))break;
+  }
+  assert.equal(sawDig,true,'actual colony workers physically excavated with +15% progress');
+  setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+  started=g.research.start('construction_techniques');assert.equal(started.ok,true);
+  step(g,900);assert.equal(g.research.hasCompleted('construction_techniques'),true);
+  setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+  const site=findSite(g,'rest'),planned=g.rooms.queue('rest',site.x,site.y);
+  assert.equal(planned.ok,true);
+  const room=planned.room;
+  let sawBuild=false;
+  for(let n=0;n<240;n++){
+    step(g);
+    if(room.progressUnits>0){sawBuild=true;assert.ok(room.progressUnits%11500===0);}
+    if(room.status==='ready')break;
+  }
+  assert.equal(sawBuild,true,'real room worker built at +15% after material pickups');
+  assert.equal(room.status,'ready');
+  assert.equal(g.rooms.held.carbs,0);
+  assert.ok(g.rooms.spent.carbs>=room.cost.carbs);
+});
+
+test('CP-B-G3-08 real chained Warehouse and Armor completions change caps/maxHP only, not physical stock or wounded HP',()=>{
+  const {g,store}=setup();
+  const queen=g.rooms.rooms[0];
+  setDepot(g,queen,{carbs:24,protein:24,water:24});
+  assert.equal(g.research.start('foraging_routes').ok,true);step(g,600);
+  const beforeCap=g.rooms.effectiveRoomCap(store,'carbs');
+  const beforeStock={...store.stock};
+  setDepot(g,queen,{carbs:24,protein:24,water:24});
+  assert.equal(g.research.start('warehouse_extension').ok,true);step(g,1050);
+  assert.equal(g.research.hasCompleted('warehouse_extension'),true);
+  assert.equal(g.rooms.effectiveRoomCap(store,'carbs'),Math.floor(beforeCap*1.2));
+  assert.equal(g.rooms.effectiveRoomCap(queen,'water'),28);
+  assert.deepEqual(store.stock,beforeStock,'no resources minted by capacity increase');
+
+  const combat=new Game('CP-B-G3-ARMOR-LIVE');
+  combat.colony.setForageSlots(0);combat.lifecycle.setNurseSlots(0);
+  const first=combat.lifecycle.promote({profession:'soldier',level:1,x:combat.colony.queen.x,y:combat.colony.queen.y});
+  const wounded=combat.combat.soldiers.at(-1);
+  const second=combat.lifecycle.promote({profession:'soldier',level:5,x:combat.colony.queen.x,y:combat.colony.queen.y});
+  const elite=combat.combat.soldiers.at(-1);
+  wounded.squadId='B';
+  for(const tech of ['excavation_tools','construction_techniques','soldier_armor']){
+    // EXPLICIT depot funding fixture + direct soldier promotion fixture; these
+    // are not naturally bred 150 adults, which is independently unresolved.
+    setDepot(combat,combat.rooms.rooms[0],{carbs:24,protein:24,water:24});
+    assert.equal(combat.research.start(tech).ok,true,tech);
+    const total=combat.research.snapshot().active.totalTicks;
+    if(tech==='soldier_armor'){
+      step(combat,total-1);
+      wounded.combatHP=3;elite.combatHP=9; // synthetic wounded state, not real enemy hit
+      const oldDamage=combat.combat.damage(wounded);
+      step(combat);
+      assert.equal(combat.research.hasCompleted(tech),true);
+      assert.equal(combat.combat.maxHP(wounded),18);
+      assert.equal(combat.combat.maxHP(elite),32);
+      assert.equal(wounded.combatHP,3);
+      assert.equal(elite.combatHP,9);
+      assert.equal(combat.combat.damage(wounded),oldDamage);
+      assert.equal(combat.combat.getSquad('B').data.soldiers[0].maxHP,18);
+      assert.equal(combat.combat.getSquad('A').data.soldiers[0].maxHP,32);
+    } else {
+      step(combat,total);
+      assert.equal(combat.research.hasCompleted(tech),true);
+    }
+  }
+});
