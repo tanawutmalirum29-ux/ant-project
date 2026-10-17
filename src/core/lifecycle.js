@@ -92,7 +92,8 @@ export class Lifecycle {
       this.foraging.inventory[part.type]-=part.amount;
       this.heldEgg[part.type]+=part.amount;
     }
-    const ticks=[440,560,720,900,1140][level-1];
+    const stages=this.hatchStages(level);
+    const ticks=stages.egg+stages.larva+stages.pupa;
     const order={id:'egg-'+this.nextEggId++,roomId,profession,level,status:'QUEUED',
       slot:{x:slot.x,y:slot.y},x:null,y:null,hatchTicks:ticks,remainingTicks:ticks,
       cost,pickups,broodId:null};
@@ -119,7 +120,12 @@ export class Lifecycle {
   hatchStages(level){
     const total=[440,560,720,900,1140][level-1]||440;
     const egg=Math.round(total*100/440),larva=Math.round(total*180/440);
-    return {egg,larva,pupa:total-egg-larva};
+    if(this.research?.hasCompleted('nursery_care')!==true)
+      return {egg,larva,pupa:total-egg-larva};
+    // Adjust real incubation thresholds only, not delivery or required care.
+    const targetTotal=Math.round(total*90/100);
+    const fasterEgg=Math.floor(egg*90/100),fasterLarva=Math.floor(larva*90/100);
+    return {egg:fasterEgg,larva:fasterLarva,pupa:targetTotal-fasterEgg-fasterLarva};
   }
   setNurseSlots(n,fromPolicy=false) {
     if(!Number.isInteger(n)||n<0||n>this.colony.workers.length) throw new RangeError('Invalid nurse count');
@@ -403,7 +409,13 @@ export class Lifecycle {
     const ant={id:`worker-${n}`,caste:'worker',profession:baby.profession||'starter',level:baby.level||1,
       layer:UNDERGROUND,x:baby.x??q.x,y:baby.y??q.y,
       facing:n%4,next:null,motion:0,path:[],orderId:null,state:'idle'};
-    if(ant.profession==='soldier'){ant.combatRole='soldier';ant.squadId='A';ant.combatHP=16+3*(ant.level-1);ant.combatCooldown=0;ant.state='combat-guard';}
+    if(ant.profession==='soldier'){
+      ant.combatRole='soldier';ant.squadId='A';
+      // Combat is wired by CEO. Do not temporarily spawn at legacy HP when
+      // soldier armor is already researched; existing soldiers never auto-heal.
+      ant.combatHP=this.combat?.maxHP(ant)??16+3*(ant.level-1);
+      ant.combatCooldown=0;ant.state='combat-guard';
+    }
     this.colony.workers.push(ant);
     this.adultHealth.set(ant.id,{age:0,hunger:0,thirst:0});
     this.births++;
@@ -442,6 +454,14 @@ export class Lifecycle {
   }
   tick(){
     this.tickCount++;
+    // An already-queued egg must show the upgraded incubation target too;
+    // work accumulated before unlock is never erased.
+    if(this.research?.hasCompleted('nursery_care')===true)
+      for(const order of this.eggOrders) {
+        const stages=this.hatchStages(order.level);
+        order.hatchTicks=stages.egg+stages.larva+stages.pupa;
+        if(order.status==='QUEUED')order.remainingTicks=order.hatchTicks;
+      }
     this.tickAdults();
     if(!this.colony.queen.alive)for(const order of [...this.eggOrders])if(order.status==='QUEUED')this.cancelEgg(order.id);
     this.layEgg();

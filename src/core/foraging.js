@@ -27,11 +27,12 @@ export class Foraging {
   }
   capacityFor(type) { return this.rooms ? this.rooms.capacityFor(type) : 9999; }
   carryCapacityFor(ant){
-    if(ant.profession==='forager'){
-      const level=Number.isInteger(ant.level)?Math.max(1,Math.min(5,ant.level)):1;
-      return [3,3,4,4,5][level-1];
-    }
-    return CARRY_CAPACITY;
+    const base=ant.profession==='forager'
+      ? [3,3,4,4,5][Number.isInteger(ant.level)?Math.max(1,Math.min(5,ant.level))-1:0]
+      : CARRY_CAPACITY;
+    // A research unlock changes the size of future real trips only. Existing
+    // node reservations/cargo stay unchanged and depot delivery is still physical.
+    return base+(this.research?.hasCompleted('foraging_routes')===true?1:0);
   }
   get waitingCount() { return this.colony.workers.filter(a => a.state==='forage-wait-storage').length; }
   get activeCount() { return this.colony.workers.filter(a => a.state.startsWith('forage-')).length; }

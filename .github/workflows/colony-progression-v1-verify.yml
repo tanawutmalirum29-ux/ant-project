@@ -1,0 +1,45 @@
+name: Colony Progression V1 — Native G2 & Integration
+on:
+  pull_request:
+    branches:
+      - feat/colony-progression-v1-integration
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+    paths:
+      - 'src/core/**'
+      - 'src/ui/**'
+      - 'tests/research-*.test.mjs'
+      - 'docs/development/COLONY_PROGRESSION_V1_CONTRACT.md'
+      - '.github/workflows/colony-progression-v1-verify.yml'
+  push:
+    branches:
+      - feat/colony-progression-v1-integration
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record exact checked-out commit
+        run: |
+          git rev-parse HEAD
+          node --version
+      - name: Run native Research engine tests when available
+        shell: bash
+        run: |
+          if [ -f tests/research-engine.test.mjs ]; then
+            node --test tests/research-engine.test.mjs
+          else
+            echo "No Research Engine PR integrated on this ref yet."
+          fi
+      - name: Run all native regression tests
+        run: npm test
+      - name: Build game for web
+        run: npm run build
