@@ -134,6 +134,30 @@ def run(page):
     assert len(queued['eggs'])==1 and queued['eggs'][0]['status']=='QUEUED'
     assert queued['eggs'][0]['profession']=='nurse' and queued['eggs'][0]['level']==2
     checkpoint(page,'03-actual-css-egg-order-Lv2',made)
+    # Install a READ-ONLY observer in the production simulation's onTick
+    # extension point. This captures transient cargo during the SAME
+    # authoritative tick, avoiding a 30-tick snapshot gap. No world mutation.
+    page.evaluate("""()=>{
+      window.__g4NaturalTrace=[];
+      let lastKey='';
+      __ANT_DEBUG__.game.onTick(game=>{
+        const l=game.lifecycle, order=l.eggOrders[0],baby=l.brood[0];
+        const carrier=game.colony.workers.find(a=>a.broodCargo)??null;
+        const key=[order?.status??'DONE',baby?.stage??'NONE',
+          baby?.carrierId??'',baby?.roomId??''].join('|');
+        if(key!==lastKey||carrier){
+          if(window.__g4NaturalTrace.length<200)
+            window.__g4NaturalTrace.push({
+              tick:game.clock.ticks,order:order?.status??'DONE',
+              stage:baby?.stage??null,carrierId:baby?.carrierId??null,
+              broodX:baby?.x??null,broodY:baby?.y??null,
+              broodRoom:baby?.roomId??null,
+              nurseId:carrier?.id??null,nurseX:carrier?.x??null,
+              nurseY:carrier?.y??null});
+          lastKey=key;
+        }
+      });
+    }""")
     # Close overlay, then progress the real Game update until egg completes.
     tap(page,'.ui04-close')
     observed=set();positions=[];hatch=False
@@ -155,11 +179,15 @@ def run(page):
     assert born,('no adult permanent nurse Lv.2 despite reported birth',final)
     assert 'INCUBATING' in observed and 'BROOD_LARVA' in observed and 'BROOD_PUPA' in observed,(
         'natural egg did not complete physical stages',sorted(observed),final)
-    assert len(positions)>0,('no real nurse carrying any brood was observed',observed,final)
+    tick_trace=page.evaluate("window.__g4NaturalTrace")
+    carried=[t for t in tick_trace if t['carrierId'] and t['nurseId']]
+    assert carried,('no actual nurse cargo at any authoritative simulation tick',
+                     sorted(observed),final,tick_trace)
     assert final['capacity']==4 and final['nurseries'][0]['status']=='ready'
     assert len(final['eggs'])==0 and len(final['brood'])==0
     checkpoint(page,'04-natural-egg-nurse-haul-hatch',queued,{
-      'observedStatuses':sorted(observed),'sampleCarriedLocations':positions,'adult':born})
+      'observedStatuses':sorted(observed),'sampleCarriedLocations':carried[:30],
+      'tickTransitionTrace':tick_trace,'adult':born})
     assert not errors,('JS page errors',errors)
     print('G4-NATURAL PASS: builder room, nursery 4-slot, real CSS Lv2 egg, '
           'queen lay, nurse physical haul, egg/larva/pupa, permanent Lv2 adult; '
