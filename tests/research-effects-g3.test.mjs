@@ -279,7 +279,6 @@ test('CP-B-G3-07 paid live excavation and construction research alter real sched
   const layer=g.world.layers[UNDERGROUND];
   const q=g.colony.queen;
   const neighbours=[[1,0],[-1,0],[0,1],[0,-1]];
-  const reachable=(awaitImportNotNeeded)=>null; // Local geometry below uses actual Game path scheduler.
   let target=null,dist=Infinity;
   for(let y=1;y<layer.height-1;y++)for(let x=1;x<layer.width-1;x++){
     if(cellAt(layer,x,y)!==TERRAINS.SOIL)continue;
@@ -338,9 +337,9 @@ test('CP-B-G3-08 real chained Warehouse and Armor completions change caps/maxHP 
 
   const combat=new Game('CP-B-G3-ARMOR-LIVE');
   combat.colony.setForageSlots(0);combat.lifecycle.setNurseSlots(0);
-  const first=combat.lifecycle.promote({profession:'soldier',level:1,x:combat.colony.queen.x,y:combat.colony.queen.y});
+  combat.lifecycle.promote({profession:'soldier',level:1,x:combat.colony.queen.x,y:combat.colony.queen.y});
   const wounded=combat.combat.soldiers.at(-1);
-  const second=combat.lifecycle.promote({profession:'soldier',level:5,x:combat.colony.queen.x,y:combat.colony.queen.y});
+  combat.lifecycle.promote({profession:'soldier',level:5,x:combat.colony.queen.x,y:combat.colony.queen.y});
   const elite=combat.combat.soldiers.at(-1);
   wounded.squadId='B';
   for(const tech of ['excavation_tools','construction_techniques','soldier_armor']){
