@@ -1,0 +1,82 @@
+/* Defeat is one shared terminal state, not an OS alert or an extra game loop. */
+.colony-defeat{
+  position:fixed;inset:0;z-index:250;
+  display:grid;place-items:center;
+  padding:max(12px,env(safe-area-inset-top,0px))
+          max(12px,env(safe-area-inset-right,0px))
+          max(12px,env(safe-area-inset-bottom,0px))
+          max(12px,env(safe-area-inset-left,0px));
+  box-sizing:border-box;color:#f7ead2;font-family:inherit;
+  pointer-events:none;
+}
+.colony-defeat[hidden],.colony-defeat [hidden]{display:none!important;}
+.colony-defeat-backdrop{
+  position:absolute;inset:0;background:rgba(3,12,10,.75);
+  pointer-events:auto;
+}
+.colony-defeat-panel{
+  position:relative;z-index:1;box-sizing:border-box;
+  width:min(430px,100%);max-height:calc(100dvh - 24px);
+  overflow-y:auto;overscroll-behavior:contain;
+  padding:clamp(14px,3.6vw,25px);
+  border:2px solid #cba768;border-radius:16px;
+  background:#17291f;box-shadow:0 16px 70px #000e;
+  pointer-events:auto;
+}
+.colony-defeat-kicker{
+  margin:0 0 8px;color:#dbbe8d;font-size:11px;
+  font-weight:750;letter-spacing:.12em;
+}
+.colony-defeat-title{margin:0;font-size:clamp(22px,5vw,30px);color:#ffe5b4;}
+.colony-defeat-reason{margin:10px 0 5px;font-size:clamp(15px,3.6vw,18px);font-weight:700;}
+.colony-defeat-message{font-size:13px;line-height:1.5;color:#d8d2be;margin:0 0 14px;}
+.colony-defeat-stats{
+  display:grid;grid-template-columns:1fr auto;gap:7px 10px;
+  border-block:1px solid #b69b6b77;padding:12px 2px;margin:10px 0 16px;
+  font-variant-numeric:tabular-nums;font-size:13px;
+}
+.colony-defeat-stats dt{color:#cec8b7;}
+.colony-defeat-stats dd{margin:0;text-align:right;font-weight:700;}
+.colony-defeat-actions{display:grid;grid-template-columns:1fr;gap:8px;}
+.colony-defeat-actions button,.colony-defeat-reopen{
+  cursor:pointer;font:inherit;
+  border-radius:9px;min-height:44px;padding:9px 12px;
+  border:1px solid #c3a77b;touch-action:manipulation;
+}
+.colony-defeat-restart{background:#e6c282;color:#21180e;font-weight:800;}
+.colony-defeat-inspect{background:#314c39;color:#f7ead2;}
+.colony-defeat-actions button:focus-visible,.colony-defeat-reopen:focus-visible{
+  outline:3px solid #f2dbac;outline-offset:3px;
+}
+.colony-defeat-error{min-height:0;color:#ffb6a3;margin:8px 0 0;font-size:12px;}
+.colony-defeat.is-viewing .colony-defeat-backdrop,
+.colony-defeat.is-viewing .colony-defeat-panel{display:none;}
+.colony-defeat-reopen{
+  display:none;position:absolute;pointer-events:auto;
+  top:calc(82px + env(safe-area-inset-top,0px));
+  left:50%;transform:translateX(-50%);
+  max-width:calc(100vw - 24px);width:max-content;
+  z-index:2;background:#3d2930;color:#fff1df;
+  box-shadow:0 4px 14px #0009;font-size:12px;
+}
+.colony-defeat.is-viewing .colony-defeat-reopen{display:block;}
+@media(max-height:500px) and (orientation:landscape){
+  .colony-defeat-panel{
+    width:min(500px,calc(100vw - 110px));
+    max-height:calc(100dvh - 12px);padding:10px 14px;
+  }
+  .colony-defeat-kicker{margin-bottom:3px;font-size:10px;}
+  .colony-defeat-title{font-size:20px;}
+  .colony-defeat-reason{margin:3px 0;font-size:13px;}
+  .colony-defeat-message{font-size:11px;margin-bottom:5px;}
+  .colony-defeat-stats{padding:5px 0;margin:5px 0 7px;gap:3px 8px;font-size:11px;}
+  .colony-defeat-actions{grid-template-columns:1fr 1fr;gap:6px;}
+  .colony-defeat-reopen{top:54px;}
+}
+@media(max-width:355px){
+ .colony-defeat-panel{padding:12px;}
+ .colony-defeat-stats{font-size:12px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .colony-defeat *{transition:none!important;animation:none!important;}
+}
