@@ -103,8 +103,49 @@ def main():
                             # Owner visual QA regression: collapsed room panel must
                             # never compete with an opened Nursery. A READY Nursery
                             # is injected ONLY for view geometry, not gameplay proof.
+                            # Repeat-tap is a toggle exactly like the legacy toolbar.
+                            def tool_is(mode):
+                                return page.evaluate('__ANT_DEBUG__.renovationAdapter.view.home.tool')==mode
+                            page.locator('[data-home-action="dig"]').click()
+                            assert tool_is('dig')
+                            page.locator('[data-home-action="dig"]').click()
+                            assert tool_is('inspect'),(engine.name,w,h,'repeat Dig did not return Inspect')
                             page.locator('[data-home-action="room"]').click()
-                            assert page.locator('.ui05-root').is_visible()
+                            assert tool_is('room') and page.locator('.ui05-root').is_visible()
+                            # The room-type menu must escape the nested scroll panel:
+                            # scroll to LAST option without Playwright auto-scroll and
+                            # test the unforced centre hit point using actual pointer.
+                            page.locator('.ui05-type-trigger').click()
+                            picker=page.locator('.ui05-type-list:not([hidden])')
+                            assert picker.is_visible()
+                            assert picker.evaluate(
+                                '(e)=>e.parentElement.dataset.uiRegion')=='PRIMARY_SHEET'
+                            picker.evaluate('(e)=>{e.scrollTop=e.scrollHeight;}')
+                            last=page.locator('.ui05-type-option').last
+                            meta=page.evaluate("""() => {
+                              const menu=document.querySelector('.ui05-type-list'),
+                                last=menu.lastElementChild,r=last.getBoundingClientRect(),
+                                panel=menu.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,
+                                hit=document.elementFromPoint(x,y);
+                              return {scrollTop:menu.scrollTop,scrollHeight:menu.scrollHeight,
+                                clientHeight:menu.clientHeight,count:menu.children.length,
+                                inViewport:panel.top>=-1&&panel.bottom<=innerHeight+1&&
+                                  panel.left>=-1&&panel.right<=innerWidth+1,
+                                lastHit:hit===last||last.contains(hit),x,y};
+                            }""")
+                            assert meta['count']>=2 and meta['inViewport'] and meta['lastHit'],(
+                              engine.name,w,h,'last room option cannot be tapped',meta)
+                            if w<1200: page.touchscreen.tap(meta['x'],meta['y'])
+                            else: page.mouse.click(meta['x'],meta['y'])
+                            assert page.evaluate("""() => document.querySelector('#room-type').value ===
+                              document.querySelector('.ui05-type-option:last-child').dataset.roomType"""),(
+                                engine.name,w,h,'last CSS room type did not reach game picker',meta)
+                            page.locator('[data-home-action="room"]').click()
+                            assert tool_is('inspect'),(engine.name,w,h,'repeat Room did not return Inspect')
+                            assert page.locator('.ui05-root').is_hidden()
+                            page.locator('[data-home-action="room"]').click()
+                            assert tool_is('room') and page.locator('.ui05-root').is_visible()
+                            data['roomPickerLastOption']=meta
                             page.locator('.ui05-collapse').click()
                             chip=page.locator('.ui05-root').bounding_box()
                             assert chip and chip['width']<=260,(engine.name,w,h,'collapsed room toolbar too wide',chip)
