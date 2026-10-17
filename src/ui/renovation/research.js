@@ -94,13 +94,15 @@ export function mount(container, {view, actions, overlay, subscribe} = {}) {
   progress.setAttribute('aria-label','ความคืบหน้างานวิจัย');
   const cancel = button(doc,'ui-research-cancel','ยกเลิกงานวิจัย');
   cancel.hidden = true;
+  const cancelHint = make(doc,'p','ui-research-cancel-hint');
+  cancelHint.hidden = true;
   const cancelConfirm = make(doc,'div','ui-research-confirm');
   cancelConfirm.hidden = true;
   const cancelDisclosure = make(doc,'p','ui-research-disclosure');
   const confirmCancel = button(doc,'ui-research-danger','ยืนยันยกเลิก');
   const backCancel = button(doc,'ui-research-secondary','กลับ');
   cancelConfirm.append(cancelDisclosure,confirmCancel,backCancel);
-  active.append(activeTitle,remaining,progress,cancel,cancelConfirm);
+  active.append(activeTitle,remaining,progress,cancel,cancelHint,cancelConfirm);
 
   const listTitle = make(doc,'h3','ui-research-list-heading','เทคโนโลยี');
   const list = make(doc,'ol','ui-research-list');
@@ -300,7 +302,11 @@ export function mount(container, {view, actions, overlay, subscribe} = {}) {
       cancel.hidden = false;
       cancel.disabled = !activeTech.canCancel || !research?.refundPreview || busy;
       cancel.setAttribute('aria-label','ยกเลิกวิจัย '+(activeTech.title || activeTech.id));
-      if (!activeTech.canCancel || !research?.refundPreview) pendingCancel = false;
+      const cancelBlocked = !activeTech.canCancel || !research?.refundPreview;
+      update(cancelHint, research?.refundPreview ? 'ยังไม่สามารถยกเลิกในสถานะปัจจุบัน' :
+        'ยังยกเลิกไม่ได้: ไม่สามารถยืนยันการคืนทรัพยากรไปยังคลังต้นทาง');
+      cancelHint.hidden = !cancelBlocked;
+      if (cancelBlocked) pendingCancel = false;
       cancelConfirm.hidden = !pendingCancel;
       update(cancelDisclosure,(research?.cancelPolicyLabel || 'คืนทรัพยากรตามเงื่อนไขของเกม') +
         ' · คืนเข้าคลังต้นทาง: '+resources(research?.refundPreview));
@@ -310,6 +316,7 @@ export function mount(container, {view, actions, overlay, subscribe} = {}) {
       update(remaining,'');
       progress.hidden = true;
       cancel.hidden = true;
+      cancelHint.hidden = true;
       cancelConfirm.hidden = true;
       pendingCancel = false;
     }
