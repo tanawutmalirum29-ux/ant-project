@@ -9,9 +9,9 @@ from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'artifacts'/'ui-default'
 OUT.mkdir(parents=True,exist_ok=True)
-CASES=[(320,568),(360,640),(375,667),(390,844),(430,932),
-       (568,320),(667,375),(844,390),(768,1024),(820,1180),
-       (1024,768),(1280,720),(1440,900),(1920,1080)]
+CASES=[(320,480),(320,568),(360,640),(375,667),(390,600),(390,844),(430,932),
+       (568,320),(667,375),(844,390),(768,650),(768,1024),(820,1180),
+       (1024,600),(1024,768),(1280,720),(1440,900),(1920,1080)]
 DETAIL_CASES={(320,568),(390,844),(568,320),(844,390),(768,1024),(1440,900)}
 LOG=[]
 
@@ -88,6 +88,65 @@ def main():
                         page.screenshot(path=str(OUT/path))
                         data.update({'engine':engine.name,'width':w,'height':h,'screenshot':path})
                         assert not errs,(engine.name,w,h,'startup JS errors',errs)
+                        # Owner screenshot regression: each of the 14 real viewport
+                        # sizes in BOTH browser engines must allow map-first room
+                        # selection. The chooser REPLACES the editor visually.
+                        page.locator('[data-home-action="room"]').click()
+                        room_panel=page.locator('.ui05-root')
+                        assert room_panel.is_visible()
+                        editor=room_panel.bounding_box()
+                        if w<=680 and w<h:
+                            assert editor['width']<=min(300,w-16)+2
+                            assert editor['height']<=min(h*.25,168)+2,(
+                                engine.name,w,h,'editor still obscures the map',editor)
+                        page.locator('.ui05-type-trigger').click()
+                        picker=page.locator('.ui05-type-list:not([hidden])')
+                        assert picker.is_visible()
+                        geometry=page.evaluate("""() => {
+                          const editor=document.querySelector('.ui05-root'),
+                            list=document.querySelector('.ui05-type-list'),
+                            r=list.getBoundingClientRect(),
+                            body=document.querySelector('.ui05-body');
+                          return {editorHidden:getComputedStyle(editor).visibility==='hidden',
+                            editorBlocked:getComputedStyle(editor).pointerEvents==='none',
+                            width:r.width,height:r.height,left:r.left,top:r.top,
+                            bottom:r.bottom,right:r.right,clientHeight:list.clientHeight,
+                            scrollHeight:list.scrollHeight,children:list.children.length,
+                            columns:getComputedStyle(list).gridTemplateColumns.split(' ').length,
+                            bodyScrollHeight:body.scrollHeight};
+                        }""")
+                        assert geometry['editorHidden'] and geometry['editorBlocked'],(
+                            engine.name,w,h,'chooser still stacks above visible editor',geometry)
+                        assert (geometry['top']>=-1 and geometry['bottom']<=h+1 and
+                                geometry['left']>=-1 and geometry['right']<=w+1),(
+                                engine.name,w,h,'room chooser offscreen',geometry)
+                        if w<=680 and w<h:
+                            assert geometry['height']<=min(148,h*.235)+2,(
+                                engine.name,w,h,'chooser too tall for phone',geometry)
+                            assert geometry['width']<=min(280,w-16)+2,(
+                                engine.name,w,h,'chooser too wide for phone',geometry)
+                            assert geometry['columns']==2,(engine.name,w,h,'not compact two-column chooser')
+                        if h<=500 and w>h:
+                            assert geometry['width']<=212 and geometry['height']<=176,(
+                                engine.name,w,h,'short landscape chooser too large',geometry)
+                        page.screenshot(path=str(OUT/f'room-compact-open-{engine.name}-{w}x{h}.png'))
+                        picker.evaluate('(el)=>{el.scrollTop=el.scrollHeight;}')
+                        last_choice=page.locator('.ui05-type-option').last
+                        hit=last_choice.evaluate("""b=>{
+                           const r=b.getBoundingClientRect(),x=r.left+r.width/2,
+                             y=r.top+r.height/2,e=document.elementFromPoint(x,y);
+                           return {x,y,ok:e===b||b.contains(e)};
+                        }""")
+                        assert hit['ok'],(engine.name,w,h,'bottom room not hit-testable',geometry,hit)
+                        if w<1200: page.touchscreen.tap(hit['x'],hit['y'])
+                        else:page.mouse.click(hit['x'],hit['y'])
+                        assert picker.is_hidden(),(engine.name,w,h,'room type picker did not close')
+                        assert room_panel.is_visible(),(engine.name,w,h,'room editor did not restore')
+                        assert page.evaluate("""() => document.querySelector('#room-type').value ===
+                          document.querySelector('.ui05-type-option:last-child').dataset.roomType""")
+                        page.locator('[data-home-action="room"]').click()
+                        assert room_panel.is_hidden()
+                        data['compactRoomPicker']=geometry
                         # Real clickable management sheets in six critical profiles.
                         if (w,h) in DETAIL_CASES:
                             open_menu(page,'มดในอาณาจักร')

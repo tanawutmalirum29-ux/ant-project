@@ -241,3 +241,27 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
 .ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui05-type-option:focus-visible{
   outline:3px solid #edc986;outline-offset:1px;
 }
+
+/* Owner small-screen map visibility: the room chooser is a compact,
+   independently scrollable selector, not a second screen-sized panel.
+   The build sheet below it becomes invisible while the chooser is open. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+  padding:5px;
+  align-content:start;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui05-type-option{
+  min-height:44px;
+  min-width:0;
+  font-size:clamp(11px,1.6vw,13px);
+  line-height:1.2;
+  padding:5px 6px;
+  overflow-wrap:anywhere;
+  text-align:center;
+}
+@media(max-height:500px) and (orientation:landscape){
+ .ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list{
+   grid-template-columns:minmax(0,1fr);
+ }
+}

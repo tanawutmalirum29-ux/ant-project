@@ -47,3 +47,41 @@
   font-size:12px;
   white-space:nowrap;
 }
+
+/* MOBILE MAP FIRST: the visible build/dig editor must leave most of the
+   terrain available, with its own scrolling for advanced room dimensions.
+   Choosing a room replaces the editor visually rather than stacking them. */
+.ui05-root.ui05-picker-open{
+  visibility:hidden;
+  pointer-events:none!important;
+}
+@media(max-width:680px) and (orientation:portrait){
+ .ui05-root{
+   width:min(300px,calc(100vw - 16px));
+   max-height:min(25dvh,168px)!important;
+   margin-left:auto;
+   font-size:clamp(11px,2.9vw,12px);
+ }
+ .ui05-header{padding:3px 6px;gap:5px;}
+ .ui05-title{font-size:12px;}
+ .ui05-body{max-height:calc(min(25dvh,168px) - 50px);padding:5px;gap:5px;}
+ .ui05-build,.ui05-dig,.ui05-inspect{gap:5px;}
+ .ui05-type-trigger{font-size:12px;}
+ .ui05-plan,.ui05-verdict,.ui05-feedback,.ui05-hint{font-size:11px;line-height:1.3;}
+}
+@media(max-height:500px) and (orientation:landscape){
+ .ui05-root{
+   max-width:min(170px,30vw)!important;
+   max-height:min(64dvh,185px)!important;
+   margin-left:auto;
+ }
+ .ui05-body{max-height:calc(min(64dvh,185px) - 50px);gap:4px;padding:4px;}
+ .ui05-build,.ui05-dig{gap:4px;}
+}
+
+/* Keep the closed editor a genuinely tiny chip even at the smallest width.
+   The mobile width constraint above applies only to the expanded editor. */
+.ui05-root:has(.ui05-body[hidden]){
+  width:max-content!important;
+  max-width:min(230px,calc(100vw - 16px))!important;
+}
