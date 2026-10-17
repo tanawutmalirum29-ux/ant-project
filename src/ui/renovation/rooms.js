@@ -89,7 +89,10 @@ export function mount(container,{view,actions,overlay,subscribe}){
    const gutter=8, width=Math.min(340,vw-gutter*2);
    const left=Math.max(gutter,Math.min(rect.left,vw-width-gutter));
    const below=vh-rect.bottom-gutter, above=rect.top-gutter;
-   const useAbove=below<Math.min(190,vh*.48)&&above>below;
+   // Prefer opening above the trigger when a full room list would be cut
+   // below, especially on tablets whose tool button sits near the bottom.
+   const desired=Math.min(360,picker.scrollHeight||240);
+   const useAbove=below<desired+4 && above>below;
    const available=useAbove?above:below;
    const height=Math.max(72,Math.min(360,available-4,vh-gutter*2));
    const top=useAbove?Math.max(gutter,rect.top-height-4):
