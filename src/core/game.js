@@ -91,6 +91,9 @@ export class Game {
     this.renderMotion = null;
     // Immutable terminal outcome: never inferred independently by a UI skin.
     this.defeat = null;
+    // Interactive clients opt in; offline deterministic long-run economy tests
+    // retain the pre-existing post-queen-death simulation semantics.
+    this.pauseOnDefeat = false;
     this.milestones = new MilestoneTracker(this);
     this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat), (game) => game.milestones.observe()];
     this.stepper = new FixedStepper(() => {
@@ -98,10 +101,15 @@ export class Game {
       for (const system of this.systems) {
         system(this);
         if (this.colony.queen?.alive === false) {
-          // Stop within THIS fixed tick, before any other game system can
-          // mutate the colony after its terminal state.
           this.recordDefeat(this.clock.ticks + 1);
-          break;
+          if (this.pauseOnDefeat) {
+            // A combat death happens *after* Lifecycle.tick. Refund QUEUED
+            // eggs now, preserving its original next-tick refund semantics.
+            for (const order of [...this.lifecycle.eggOrders])
+              if (order.status === 'QUEUED') this.lifecycle.cancelEgg(order.id);
+            this.stepper.changeSpeed(0);
+            break;
+          }
         }
       }
       this.renderMotion = { from: before, to: snapshotPositions(this) };
@@ -141,17 +149,21 @@ export class Game {
       casualties:this.combat.casualties,
       defeatedEnemies:this.combat.defeated
     });
-    this.stepper.changeSpeed(0);
     return this.defeat;
   }
   update(ms) {
-    if (this.defeat || this.colony.queen?.alive === false) {
+    if (this.colony.queen?.alive === false) {
       this.recordDefeat();
-      return 0;
+      if (this.pauseOnDefeat) {
+        this.stepper.changeSpeed(0);
+        return 0;
+      }
     }
     return this.stepper.update(ms);
   }
-  setSpeed(value) { this.stepper.changeSpeed(this.defeat ? 0 : value); }
+  setSpeed(value) {
+    this.stepper.changeSpeed(this.pauseOnDefeat && this.defeat ? 0 : value);
+  }
 }
 
 /**
