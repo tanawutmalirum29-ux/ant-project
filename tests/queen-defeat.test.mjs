@@ -7,6 +7,7 @@ import {FixedStepper, createClock} from '../src/core/time.js';
 
 test('terminal queen death freezes all remaining accumulated fixed ticks at exact defeat tick',()=>{
   const g=new Game('defeat-one-tick');
+  g.pauseOnDefeat=true;
   g.setSpeed(4);
   g.onTick(()=>{g.colony.queen.alive=false;g.combat.queenHP=0;});
   assert.equal(g.update(250),1,'must not run subsequent pending x4 ticks');
@@ -29,6 +30,7 @@ test('real hostile attack causes authoritative game defeat and freeze',()=>{
   for(const w of g.colony.workers){w.layer=SURFACE;w.x=0;w.y=0;}
   g.combat.soldierSlots=0;
   g.combat.queenHP=1;
+  g.pauseOnDefeat=true;
   const q=g.colony.queen;
   const enemy=g.combat.spawn('beetle',UNDERGROUND,q.x,q.y+1);
   assert.ok(enemy);
@@ -43,11 +45,13 @@ test('real hostile attack causes authoritative game defeat and freeze',()=>{
 
 test('natural lifespan and starvation produce their own immutable defeat reasons',()=>{
   const old=new Game('old-queen-defeat');
+  old.pauseOnDefeat=true;
   old.lifecycle.queenHealth.age=LIFE.queenMaxAge-1;
   old.update(100);
   assert.equal(old.defeat?.cause,'age');
   assert.equal(old.clock.speed,0);
   const starving=new Game('starving-queen-defeat');
+  starving.pauseOnDefeat=true;
   starving.lifecycle.queenHealth.hunger=LIFE.queenStarve;
   starving.foraging.inventory.carbs=0;
   starving.update(100);
@@ -69,4 +73,16 @@ test('fixed stepper can pause inside its callback without running queued substep
   assert.equal(clock.ticks,1);
   assert.equal(steps,1);
   assert.equal(stepper.accumulator,0);
+});
+
+test('headless deterministic long-run simulations may continue after queen death',()=>{
+  const game=new Game('simulation-not-UI');
+  const before=game.clock.ticks;
+  game.colony.queen.alive=false;
+  game.combat.queenHP=0;
+  assert.equal(game.pauseOnDefeat,false);
+  assert.equal(game.update(100),1);
+  assert.equal(game.clock.ticks,before+1);
+  assert.equal(game.defeat?.cause,'combat');
+  assert.equal(game.clock.speed,1);
 });
