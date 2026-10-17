@@ -48,6 +48,49 @@ def open_menu(page, label):
     assert page.locator('.ui-home-menu').is_visible()
     page.get_by_role('button',name=label,exact=True).click()
 
+def check_queen_defeat(page,engine,w,h,mode):
+    # Controlled end-state injection tests *UI propagation*; actual enemy
+    # damage + natural lifespan are covered independently by native core tests.
+    page.evaluate("""() => {
+      const g=window.__ANT_DEBUG__.game;
+      g.combat.queenHP=0;
+      g.colony.queen.alive=false;
+      g.update(250);
+    }""")
+    page.wait_for_function("""() => {
+      const r=document.getElementById('colony-defeat');
+      return r&&!r.hidden&&r.querySelector('.colony-defeat-panel').getBoundingClientRect().width>0;
+    }""",timeout=12000)
+    root=page.locator('#colony-defeat')
+    assert page.locator('.colony-defeat-title').inner_text()=='อาณาจักรล่มสลาย'
+    assert 'ศัตรู' in page.locator('.colony-defeat-reason').inner_text()
+    layout=page.evaluate("""() => {
+      const p=document.querySelector('.colony-defeat-panel'),
+        btn=document.querySelector('.colony-defeat-restart'),
+        a=p.getBoundingClientRect(),b=btn.getBoundingClientRect(),
+        e=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);
+      return {top:a.top,bottom:a.bottom,left:a.left,right:a.right,
+        width:a.width,height:a.height,restartHit:e===btn||btn.contains(e),
+        ticks:window.__ANT_DEBUG__.game.clock.ticks,
+        speed:window.__ANT_DEBUG__.game.clock.speed};
+    }""")
+    assert layout['speed']==0 and layout['restartHit'],(mode,engine,w,h,'defeat UI unreachable',layout)
+    assert layout['top']>=-1 and layout['bottom']<=h+1,('defeat panel vertical clipping',layout)
+    assert layout['left']>=-1 and layout['right']<=w+1,('defeat panel horizontal clipping',layout)
+    page.screenshot(path=str(OUT/f'defeat-{mode}-{engine}-{w}x{h}.png'))
+    page.locator('.colony-defeat-inspect').click()
+    assert root.locator('.colony-defeat-reopen').is_visible()
+    assert root.locator('.colony-defeat-panel').is_hidden()
+    assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==0
+    page.locator('.colony-defeat-reopen').click()
+    assert root.locator('.colony-defeat-panel').is_visible()
+    page.locator('.colony-defeat-restart').click()
+    page.wait_for_function("window.__ANT_DEBUG__.game.defeat === null")
+    assert root.is_hidden(),(mode,engine,w,h,'defeat modal remained after reset')
+    assert page.evaluate('window.__ANT_DEBUG__.game.clock.speed')==1
+    return layout
+
+
 def main():
     server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,stdout=subprocess.DEVNULL,
                             stderr=subprocess.STDOUT)
@@ -278,6 +321,7 @@ def main():
                             data['nurseryLayout']=layout
                             assert not errs,(engine.name,w,h,'management JS errors',errs)
                             data['domainMenuOpenClose']=True
+                            data['queenDefeat']=check_queen_defeat(page,engine.name,w,h,'renovated')
                         LOG.append(data)
                         print('DEFAULT PASS',engine.name,w,h,flush=True)
                     finally:ctx.close()
@@ -296,7 +340,9 @@ def main():
                         assert page.evaluate("document.body.dataset.uiRenovationQa") is None
                         path=f'legacy-{engine.name}-{w}x{h}.png'
                         page.screenshot(path=str(OUT/path))
-                        LOG.append({'engine':engine.name,'legacy':[w,h],'screenshot':path})
+                        defeat=check_queen_defeat(page,engine.name,w,h,'legacy')
+                        LOG.append({'engine':engine.name,'legacy':[w,h],'screenshot':path,
+                                    'queenDefeat':defeat})
                         print('ROLLBACK PASS',engine.name,w,h,flush=True)
                     finally:ctx.close()
                 browser.close()
