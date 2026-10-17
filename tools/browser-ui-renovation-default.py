@@ -120,7 +120,7 @@ def main():
                         assert (geometry['top']>=-1 and geometry['bottom']<=h+1 and
                                 geometry['left']>=-1 and geometry['right']<=w+1),(
                                 engine.name,w,h,'room chooser offscreen',geometry)
-                        if w<=680 and h>500:
+                        if w<=680 and w<h:
                             assert geometry['height']<=min(148,h*.235)+2,(
                                 engine.name,w,h,'chooser too tall for phone',geometry)
                             assert geometry['width']<=min(280,w-16)+2,(
