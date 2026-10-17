@@ -92,7 +92,7 @@ export function mount(container,{view,actions,overlay,subscribe}){
    const landscape=vh<=500&&vw>vh;
    const count=picker.querySelectorAll('button').length;
    const width=phone?Math.min(312,vw-12):
-     landscape?Math.min(220,Math.max(168,Math.floor(vw*.38))):
+     landscape?Math.min(210,Math.max(160,Math.floor(vw*.36))):
      Math.min(320,vw-20);
    const gutter=6;
    // Compact choice grid is placed immediately ABOVE the mobile toolbar,
