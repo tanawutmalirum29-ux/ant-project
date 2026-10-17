@@ -55,7 +55,7 @@
   visibility:hidden;
   pointer-events:none!important;
 }
-@media(max-width:680px) and (min-height:501px){
+@media(max-width:680px) and (orientation:portrait){
  .ui05-root{
    width:min(300px,calc(100vw - 16px));
    max-height:min(25dvh,168px)!important;
