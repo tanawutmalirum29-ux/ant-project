@@ -22,7 +22,7 @@ try:
             page=browser.new_page(viewport={'width':width,'height':height},device_scale_factor=1,has_touch=True)
             errors=[]
             page.on('pageerror',lambda e:errors.append(str(e)))
-            page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+            page.goto('http://127.0.0.1:4173/?ui=legacy',wait_until='domcontentloaded')
             page.wait_for_function('Boolean(window.__ANT_DEBUG__)',timeout=20000)
             page.evaluate('''() => {
               const {game,ui}=__ANT_DEBUG__,q=game.colony.queen;
