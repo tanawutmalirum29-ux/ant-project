@@ -100,6 +100,65 @@ def main():
                             assert page.locator('.ui-settings-sheet').is_visible()
                             page.locator('.ui-settings-close').click()
                             assert page.locator('.ui-settings-sheet').is_hidden()
+                            # Owner visual QA regression: collapsed room panel must
+                            # never compete with an opened Nursery. A READY Nursery
+                            # is injected ONLY for view geometry, not gameplay proof.
+                            page.locator('[data-home-action="room"]').click()
+                            assert page.locator('.ui05-root').is_visible()
+                            page.locator('.ui05-collapse').click()
+                            chip=page.locator('.ui05-root').bounding_box()
+                            assert chip and chip['width']<=260,(engine.name,w,h,'collapsed room toolbar too wide',chip)
+                            page.evaluate("""() => {
+                              const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen;
+                              g.setSpeed(0);
+                              const room={id:'layout-ready-nursery',type:'nursery',x:q.x-4,y:q.y,
+                                width:3,height:3,status:'ready',connected:true,progress:65,
+                                ticks:65,workerId:null,broodSlots:9,
+                                stock:{carbs:0,protein:0,water:0},cost:{carbs:3,protein:2},
+                                capacity:{}};
+                              g.rooms.rooms.push(room);g.rooms.updateConnectivity();
+                              if(!room.connected||room.status!=='ready')
+                                throw Error('geometry fixture Nursery became disconnected');
+                              d.ui.select({layer:'underground',x:room.x,y:room.y});
+                              d.renovationAdapter.notify();
+                            }""")
+                            if not page.locator('.ui04-sheet').is_visible():
+                                page.locator('.ui04-reopen').click()
+                            assert page.locator('.ui04-sheet').is_visible()
+                            layout=page.evaluate("""() => {
+                              const sheet=document.querySelector('.ui04-sheet'),
+                                close=document.querySelector('.ui04-close'),
+                                room=document.querySelector('.ui05-root'),
+                                backdrop=document.querySelector('.ui-renovation-backdrop');
+                              const r=sheet.getBoundingClientRect(),c=close.getBoundingClientRect();
+                              const hit=document.elementFromPoint(c.x+c.width/2,c.y+c.height/2);
+                              return {x:r.x,y:r.y,width:r.width,height:r.height,
+                                closeHit:hit===close||close.contains(hit),
+                                panelHidden:getComputedStyle(room).display==='none',
+                                backdropColor:getComputedStyle(backdrop).backgroundColor};
+                            }""")
+                            assert layout['closeHit'] and layout['panelHidden'],(
+                                engine.name,w,h,'Nursery hides room panel or close not tappable',layout)
+                            assert layout['x']>=-1 and layout['y']>=-1 and (
+                                layout['x']+layout['width']<=w+1 and
+                                layout['y']+layout['height']<=h+1),(engine.name,w,h,'Nursery out of view',layout)
+                            if w>=681 and h>500:
+                                assert layout['height']<h*.82,(engine.name,w,h,'Nursery still full height',layout)
+                            page.screenshot(path=str(OUT/f'nursery-compact-{engine.name}-{w}x{h}.png'))
+                            page.locator('.ui04-level-picker .ui04-picker-trigger').click()
+                            choices=page.locator('.ui04-level-picker .ui04-picker-menu:not([hidden]) [data-value]')
+                            assert choices.count()==5,(engine.name,w,h,'level choices absent')
+                            grid=page.locator('.ui04-level-picker .ui04-picker-menu').evaluate(
+                                '(e)=>getComputedStyle(e).gridTemplateColumns.split(" ").length')
+                            assert grid==5,(engine.name,w,h,'level choices not 5-wide grid',grid)
+                            choices.nth(1).click()
+                            assert 'Lv.2' in page.locator(
+                                '.ui04-level-picker .ui04-picker-trigger').inner_text()
+                            page.locator('.ui04-close').click()
+                            assert page.locator('.ui04-sheet').is_hidden()
+                            assert page.locator('.ui05-root').is_visible(),(
+                                engine.name,w,h,'room panel not restored after Nursery')
+                            data['nurseryLayout']=layout
                             assert not errs,(engine.name,w,h,'management JS errors',errs)
                             data['domainMenuOpenClose']=True
                         LOG.append(data)
