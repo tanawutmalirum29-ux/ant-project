@@ -84,7 +84,8 @@ export function makeGameView(game,ui,combatControls) {
     const stats=game.lifecycle?.nurseryStatus?.(room.id);
     return {...room,slots:stats?.slots??Math.min(room.width*room.height,16),
       used:stats?.used??0,free:stats?.free??0,
-      orders:(stats?.orders??[]).map(copiedOrder)};
+      orders:(stats?.orders??[]).map(copiedOrder),
+      repeat:game.lifecycle?.getRepeatOrder(room.id)?.plan??null};
   });
   return Object.freeze({
     home:Object.freeze({layer:game.layer,tool:ui.tool,
@@ -143,6 +144,7 @@ export class UIRenovationAdapter {
       nurseryCost:(profession,level)=>this.ui.game.lifecycle.eggCost(profession,level),
       queueEgg:(roomId,profession,level)=>this.queueEgg(roomId,profession,level),
       cancelEgg:id=>this.cancelEgg(id),
+      setRepeatOrder:(roomId,profession,level,enabled)=>this.setRepeatOrder(roomId,profession,level,enabled),
       startResearch:id=>this.startResearch(id),
       cancelResearch:()=>this.cancelResearch(),
       roomPlan:(type,width,height)=>roomPlan(type,width,height),
@@ -243,6 +245,10 @@ export class UIRenovationAdapter {
   cancelEgg(id){
     const ok=this.ui.game.lifecycle.cancelEgg(id);
     this.ui.refreshNursery();return this._after(ok?{ok:true}:fail('EGG_NOT_CANCELLABLE'));
+  }
+  setRepeatOrder(roomId,profession,level,enabled){
+    const result=this.ui.game.lifecycle.setRepeatOrder(roomId,profession,level,enabled);
+    this.ui.refreshNursery();return this._after(result);
   }
   startResearch(id){
     const research=this.ui.game.research;
