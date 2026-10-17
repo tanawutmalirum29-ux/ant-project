@@ -112,8 +112,8 @@ def main():
                               const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen;
                               g.setSpeed(0);
                               const room={id:'layout-ready-nursery',type:'nursery',x:q.x-4,y:q.y,
-                                width:3,height:3,status:'ready',connected:true,progress:65,
-                                ticks:65,workerId:null,broodSlots:9,
+                                width:2,height:2,status:'ready',connected:true,progress:65,
+                                ticks:65,workerId:null,broodSlots:4,
                                 stock:{carbs:0,protein:0,water:0},cost:{carbs:3,protein:2},
                                 capacity:{}};
                               g.rooms.rooms.push(room);g.rooms.updateConnectivity();
