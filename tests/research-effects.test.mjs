@@ -232,3 +232,27 @@ test('CP-B8 150-ant *synthetic promotion stress* keeps research effects bounded'
   }
   assert.equal(g.rooms.capacityFor('carbs'),28);
 });
+
+test('CP-B9 real emergency nurse substitution receives exactly 0.5 base work plus 15%',()=>{
+  const dig=preparedDig(1,true);
+  const old=dig.g.colony.workers[0],sub=dig.g.colony.workers.at(-1);
+  for(const ant of dig.g.colony.workers)ant.profession='nurse';
+  old.orderId=null;old.state='idle';
+  Object.assign(sub,{level:1,x:dig.p.site.x,y:dig.p.site.y,layer:UNDERGROUND,
+    state:'digging',orderId:dig.job.id,path:[],next:null,motion:0});
+  dig.job.workerId=sub.id;
+  assert.equal(dig.g.colony.emergencyWorker('miner'),sub);
+  assert.equal(dig.g.colony.workRate(sub,'miner'),0.5);
+  assert.equal(digUntilDone(dig),21);
+
+  const build=preparedBuild(1,true);
+  const oldBuilder=build.ant,backup=build.g.colony.workers.at(-1);
+  for(const ant of build.g.colony.workers)ant.profession='nurse';
+  oldBuilder.roomId=null;oldBuilder.state='idle';
+  Object.assign(backup,{x:build.room.x,y:build.room.y,layer:UNDERGROUND,
+    state:'room-build',roomId:build.room.id,path:[],next:null,motion:0});
+  build.room.workerId=backup.id;
+  assert.equal(build.g.colony.emergencyWorker('builder'),backup);
+  assert.equal(build.g.colony.workRate(backup,'builder'),0.5);
+  assert.equal(buildUntilDone({...build,ant:backup}),114);
+});
