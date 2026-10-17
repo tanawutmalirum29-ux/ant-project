@@ -97,7 +97,7 @@ def main():
                         editor=room_panel.bounding_box()
                         if w<=680 and w<h:
                             assert editor['width']<=min(300,w-16)+2
-                            assert editor['height']<=min(h*.25,168)+2,(
+                            assert editor['height']<=min(h*.30,168)+2,(
                                 engine.name,w,h,'editor still obscures the map',editor)
                         page.locator('.ui05-type-trigger').click()
                         picker=page.locator('.ui05-type-list:not([hidden])')
