@@ -18,6 +18,10 @@ GIT_TREE_SHA=subprocess.run(['git','rev-parse','HEAD^{tree}'],
 CASES=[(320,568),(568,320),(1440,900)]
 EVIDENCE=[]
 TOUCH_TIMING=[]
+# A requested 50ms delay yields approximately 100ms actual browser-pointerup
+# to button-pointerdown on CI. The requested 0ms case remains a non-gating
+# edge/stress diagnostic; no hardware or literal zero-delay claims are made.
+FAST_TOUCH_GATED_GAPS=(50,100,250,430)
 def state(page):
     return page.evaluate("""() => {
       const d=window.__ANT_DEBUG__,g=d.game,cc=d.ui.combatControls;
@@ -83,9 +87,10 @@ def cdp_touch_drag(session,a,b,steps=11,cancel=False,step_delay_ms=0):
     cdp_touch(session,'touchCancel' if cancel else 'touchEnd',[])
 
 def native_touch_timing_matrix(page,session,a,b,engine,w,h):
-    """Non-gating diagnostic: one FIRST touch tap only at each requested gap.
-    Any recovery is separately logged, never substituted into first-tap result.
-    This runs ONLY in Chromium mobile emulation; no hardware/WebKit claims.
+    """Chromium-only timed native touch matrix with enforced first-tap gate
+    for request gaps >=50ms and a non-gating 0ms stress diagnostic.
+    Recovery attempts are separately recorded, never counted as first-tap passes.
+    No DOM-dispatched events, force clicks or automatic locator retries.
     """
     assert state(page)['pendingDig']==0 and not state(page)['activeDigSelection']
     page.evaluate("""() => {
@@ -162,12 +167,28 @@ def native_touch_timing_matrix(page,session,a,b,engine,w,h):
         first_success=(observed['pendingDig']==0 and not observed['activeDigSelection'])
         screenshot=f'touch-timing-{engine}-{w}x{h}-{gap}ms.png'
         page.screenshot(path=str(OUT/screenshot))
+        expected_sequence=['pointerdown','pointerup','click']
+        actual_sequence=[e['kind'] for e in btn_events]
+        authentic_button_events=(actual_sequence==expected_sequence and
+            all(e['trusted'] and e['pointerType']=='touch' for e in btn_events))
+        gate_reasons=[]
+        if not pre_tap['hit'] or pre_tap['disabled']:
+            gate_reasons.append('BUTTON_BLOCKED_OR_DISABLED')
+        if not first_success:
+            gate_reasons.append('FIRST_TOUCH_FAILED_TO_CANCEL')
+        if not authentic_button_events:
+            gate_reasons.append('TRUSTED_FIRST_TOUCH_POINTER_AND_CLICK_SEQUENCE_MISSING')
+        if observed['pendingDig'] != 0 or observed['activeDigSelection']:
+            gate_reasons.append('DIG_ORDERS_OR_SELECTION_REMAIN')
+        gate_eligible=gap in FAST_TOUCH_GATED_GAPS
         result={'engine':engine,'viewport':[w,h],'requestedGapMs':gap,
           'input':'Chromium CDP touch drags, native touchscreen.tap first attempt',
           'dragStepDelayMs':18,'betweenDragGapMs':180,
           'actualPointerUpToButtonDownMs':actual_gap,
           'buttonProbe':probe,'preFirstTap':pre_tap,
-          'firstTapSucceeded':first_success,
+          'firstTapSucceeded':first_success,'gateEligible':gate_eligible,
+          'gatePassed':len(gate_reasons)==0,'gateFailures':gate_reasons,
+          'firstTapTrustedButtonSequence':authentic_button_events,
           'firstTapClassification':('CANCELLED' if first_success else
             'DISABLED_AT_FIRST_TAP' if pre_tap['disabled'] else
             'NO_BUTTON_POINTERDOWN' if not first_down else
@@ -190,9 +211,18 @@ def native_touch_timing_matrix(page,session,a,b,engine,w,h):
         cleaned=state(page)
         assert cleaned['pendingDig']==0 and not cleaned['activeDigSelection'],(
           engine,w,h,gap,'even recovery tap did not cancel queued jobs',result)
+    trials=[x for x in TOUCH_TIMING if x['engine']==engine and x['viewport']==[w,h]]
+    gated=[x for x in trials if x['gateEligible']]
+    failed=[x for x in gated if not x['gatePassed']]
     print('G4-TOUCH-TIMING',engine,str(w)+'x'+str(h),
-      'first-pass='+str(sum(x['firstTapSucceeded'] for x in TOUCH_TIMING if x['engine']==engine and x['viewport']==[w,h]))+'/5',
-      'intervals=0,50,100,250,430',flush=True)
+      'first-pass='+str(sum(x['firstTapSucceeded'] for x in trials))+'/5',
+      'GATED='+str(len(gated)-len(failed))+'/'+str(len(gated)),
+      'intervals=0,50,100,250,430 (0=diagnostic)',flush=True)
+    # Assert only after all five first attempts and any separate recovery were
+    # persisted into TOUCH_TIMING, so even failed CI keeps exact evidence ZIP.
+    assert not failed,(engine,w,h,'genuine first-touch regression gate failure',
+                      [(x['requestedGapMs'],x['gateFailures'],
+                        x['actualPointerUpToButtonDownMs']) for x in failed])
 
 def open_menu_domain(page,label,touch):
     actual_tap(page,'[data-home-action="menu"]',touch)
@@ -686,9 +716,13 @@ try:
 finally:
     (OUT/'touch-timing.json').write_text(json.dumps({
       'sha':SHA,'source_head_sha':SOURCE_HEAD_SHA,'git_tree_sha':GIT_TREE_SHA,
-      'scope':'DIAGNOSTIC ONLY: Chromium CDP touchscreen first-tap latency; not pass/fail certification',
-      'requestedGapsMs':[0,50,100,250,430], 'trials':TOUCH_TIMING,
+      'scope':'Chromium CDP touch timing: first-attempt CI gated at requested 50/100/250/430ms; requested 0ms stress trial diagnostic-only. Browser emulation, NOT physical-device certification.',
+      'requestedGapsMs':[0,50,100,250,430],
+      'gatedRequestedGapsMs':list(FAST_TOUCH_GATED_GAPS),
+      'trials':TOUCH_TIMING,
       'firstTapSuccessCount':sum(x['firstTapSucceeded'] for x in TOUCH_TIMING),
+      'gatePassCount':sum(x['gatePassed'] for x in TOUCH_TIMING if x['gateEligible']),
+      'gateTotal':sum(x['gateEligible'] for x in TOUCH_TIMING),
       'total':len(TOUCH_TIMING)
     },ensure_ascii=False,indent=2))
     (OUT/'evidence.json').write_text(json.dumps({
