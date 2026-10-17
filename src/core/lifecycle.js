@@ -517,10 +517,11 @@ export class Lifecycle {
         if(this.consume('protein')){baby.stage='pupa';baby.age=0;baby.waiting=0;}
         else baby.waiting++;
       }else if(baby.stage==='pupa'&&baby.age>=stages.pupa){
-        if(this.totalPopulation<=LIFE.maxPopulation)this.promote(baby);
+        const survived=this.totalPopulation<=LIFE.maxPopulation;
+        if(survived)this.promote(baby);
         else this.broodDeaths++;
         this.brood.splice(this.brood.indexOf(baby),1);
-        this.finishRepeatOrder(order.id,false);
+        this.finishRepeatOrder(order.id,!survived);
         this.eggOrders.splice(this.eggOrders.indexOf(order),1);
         continue;
       }else if(baby.stage==='larva'&&baby.age>=stages.larva){baby.waiting++;}
