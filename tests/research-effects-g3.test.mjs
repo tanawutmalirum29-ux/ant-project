@@ -145,6 +145,9 @@ test('CP-B-G3-02 real Game: reverse original-source refund order; conservation a
 
 test('CP-B-G3-03 actual connected source shrink/deletion refuses exact research cancellation atomically',()=>{
   const {g,store}=setup();
+  // EXPLICIT physical-depot test withdrawal: queen alone cannot pay carbs=6.
+  // A valid multi-source run must therefore reserve original food-store stock.
+  setDepot(g,g.rooms.rooms[0],{carbs:4,protein:5,water:8});
   const out=g.research.start('foraging_routes');
   assert.equal(out.ok,true);
   const take=g.research.snapshot().active.pickups.find(p=>p.sourceRoomId===store.id);
