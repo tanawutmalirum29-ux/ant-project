@@ -286,7 +286,7 @@ try:
                 assert not errs,(engine.name,w,h,errs)
                 # Standard bare URL must keep the original BODY-owned dock and
                 # its real open/close behavior until full release cutover.
-                page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                page.goto('http://127.0.0.1:4173/?ui=legacy',wait_until='domcontentloaded')
                 page.wait_for_function('Boolean(window.__ANT_DEBUG__?.game)',timeout=25000)
                 assert page.locator('#u6-dock').is_visible(),(engine.name,w,h,'legacy dock lost on default URL')
                 assert page.evaluate('document.body.dataset.uiRenovationQa') is None

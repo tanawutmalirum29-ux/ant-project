@@ -27,7 +27,7 @@ try:
                 page = context.new_page()
                 errors=[]
                 page.on('pageerror', lambda error: errors.append(str(error)))
-                page.goto('http://127.0.0.1:4173/',wait_until='domcontentloaded')
+                page.goto('http://127.0.0.1:4173/?ui=legacy',wait_until='domcontentloaded')
                 page.wait_for_function('Boolean(window.__ANT_DEBUG__)')
                 # Every select in the game gets an OS-independent DOM picker.
                 assert page.locator('#room-picker-toggle').count()==1
