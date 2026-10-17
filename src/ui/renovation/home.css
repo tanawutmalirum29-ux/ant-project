@@ -104,3 +104,18 @@
  .ui-home-menu{margin:8px;max-height:calc(100dvh - 90px);align-self:center}
 }
 @media(prefers-reduced-motion:reduce){.ui-home *{transition:none!important;animation:none!important}}
+
+/* Small phone HUD typography scales with its CSS viewport. Map-first layout:
+   resource stats stay readable without a desktop-sized two-row header. */
+@media(max-width:480px) and (orientation:portrait){
+ .ui-home-hud{min-height:0;padding:2px 5px;gap:1px;}
+ .ui-home-stats{gap:2px;}
+ .ui-home-stat,.ui-home-population{
+   min-height:25px;font-size:9px;padding:1px 2px;border-radius:5px;
+ }
+ .ui-home-resource-value,.ui-home-population strong{font-size:9px;}
+ .ui-home-metadata{font-size:9px;gap:4px;}
+ .ui-home-speed{font-size:11px;min-height:36px;min-width:44px;padding:1px 3px;}
+ .ui-home-action-icon{font-size:16px;}
+ .ui-home-action-label{font-size:9px;}
+}
