@@ -26,6 +26,43 @@ function copiedOrder(order) {
     remainingTicks:order.remainingTicks,hatchTicks:order.hatchTicks,
     canCancel:order.status==='QUEUED'};
 }
+/** Only detached immutable authoritative Research data ever reaches a CSS sheet. */
+function deepFreezeResearch(value) {
+  if(value && typeof value==='object' && !Object.isFrozen(value)) {
+    for(const child of Object.values(value))deepFreezeResearch(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+function makeResearchView(game) {
+  const raw=game.research?.snapshot?.();
+  if(!raw)return deepFreezeResearch({technologies:[],activeResearchId:null,
+    inventory:{carbs:0,protein:0,water:0},refundPreview:null,
+    cancelPolicyLabel:'ยกเลิกงานวิจัยระหว่างดำเนินการจะคืนทรัพยากรเต็มจำนวนไปคลังต้นทาง ถ้าคลังต้นทางไม่พร้อมจะยกเลิกไม่ได้',
+    ticksPerGameSecond:10,active:null});
+  const statuses={LOCKED:'locked',AVAILABLE:'available',QUEUED:'active',
+    RESEARCHING:'active',COMPLETED:'completed'};
+  const active=raw.active;
+  const alive=game.colony?.queen?.alive!==false && !game.defeat;
+  const technologies=raw.technologies.map(t=>({
+    id:t.id,title:t.title,description:t.description,effectLabel:t.effectLabel,
+    status:statuses[t.status]??'locked',
+    prerequisiteIds:[...t.prerequisiteIds],missingPrerequisiteIds:[...t.missingPrerequisiteIds],
+    cost:{...t.cost},missingResources:{...t.missingResources},
+    totalTicks:t.totalTicks,
+    remainingTicks:active?.techId===t.id ? Math.max(0,active.totalTicks-active.progressTicks) : t.totalTicks,
+    canStart:!!t.canStart,canCancel:!!(alive && raw.refundPreview && active?.techId===t.id)
+  }));
+  return deepFreezeResearch({
+    technologies,activeResearchId:active?.techId??null,
+    inventory:{...raw.inventory},
+    refundPreview:raw.refundPreview?{...raw.refundPreview}:null,
+    cancelPolicyLabel:'ยกเลิกขณะวิจัยได้คืน 100% ไปยังคลังต้นทางเดิม หากคลังต้นทางถูกลบหรือเต็มจะไม่สามารถคืนได้ หลังสำเร็จหรือนางพญาตายจะยกเลิกไม่ได้',
+    ticksPerGameSecond:10,active:active?{
+      ...active,cost:{...active.cost},pickups:active.pickups.map(p=>({...p}))
+    }:null
+  });
+}
 export function makeGameView(game,ui,combatControls) {
   const inventory=game.foraging?.inventory??{};
   const workers=(game.colony?.workers??[]).map(a=>copyAnt(a,game));
@@ -82,6 +119,7 @@ export function makeGameView(game,ui,combatControls) {
         digSelection:copyRect(ui.digSelection),
         roomPreview:ui.roomPreview?{...copyRect(ui.roomPreview),dragging:!!ui.roomPreview.dragging}:null,
         roomType:ui.renderer?.canvas?.ownerDocument?.getElementById?.('room-type')?.value??null}}),
+    research:makeResearchView(game),
     settings:Object.freeze({seed:game.world?.seedLabel??''})
   });
 }
@@ -105,6 +143,8 @@ export class UIRenovationAdapter {
       nurseryCost:(profession,level)=>this.ui.game.lifecycle.eggCost(profession,level),
       queueEgg:(roomId,profession,level)=>this.queueEgg(roomId,profession,level),
       cancelEgg:id=>this.cancelEgg(id),
+      startResearch:id=>this.startResearch(id),
+      cancelResearch:()=>this.cancelResearch(),
       roomPlan:(type,width,height)=>roomPlan(type,width,height),
       validateRoom:(type,x,y,w,h)=>this.ui.game.rooms.validate(type,x,y,w,h),
       queueRoom:(type,x,y,w,h)=>this.queueRoom(type,x,y,w,h),
@@ -203,6 +243,17 @@ export class UIRenovationAdapter {
   cancelEgg(id){
     const ok=this.ui.game.lifecycle.cancelEgg(id);
     this.ui.refreshNursery();return this._after(ok?{ok:true}:fail('EGG_NOT_CANCELLABLE'));
+  }
+  startResearch(id){
+    const research=this.ui.game.research;
+    return this._after(research ? research.start(id) : fail('INTERNAL_INVARIANT_ERROR'));
+  }
+  cancelResearch(){
+    const research=this.ui.game.research;
+    if(!research)return this._after(fail('INTERNAL_INVARIANT_ERROR'));
+    const runId=research.snapshot().active?.runId;
+    if(runId==null)return this._after(fail('NO_ACTIVE_RESEARCH'));
+    return this._after(research.cancel(runId));
   }
   queueRoom(type,x,y,width,height){
     const r=this.ui.game.rooms.queue(type,x,y,width,height);
