@@ -248,6 +248,33 @@ test('Escape/outside close only sheet, restore opener, and never mutate Research
   s.dispose();s.overlay.dispose();
 });
 
+test('refund-source escrow blocker is visible and does not issue cancel command',()=>{
+  const s=setup();
+  s.overlay.openPanel('research',{opener:s.menuOpener});
+  s.activeTech(IDS[0]);
+  const blocked={...s.snapshot,research:{...s.snapshot.research,refundPreview:null,
+    technologies:s.snapshot.research.technologies.map(t=>t.id===IDS[0]?{...t,canCancel:false}:t)}};
+  s.emit(blocked);
+  const cancel=byClass(s.host,'ui-research-cancel');
+  assert.equal(cancel.disabled,true);
+  const note=byClass(s.host,'ui-research-cancel-hint');
+  assert.equal(note.hidden,false);
+  assert.match(note.textContent,/คลังต้นทาง/);
+  cancel.click();
+  assert.equal(s.cancels,0);
+  s.dispose();s.overlay.dispose();
+});
+
+test('fixed-tick refresh keeps the focused card trigger instead of recreating it',()=>{
+  const s=setup();
+  s.overlay.openPanel('research',{opener:s.menuOpener});
+  const trigger=byClass(byTech(s.host,IDS[1]),'ui-research-trigger');
+  trigger.focus();
+  for(let tick=3;tick<60;tick++)s.emit({...s.snapshot,home:{...s.snapshot.home,timeTicks:tick}});
+  assert.equal(s.doc.activeElement,trigger);
+  s.dispose();s.overlay.dispose();
+});
+
 test('CSS has one scrollable sheet, six-size media constraints and 44px targets',()=>{
   const css=readFileSync(new URL('../src/ui/renovation/research.css',import.meta.url),'utf8');
   assert.match(css,/min-height:44px;min-width:44px/);
