@@ -11,7 +11,13 @@ const ZERO = Object.freeze({ carbs: 0, protein: 0, water: 0 });
 const STEP = (g, n = 1) => { for (let i = 0; i < n; i++) assert.equal(g.update(TICK_MS), 1); };
 const physical = (g, type) => g.rooms.rooms.reduce((n, room) => n + (room.stock?.[type] || 0), 0);
 const mass = (g) => Object.fromEntries(TYPES.map(type => [type,
-  physical(g, type) + g.research.held[type] + g.research.spent[type]]));
+  // A live multi-tick Game legitimately FEEDS adults between Research's
+  // start and completion. Consumption is neither leaked nor newly minted mass.
+  // Count all authoritative sinks/escrows, not only remaining depot stock.
+  physical(g, type) + g.research.held[type] + g.research.spent[type] +
+  g.lifecycle.consumed[type] + g.lifecycle.lost[type] +
+  g.lifecycle.heldEgg[type] + g.lifecycle.eggSpent[type] +
+  g.rooms.held[type] + g.rooms.spent[type]]));
 const invariant = (g) => {
   for (const type of TYPES) {
     assert.equal(physical(g, type), g.foraging.inventory[type], 'physical aggregate ' + type);
