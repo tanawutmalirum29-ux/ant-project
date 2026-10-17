@@ -11,6 +11,7 @@ import { UIRenovationAdapter } from './ui/renovation/ui-adapter.js';
 import { mountEngineerA } from './ui/renovation/integrate-a.js';
 import { mountEngineerB } from './ui/renovation/integrate-b.js';
 import { mountEngineerC } from './ui/renovation/integrate-c.js';
+import * as researchUI from './ui/renovation/research.js';
 
 // Suppress browser context menus and selection handles on game UI only.
 // Do not cancel touchstart/pointerdown: the map, scrolling panels and buttons
@@ -38,6 +39,8 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   cameras = createCameras(game);
   ui.game = game;
   ui.cameras = cameras;
+  // The new world's own fixed tick drives the same adapter subscribers.
+  game.onTick(()=>renovationAdapter.notify());
   milestonesPanel?.setGame(game);
   try {
     const search = new URLSearchParams({seed});
@@ -49,6 +52,8 @@ const combatControls = new CombatControls(ui);
 // Six-domain renovation shell shares authoritative legacy game controllers.
 const renovationShell = createRenovationShell();
 const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
+// A subscriber sees authoritative Research AFTER its end-of-tick advancement.
+game.onTick(()=>renovationAdapter.notify());
 // One terminal report, independent from legacy/renovation skins. Restart uses
 // the EXISTING confirmed reset facade, so it cannot leave stale controllers.
 const gameOverUI = createGameOverUI({
@@ -63,6 +68,28 @@ const gameOverUI = createGameOverUI({
 const renovationA = mountEngineerA(renovationShell,renovationAdapter);
 const renovationB = mountEngineerB(renovationShell,renovationAdapter);
 const renovationC = mountEngineerC(renovationShell,renovationAdapter);
+// Research is a fourth feature sharing the same single shell overlay/facade.
+const renovationResearch = renovationShell.mountFeature('research',researchUI,{
+  adapter:renovationAdapter,region:'PRIMARY_SHEET'
+});
+// The legacy colony-management sheet can temporarily display JUST Research,
+// without switching the whole game into the renovated HUD or adding a dock.
+const legacyResearchButton=document.createElement('button');
+legacyResearchButton.type='button';
+legacyResearchButton.className='legacy-research-open';
+legacyResearchButton.textContent='วิจัย';
+legacyResearchButton.setAttribute('aria-label','เปิดการวิจัยอาณาจักร');
+document.getElementById('colony-panel')?.querySelector('.colony-panel-title')?.after(legacyResearchButton);
+legacyResearchButton.addEventListener('click',()=>{
+  if(renovationQaActive)return;
+  renovationShell.root.dataset.legacyResearchOnly='true';
+  renovationShell.preview(true);
+  const opened=renovationShell.overlay.openPanel('research',{opener:legacyResearchButton});
+  if(!opened.ok){
+    delete renovationShell.root.dataset.legacyResearchOnly;
+    renovationShell.preview(false);
+  }
+});
 // Shipped HTTP(S) pages use the renovated UI by default. An explicit
 // ?ui=legacy is the stable rollback and stays intact after Seed resets.
 // Historical about:blank/file: inlined browser harnesses keep the old HUD
@@ -70,6 +97,14 @@ const renovationC = mountEngineerC(renovationShell,renovationAdapter);
 // authority/legacy regression fixtures without altering hosted users.
 const renovationQaActive = query.get('ui') === 'renovation' ||
   (query.get('ui') !== 'legacy' && (location.protocol === 'http:' || location.protocol === 'https:'));
+// Closing the Research sheet in the legacy route restores 100% legacy UI.
+renovationShell.overlay.subscribe(()=>{
+  if(!renovationQaActive && renovationShell.root.dataset.legacyResearchOnly==='true'
+    && !renovationShell.overlay.isOpen('research')){
+    delete renovationShell.root.dataset.legacyResearchOnly;
+    renovationShell.preview(false);
+  }
+});
 if (renovationQaActive) {
   gameRoot.dataset.uiRenovationQa = 'true';
   // The authoritative U6 controller owns gameplay state and map targeting.
@@ -146,4 +181,4 @@ document.addEventListener('visibilitychange', () => {
 });
 requestAnimationFrame(frame);
 // Opt-in diagnostics in the browser console, never a second game loop.
-window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter, renovationA, renovationB, renovationC };
+window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter, renovationA, renovationB, renovationC, renovationResearch };
