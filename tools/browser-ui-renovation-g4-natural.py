@@ -193,6 +193,159 @@ def run(page):
           'queen lay, nurse physical haul, egg/larva/pupa, permanent Lv2 adult; '
           'ticks='+str(final['ticks']),flush=True)
 
+
+def run_capacity(page):
+    """Separate fresh real-world test: connected 4x4 built by a worker,
+    genuine UI egg reservations through all 16 slots, cancellation/refund.
+    Starting supplies and a post-construction refill are explicitly seeded;
+    no claim of foraging or 16 independent natural hatches.
+    """
+    errors=[]
+    page.on('pageerror',lambda e:errors.append(str(e)))
+    page.goto('http://127.0.0.1:4173/?ui=renovation')
+    page.wait_for_function('window.__ANT_DEBUG__?.renovationAdapter?.view?.home')
+    page.wait_for_timeout(300)
+    page.evaluate("""()=>{
+      const d=__ANT_DEBUG__,g=d.game;
+      g.setSpeed(0);g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(0);
+      Object.assign(g.foraging.inventory,{carbs:24,protein:24,water:24});
+      g.rooms.syncInventory();d.ui.updateMetrics();d.renovationAdapter.notify();
+    }""")
+    baseline=snap(page)
+    assert baseline['capacity']==0 and baseline['births']==0
+    checkpoint(page,'05-16slot-fresh-world',details={
+      'world':'new unchanged natural colony','fixture':'starting stock24 each, workforce quotas only'})
+    tap(page,'[data-home-action="room"]')
+    tap(page,'.ui05-type-trigger')
+    tap(page,'.ui05-type-option[data-room-type="nursery"]')
+    assert page.evaluate("document.getElementById('room-type').value")=='nursery'
+    for _ in range(2):
+        tap(page,'.ui05-dimension:first-child .ui05-step:last-child')
+        tap(page,'.ui05-dimension:nth-child(2) .ui05-step:last-child')
+    dims=page.locator('.ui05-dimension-value').all_inner_texts()
+    assert dims==['4','4'],('real CSS 4x4 dimensions not displayed',dims)
+    site=page.evaluate("""()=>{
+      const d=__ANT_DEBUG__,g=d.game,q=g.colony.queen,c=d.cameras[g.layer],m=g.currentLayer;
+      const options=[];
+      for(let y=q.y-18;y<=q.y+18;y++)for(let x=q.x-18;x<=q.x+18;x++){
+        if(!g.rooms.validate('nursery',x,y,4,4).ok)continue;
+        options.push({x,y,dist:Math.abs(x-q.x)+Math.abs(y-q.y)});
+      }
+      options.sort((a,b)=>a.dist-b.dist||a.y-b.y||a.x-b.x);
+      for(const p of options){
+        c.x=(p.x+2)*28;c.y=(p.y+2)*28;
+        c.clamp(m,d.renderer.width,d.renderer.height);
+        const a=c.worldToScreen((p.x+.5)*28,(p.y+.5)*28,d.renderer.width,d.renderer.height);
+        const b=c.worldToScreen((p.x+3.5)*28,(p.y+3.5)*28,d.renderer.width,d.renderer.height);
+        if([a,b].every(z=>z.x>8&&z.x<d.renderer.width-8&&z.y>55&&
+          z.y<d.renderer.height-55&&document.elementFromPoint(z.x,z.y)?.id==='game-canvas'))
+          return {x:p.x,y:p.y,start:a,end:b,expectedPlan:g.rooms.validate('nursery',p.x,p.y,4,4).plan};
+      }
+      return {options:options.slice(0,8),error:'no unobstructed connected 4x4 site'};
+    }""")
+    assert 'start' in site,('no real reachable 4x4 chamber',site)
+    # A true single real map pointer drag, not a direct room queue API.
+    a,z=site['start'],site['end']
+    page.mouse.move(a['x'],a['y']);page.mouse.down()
+    page.mouse.move(z['x'],z['y'],steps=13);page.mouse.up()
+    planned=snap(page)
+    assert len(planned['nurseries'])==1 and planned['roomOrders']==1,(site,planned)
+    room=planned['nurseries'][0]
+    assert room['width']==4 and room['height']==4 and room['status'] in ('planned','building')
+    checkpoint(page,'06-16slot-css-dimension-map-drag',baseline,{
+      'site':site,'input':'real renovated CSS 4x4 dimension controls + genuine canvas mouse-pointer drag'})
+    statuses=set()
+    for _ in range(320):
+        advance(page,3)
+        st=snap(page)
+        statuses.add(st['nurseries'][0]['status'])
+        if st['nurseries'][0]['status']=='ready':break
+    built=snap(page);room=built['nurseries'][0]
+    assert 'building' in statuses and room['status']=='ready' and room['connected'],(statuses,built)
+    assert room['progress']>=room['ticks'] and room['ticks']==260
+    assert built['capacity']==16 and built['roomOrders']==0,(built['capacity'],built['roomOrders'])
+    checkpoint(page,'07-16slot-natural-builder-finished',planned,{'buildStates':sorted(statuses)})
+
+    # The queen depot capacity is 24. The 4x4 Nursery costs 12 carbs/8
+    # protein to build. Explicitly reseed only the remaining depot balance,
+    # capped at 24, so 16 UI reservations can be tested without mining.
+    supply=page.evaluate("""()=>{
+      const d=__ANT_DEBUG__,g=d.game;
+      const before={...g.foraging.inventory};
+      g.setSpeed(0);
+      g.foraging.inventory.carbs=24;g.foraging.inventory.protein=24;
+      g.rooms.syncInventory();d.ui.updateMetrics();d.renovationAdapter.notify();
+      const queen=g.rooms.rooms[0];
+      return {prior:before,now:{...g.foraging.inventory},queenDepot:{...queen.stock},
+        queenCapacity:g.rooms.capacities()};
+    }""")
+    assert supply['queenDepot']['carbs']<=24 and supply['queenDepot']['protein']<=24,(
+       'seed exceeds actual queen depot capacity',supply)
+    page.wait_for_timeout(150)
+    if not page.locator('.ui04-sheet').is_visible():
+        assert page.locator('.ui04-reopen').is_visible(),('4x4 Nursery sheet absent',built)
+        tap(page,'.ui04-reopen')
+    assert page.locator('.ui04-sheet').is_visible()
+    assert '0/16' in page.locator('.ui04-capacity').inner_text(),(
+        'capacity UI does not show 16 slots',page.locator('.ui04-capacity').inner_text())
+    assert page.locator('.ui04-primary').is_enabled()
+    for n in range(16):
+        page.locator('.ui04-primary').scroll_into_view_if_needed()
+        tap(page,'.ui04-primary')
+        cur=snap(page)
+        assert len(cur['eggs'])==n+1 and all(e['status']=='QUEUED' for e in cur['eggs']),(
+          'CSS booking failed at index',n,cur['eggs'],cur['stock'])
+    full=snap(page)
+    ids=[e['id'] for e in full['eggs']]
+    coordinates=[(e['slot']['x'],e['slot']['y']) for e in full['eggs']]
+    assert len(set(ids))==16 and len(set(coordinates))==16,('duplicate orders or slots',full)
+    assert full['stock']['carbs']==8 and full['stock']['protein']==8,(
+       'incorrect 16x miner Lv1 stock reservation',full['stock'])
+    assert page.locator('.ui04-primary').is_disabled()
+    assert '16/16' in page.locator('.ui04-capacity').inner_text()
+    # Read-only effective full-state check is supplemented by a SINGLE
+    # direct engine rejected 17th attempt, which is NOT a booking fixture.
+    denied=page.evaluate("""id=>__ANT_DEBUG__.game.lifecycle.queueEgg(id,'miner',1)""",room['id'])
+    assert denied=={'ok':False,'reason':'nursery-full'},('17th egg incorrectly accepted',denied)
+    assert snap(page)['eggs']==full['eggs'] and snap(page)['stock']==full['stock']
+    checkpoint(page,'08-16slot-sixteen-ui-bookings-full',built,{
+      'postBuildRestockFixture':supply,'slots':coordinates,'denied17':denied,
+      'input':'16 genuine CSS Nursery taps; direct rejected 17th engine boundary check'})
+
+    first_id=ids[0]
+    selector='.ui04-orders button[data-egg-id="'+first_id+'"]'
+    page.locator(selector).scroll_into_view_if_needed()
+    tap(page,selector)
+    freed=snap(page)
+    assert len(freed['eggs'])==15 and first_id not in [e['id'] for e in freed['eggs']]
+    assert freed['stock']['carbs']==9 and freed['stock']['protein']==9
+    assert '15/16' in page.locator('.ui04-capacity').inner_text()
+    page.locator('.ui04-primary').scroll_into_view_if_needed()
+    tap(page,'.ui04-primary')
+    refilled=snap(page)
+    assert len(refilled['eggs'])==16 and refilled['stock']==full['stock']
+    assert len({(e['slot']['x'],e['slot']['y']) for e in refilled['eggs']})==16
+    assert page.locator('.ui04-primary').is_disabled()
+    checkpoint(page,'09-16slot-cancel-one-and-refill',full,{
+      'cancelledOrder':first_id,'reusedSlot':refilled['eggs'][-1]['slot']})
+
+    for order in list(refilled['eggs']):
+        selector='.ui04-orders button[data-egg-id="'+order['id']+'"]'
+        page.locator(selector).scroll_into_view_if_needed()
+        tap(page,selector)
+    cleared=snap(page)
+    assert not cleared['eggs'] and not cleared['brood']
+    assert cleared['capacity']==16 and cleared['stock']['carbs']==24 and cleared['stock']['protein']==24,(
+      '16 booking cancellations did not fully refund test-seeded depot',cleared)
+    assert '0/16' in page.locator('.ui04-capacity').inner_text()
+    assert page.locator('.ui04-primary').is_enabled()
+    checkpoint(page,'10-16slot-all-css-cancel-exact-refund',refilled,{
+       'refunds':16,'expectedInitialAfterRefill':supply['now']})
+    assert not errors,('JavaScript errors',errors)
+    print('G4-NATURAL CAPACITY PASS: actual 4x4 room, 260 tick builder, 16 distinct '
+      'CSS egg reservations, rejected 17th, cancel/requeue and 16 refunds; '
+      'stock explicitly seeded; ticks='+str(cleared['ticks']),flush=True)
+
 server=subprocess.Popen(['node','tools/dev-server.mjs'],cwd=ROOT,
   stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
 try:
@@ -207,7 +360,9 @@ try:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox'])
         ctx=browser.new_context(viewport={'width':390,'height':844},
           device_scale_factor=1,is_mobile=True,has_touch=True)
-        try:run(ctx.new_page())
+        try:
+            run(ctx.new_page())
+            run_capacity(ctx.new_page())
         finally:ctx.close();browser.close()
 finally:
     (OUT/'evidence.json').write_text(json.dumps({
