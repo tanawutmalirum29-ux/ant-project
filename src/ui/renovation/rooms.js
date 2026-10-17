@@ -81,30 +81,31 @@ export function mount(container,{view,actions,overlay,subscribe}){
  const feedback=make(d,'p','ui05-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
  body.append(build,dig,inspect,feedback);root.append(header,body);container.append(root);
  const popoverId='ui05-room-options';
- // The picker is a TEMPORARY compact replacement for the build editor,
- // never a second full-size window stacked above that editor. Keep it at
- // most ~one quarter of the viewport on narrow phones, while its contents
- // remain independently scrollable to the last real room choice.
+ // One short, all-visible choice grid. The old floating room list used
+ // full-sized rows plus a second scrolling viewport, hiding the actual game.
+ // For the five core rooms all options fit in two/three compact rows.
  const positionPicker=()=>{
    if(!pickerPortal || picker.hidden)return;
-   const rect=typeTrigger.getBoundingClientRect();
    const vw=d.defaultView?.innerWidth??0,vh=d.defaultView?.innerHeight??0;
    if(!vw||!vh)return;
-   const gutter=8,short=vh<=500 && vw>vh;
-   const phone=vw<=680 && !short;
-   const width=Math.min(phone?280:short?210:300,
-     phone?vw-gutter*2:short?Math.max(168,vw*.37):vw-gutter*2);
-   const desired=phone?Math.min(148,vh*.235):
-     short?Math.min(174,vh-78):Math.min(210,vh*.27);
-   const height=Math.max(72,Math.min(desired,vh-gutter*2));
-   // In short landscape, dock along the right edge instead of blocking the
-   // middle of the map. In portrait keep the chooser just above the editor.
-   const left=short?vw-width-gutter:
-     Math.max(gutter,Math.min(rect.left,vw-width-gutter));
-   const top=short?Math.min(44,Math.max(gutter,vh-height-gutter)):
-     Math.max(gutter,Math.min(rect.top-height-5,vh-height-gutter));
-   Object.assign(picker.style,{left:left+'px',top:top+'px',
-     width:width+'px',maxHeight:height+'px'});
+   const phone=vw<681&&vw<vh;
+   const landscape=vh<=500&&vw>vh;
+   const count=picker.querySelectorAll('button').length;
+   const width=phone?Math.min(312,vw-12):
+     landscape?Math.min(220,Math.max(168,Math.floor(vw*.38))):
+     Math.min(320,vw-20);
+   const gutter=6;
+   // Compact choice grid is placed immediately ABOVE the mobile toolbar,
+   // rather than the middle of the playfield. Landscape uses lower right.
+   const left=phone?Math.max(gutter,(vw-width)/2):
+     Math.max(gutter,vw-width-10);
+   const bottom=phone?Math.max(62,Math.min(72,vh*.13)):
+     landscape?8:12;
+   const available=Math.max(82,vh-bottom-gutter);
+   picker.dataset.layout=count<=6?'all':'overflow';
+   Object.assign(picker.style,{left:left+'px',top:'auto',
+     bottom:bottom+'px',width:width+'px',
+     maxHeight:(count<=6?'none':Math.min(available,230)+'px')});
  };
  const unregister=overlay.registerPanel(popoverId,{element:picker,kind:'popover',
    show:()=>{
