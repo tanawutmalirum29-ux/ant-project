@@ -188,3 +188,47 @@ test('CP-B-G3-04 actual wired Game Research completion modifies future physical 
   assert.equal(g.research.spent.carbs,6);
   assert.equal(g.research.start('foraging_routes').error.code,'ALREADY_RESEARCHED');
 });
+
+test('CP-B-G3-05 real Game paid prerequisite chain; Nursery brood is physically carried and develops using upgraded stages',()=>{
+  const g=new Game('CP-B-G3-NURSERY-ACTUAL');
+  g.colony.setForageSlots(0);g.lifecycle.setNurseSlots(2);
+  setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+  const nursery=construct(g,'nursery');
+  for(const id of ['excavation_tools','construction_techniques','nursery_care']){
+    // EXPLICIT physical nutrition/funding fixture, not naturally foraged.
+    // This isolates a true fixed-tick unlock + nursery pipeline without claiming
+    // that the colony can survive naturally with no available foragers.
+    setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+    const started=g.research.start(id);assert.equal(started.ok,true,id);
+    const total=g.research.snapshot().active.totalTicks;
+    step(g,total-1);assert.equal(g.research.hasCompleted(id),false);
+    step(g);
+    assert.equal(g.research.hasCompleted(id),true,'true Research completion '+id);
+  }
+  assert.deepEqual(g.lifecycle.hatchStages(1),{egg:90,larva:162,pupa:144});
+  setDepot(g,g.rooms.rooms[0],{carbs:24,protein:24,water:24});
+  const ordered=g.lifecycle.queueEgg(nursery.id,'miner',1);
+  assert.equal(ordered.ok,true);
+  let carried=false,delivered=false,hatching=false,birth=false;
+  const previousBirths=g.lifecycle.births;
+  let incubatingTick=null;
+  for(let i=0;i<1650;i++){
+    step(g);
+    const entry=g.lifecycle.eggOrders.find(o=>o.id===ordered.order.id);
+    const baby=g.lifecycle.brood.find(b=>b.orderId===ordered.order.id);
+    if(baby?.carrierId)carried=true;
+    if(entry?.status==='INCUBATING'&&baby?.roomId===nursery.id) {
+      delivered=true;
+      if(incubatingTick==null)incubatingTick=g.clock.ticks;
+      if(baby.stage==='larva')hatching=true;
+    }
+    if(!entry&&g.lifecycle.births>previousBirths){birth=true;break;}
+    assert.equal(g.colony.queen.alive,true,'queen must still be alive during true Nursery pipeline');
+  }
+  assert.equal(carried,true,'nurse actually carried brood, not synthetic room insertion');
+  assert.equal(delivered,true,'real physical Nursery drop-off before development');
+  assert.equal(hatching,true,'actual 90-tick upgraded egg-to-larva transition');
+  assert.equal(birth,true,'genuine Lifecycle promotion after care and paid protein');
+  assert.ok(g.clock.ticks>incubatingTick);
+  assert.ok(g.lifecycle.births>previousBirths);
+});
