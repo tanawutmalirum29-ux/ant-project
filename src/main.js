@@ -38,21 +38,25 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   milestonesPanel?.setGame(game);
   try {
     const search = new URLSearchParams({seed});
-    if (query.get('ui') === 'renovation') search.set('ui','renovation');
+    if (query.get('ui') === 'renovation' || query.get('ui') === 'legacy') search.set('ui', query.get('ui'));
     history.replaceState(null, '', `${location.pathname}?${search.toString()}`);
   } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
-// G1 foundation is deliberately dormant until six feature views are integrated.
+// Six-domain renovation shell shares authoritative legacy game controllers.
 const renovationShell = createRenovationShell();
 const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
-// Stage actual A modules against real gameplay without exposing an incomplete UI.
+// Mount all six feature views on the same live gameplay state.
 const renovationA = mountEngineerA(renovationShell,renovationAdapter);
 const renovationB = mountEngineerB(renovationShell,renovationAdapter);
 const renovationC = mountEngineerC(renovationShell,renovationAdapter);
-// G3 QA ONLY: opt-in to the complete staged shell without changing the default
-// player interface. Exact real-pointer/browser evidence gates normal rollout.
-const renovationQaActive = query.get('ui') === 'renovation';
+// Shipped HTTP(S) pages use the renovated UI by default. An explicit
+// ?ui=legacy is the stable rollback and stays intact after Seed resets.
+// Historical about:blank/file: inlined browser harnesses keep the old HUD
+// unless they explicitly request ?ui=renovation; this protects their
+// authority/legacy regression fixtures without altering hosted users.
+const renovationQaActive = query.get('ui') === 'renovation' ||
+  (query.get('ui') !== 'legacy' && (location.protocol === 'http:' || location.protocol === 'https:'));
 if (renovationQaActive) {
   gameRoot.dataset.uiRenovationQa = 'true';
   // The authoritative U6 controller owns gameplay state and map targeting.
