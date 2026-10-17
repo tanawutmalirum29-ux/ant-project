@@ -299,3 +299,13 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
    font-size:10px;
  }
 }
+
+/* CP CEO integration: legacy colony menu opens only the Research sheet.
+   Leave legacy canvas/toolbar untouched, never expose duplicated commands. */
+#ui-renovation-root[data-legacy-research-only="true"] > .ui-renovation-slot:not([data-ui-region="PRIMARY_SHEET"]){display:none!important}
+#ui-renovation-root[data-legacy-research-only="true"] [data-ui-region="PRIMARY_SHEET"] > .ui-feature-panel:not([data-ui-feature="research"]){display:none!important}
+#ui-renovation-root[data-legacy-research-only="true"] [data-ui-region="PRIMARY_SHEET"] > [data-ui-feature="research"]{display:block!important}
+.legacy-research-open{display:block;width:100%;min-height:44px;margin:5px 0 8px;
+  padding:7px 10px;border:1px solid #c7a876;border-radius:9px;background:#304a36;
+  color:#fae5bf;font:700 12px/1.3 inherit;cursor:pointer;touch-action:manipulation}
+.legacy-research-open:focus-visible{outline:3px solid #ffcf82;outline-offset:2px}
