@@ -247,7 +247,8 @@ export class Research {
     return deepFreeze({
       schemaVersion: 1, revision: this.#revision, completedIds, technologies,
       active, inventory, held: { ...this.#held }, spent: { ...this.#spent },
-      refundPreview: this.#active && this.#refundCheck() ? { ...this.#active.cost } : null
+      refundPreview: this.#active && !this.#dead() && this.#refundCheck() ?
+        { ...this.#active.cost } : null
     });
   }
 
