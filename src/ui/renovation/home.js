@@ -83,11 +83,15 @@ function mountCommands(container,{view,actions,overlay,subscribe}){
   const nav=el(doc,'nav','ui-home-toolbar');
   nav.setAttribute('aria-label','เครื่องมือแผนที่');
   const controls={};
+  let currentTool=view?.home?.tool??'inspect';
   for(const mode of ['inspect','dig','room']){
     const {b}=button(doc,ICONS[mode],LABELS[mode]);
     b.dataset.homeAction=mode;
     b.addEventListener('click',()=>{
-      const result=actions.setTool(mode);
+      // Match legacy UI/keyboard: tapping an active Dig or Room tool
+      // cancels that mode and returns to Inspect; Inspect stays Inspect.
+      const next=mode!=='inspect' && currentTool===mode?'inspect':mode;
+      const result=actions.setTool(next);
       if(!result?.ok)updateText(feedback,errorText(result));
     });
     controls[mode]=b;nav.append(b);
@@ -115,6 +119,7 @@ function mountCommands(container,{view,actions,overlay,subscribe}){
   container.append(nav,feedback);
   const refresh=snapshot=>{
     const home=snapshot?.home;if(!home)return;
+    currentTool=home.tool;
     for(const mode of ['inspect','dig','room']){
       const active=home.tool===mode;
       controls[mode].classList.toggle('is-active',active);

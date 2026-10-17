@@ -203,3 +203,41 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
   .ui-renovation-backdrop:not([hidden]){
     background:rgba(2,10,7,.40);
 }
+
+/* The CSS room type chooser is portalled above the scroll-clipped MAP_ACTION.
+   Geometry is calculated from its trigger each opening and bounded to the
+   actual viewport, so short landscape can reach the bottom room options. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list{
+  position:fixed;
+  z-index:12;
+  pointer-events:auto;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  box-sizing:border-box;
+  margin:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  padding:5px 5px max(5px,env(safe-area-inset-bottom,0px));
+  background:#192f24;
+  border:1px solid #c3a87a;
+  border-radius:10px;
+  box-shadow:0 12px 36px #000b;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list[hidden]{
+  display:none!important;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui05-type-option{
+  display:block;width:100%;min-width:44px;min-height:44px;
+  padding:8px 12px;text-align:left;color:#f5e9cf;
+  background:#2a4532;border:1px solid #9e9970;
+  border-radius:8px;font:inherit;font-size:13px;cursor:pointer;
+  touch-action:manipulation;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui05-type-option.is-selected{
+  background:#edc986;color:#19291f;font-weight:750;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui05-type-option:focus-visible{
+  outline:3px solid #edc986;outline-offset:1px;
+}

@@ -131,3 +131,21 @@ test('UI-01 CSS preserves at least 44px commands, height-first rail and one tool
   assert.match(css,/@media\(max-height:500px\) and \(orientation:landscape\)/);
   assert.doesNotMatch(css,/\.layer-switch|\.bottom-bar|z-index:\s*9999/);
 });
+
+test('retapping active Room/Dig toggles to Inspect with authoritative snapshot, without a second game handler',()=>{
+  const s=setup(),host=slot(s.doc,'PRIMARY_COMMAND');
+  const dispose=mount(host,{...s,view:s.state,subscribe:s.subscribe});
+  const buttons=all(host,x=>x.tagName==='BUTTON');
+  const inspect=buttons[0],dig=buttons[1],room=buttons[2];
+  room.click();assert.equal(s.state.home.tool,'room');
+  assert.equal(room.getAttribute('aria-pressed'),'true');
+  room.click();assert.equal(s.state.home.tool,'inspect');
+  assert.equal(inspect.getAttribute('aria-pressed'),'true');
+  dig.click();assert.equal(s.state.home.tool,'dig');
+  dig.click();assert.equal(s.state.home.tool,'inspect');
+  dig.click();room.click();assert.equal(s.state.home.tool,'room');
+  inspect.click();assert.equal(s.state.home.tool,'inspect');
+  inspect.click();assert.equal(s.state.home.tool,'inspect');
+  assert.equal(s.toolCalls,8,'one facade action per real toolbar click');
+  dispose();s.overlay.dispose();
+});
