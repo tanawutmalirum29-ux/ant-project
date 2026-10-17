@@ -78,3 +78,10 @@
  .ui05-body{max-height:calc(min(64dvh,185px) - 50px);gap:4px;padding:4px;}
  .ui05-build,.ui05-dig{gap:4px;}
 }
+
+/* Keep the closed editor a genuinely tiny chip even at the smallest width.
+   The mobile width constraint above applies only to the expanded editor. */
+.ui05-root:has(.ui05-body[hidden]){
+  width:max-content!important;
+  max-width:min(230px,calc(100vw - 16px))!important;
+}
