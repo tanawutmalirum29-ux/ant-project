@@ -71,7 +71,7 @@
 }
 @media(max-height:500px) and (orientation:landscape){
  .ui05-root{
-   max-width:min(220px,38vw)!important;
+   max-width:min(170px,30vw)!important;
    max-height:min(64dvh,185px)!important;
    margin-left:auto;
  }
