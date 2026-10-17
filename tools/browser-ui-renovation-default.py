@@ -95,7 +95,7 @@ def main():
                         room_panel=page.locator('.ui05-root')
                         assert room_panel.is_visible()
                         editor=room_panel.bounding_box()
-                        if w<=680 and h>=501:
+                        if w<=680 and w<h:
                             assert editor['width']<=min(300,w-16)+2
                             assert editor['height']<=min(h*.25,168)+2,(
                                 engine.name,w,h,'editor still obscures the map',editor)
