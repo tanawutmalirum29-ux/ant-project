@@ -1,0 +1,55 @@
+name: UI Renovation V1 G1 Foundation Gate
+on:
+  push:
+    branches:
+      - feat/ui-renovation-v1-integration
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/ui/renovation/**'
+      - 'tools/browser-ui-renovation-g1.py'
+      - 'tests/ui-renovation-g1.test.mjs'
+      - '.github/workflows/ui-renovation-g1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-native-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact tested commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - run: npm test
+      - run: npm run build
+  browser-shell-and-legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install real Chromium and WebKit
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium webkit
+      - name: G1 shell geometry, panel keyboard and intact game controls
+        run: python tools/browser-ui-renovation-g1.py
+      - name: Save responsive shell screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g1-shell-chromium-webkit
+          path: artifacts/g1-shell/*.png
+          if-no-files-found: warn
+      - name: Original Nursery gameplay regression
+        run: python tools/browser-nursery.py

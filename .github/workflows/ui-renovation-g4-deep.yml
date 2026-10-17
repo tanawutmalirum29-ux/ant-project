@@ -1,0 +1,44 @@
+name: UI Renovation G4 Deep Gameplay Evidence
+on:
+  push:
+    branches: [feat/ui-renovation-v1-integration]
+    paths:
+      - 'src/ui/renovation/**'
+      - 'src/main.js'
+      - 'tools/browser-ui-renovation-g4-deep.py'
+      - '.github/workflows/ui-renovation-g4-deep.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/ui/renovation/**'
+      - 'src/main.js'
+      - 'tools/browser-ui-renovation-g4-deep.py'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  g4-deep-gameplay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Confirm exact tested SHA
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install browsers
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium webkit
+      - name: Focused real gameplay, screenshots and state transitions
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python tools/browser-ui-renovation-g4-deep.py
+      - name: Preserve evidence even if a scenario fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g4-deep-gameplay-evidence
+          path: artifacts/g4-deep/
+          if-no-files-found: warn

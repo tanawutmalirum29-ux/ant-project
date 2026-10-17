@@ -5,6 +5,11 @@ import { UI } from './ui/app.js';
 import { CombatControls } from './ui/combat-controls.js';
 import { MilestonesPanel } from './ui/milestones-panel.js';
 import { SURFACE, UNDERGROUND } from './world/generate.js';
+import { createRenovationShell } from './ui/renovation/shell.js';
+import { UIRenovationAdapter } from './ui/renovation/ui-adapter.js';
+import { mountEngineerA } from './ui/renovation/integrate-a.js';
+import { mountEngineerB } from './ui/renovation/integrate-b.js';
+import { mountEngineerC } from './ui/renovation/integrate-c.js';
 
 // Suppress browser context menus and selection handles on game UI only.
 // Do not cancel touchstart/pointerdown: the map, scrolling panels and buttons
@@ -31,9 +36,43 @@ const ui = new UI(game, cameras, renderer, (seed) => {
   ui.game = game;
   ui.cameras = cameras;
   milestonesPanel?.setGame(game);
-  try { history.replaceState(null, '', `${location.pathname}?seed=${encodeURIComponent(seed)}`); } catch { /* file URL context */ }
+  try {
+    const search = new URLSearchParams({seed});
+    if (query.get('ui') === 'renovation') search.set('ui','renovation');
+    history.replaceState(null, '', `${location.pathname}?${search.toString()}`);
+  } catch { /* file URL context */ }
 });
 const combatControls = new CombatControls(ui);
+// G1 foundation is deliberately dormant until six feature views are integrated.
+const renovationShell = createRenovationShell();
+const renovationAdapter = new UIRenovationAdapter({ui,combatControls,overlay:renovationShell.overlay});
+// Stage actual A modules against real gameplay without exposing an incomplete UI.
+const renovationA = mountEngineerA(renovationShell,renovationAdapter);
+const renovationB = mountEngineerB(renovationShell,renovationAdapter);
+const renovationC = mountEngineerC(renovationShell,renovationAdapter);
+// G3 QA ONLY: opt-in to the complete staged shell without changing the default
+// player interface. Exact real-pointer/browser evidence gates normal rollout.
+const renovationQaActive = query.get('ui') === 'renovation';
+if (renovationQaActive) {
+  gameRoot.dataset.uiRenovationQa = 'true';
+  // The authoritative U6 controller owns gameplay state and map targeting.
+  // Its legacy dock is a BODY child, not a child of #app; scope the new UI
+  // mode at the actual dock parent without affecting the regular game URL.
+  document.body.dataset.uiRenovationQa = 'true';
+  // Preserve the *same* live cancel handler while hiding the duplicate dock.
+  // The existing targeting tip must remain reachable during a rally request.
+  document.body.append(combatControls.tip);
+  renovationShell.preview(true);
+  // The legacy canvas remains the ONLY owner of touch/pointer gesture and
+  // queue/selection mutation. Its pointerup listener ran earlier in UI.bind().
+  // Refresh renovated read-only action availability synchronously AFTER that
+  // commit, instead of waiting up to 150ms for the next HUD poll. This listener
+  // issues NO game action, pointer capture, selection edit or map command.
+  const refreshMapActionView = () => renovationAdapter.notify();
+  renderer.canvas.addEventListener('pointerup', refreshMapActionView, {passive:true});
+  renderer.canvas.addEventListener('pointercancel', refreshMapActionView, {passive:true});
+}
+
 milestonesPanel = new MilestonesPanel(game, {
   onOpen: () => {
     // A report and an active drag/room picker must not compete for touch targets.
@@ -81,7 +120,7 @@ function frame(now) {
     steps = 0;
     statsWindowStart = now;
   }
-  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); milestonesPanel.render(); lastHud = now; }
+  if (now - lastHud > 150) { ui.updateMetrics(); combatControls.update(); milestonesPanel.render(); renovationAdapter.notify(); lastHud = now; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => {
@@ -89,4 +128,4 @@ document.addEventListener('visibilitychange', () => {
 });
 requestAnimationFrame(frame);
 // Opt-in diagnostics in the browser console, never a second game loop.
-window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer };
+window.__ANT_DEBUG__ = { get game() { return game; }, get cameras() { return cameras; }, get ui() { return ui; }, renderer, renovationShell, renovationAdapter, renovationA, renovationB, renovationC };

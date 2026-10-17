@@ -1,0 +1,194 @@
+/* G1 responsive shell. Inert while [hidden]: legacy UI remains unchanged.
+   Only coordinator may position these structural regions; feature CSS fills slots. */
+.ui-renovation-shell{
+ --ui-shell-gutter:clamp(8px,2vw,24px);
+ --ui-panel-bg:#13251c;
+ --ui-panel-text:#f5e9cf;
+ --ui-panel-border:#ba9b6b;
+ --ui-hud-height:clamp(52px,8dvh,78px);
+ --ui-command-height:56px;
+ --ui-target-min:44px;
+ --ui-safe-top:env(safe-area-inset-top,0px);
+ --ui-safe-bottom:env(safe-area-inset-bottom,0px);
+ --ui-z-map:0;--ui-z-hud:10;--ui-z-inspector:20;
+ --ui-z-popover:30;--ui-z-sheet:40;--ui-z-toast:50;--ui-z-modal:60;
+ position:fixed;inset:0;
+ width:100%;height:100dvh;max-width:100vw;
+ display:grid;
+ grid-template-areas:"hud hud" "map inspector" "commands inspector";
+ grid-template-columns:minmax(0,1fr) minmax(0,0);
+ grid-template-rows:auto minmax(0,1fr) auto;
+ color:var(--ui-panel-text);font-family:inherit;
+ overflow:hidden;isolation:isolate;
+ pointer-events:none;
+ z-index:90;
+}
+.ui-renovation-shell[hidden]{display:none!important;}
+.ui-renovation-slot{position:relative;min-width:0;min-height:0;pointer-events:none;}
+.ui-renovation-slot[data-ui-region="HUD_TOP"]{grid-area:hud;min-height:calc(var(--ui-hud-height) + var(--ui-safe-top));padding-top:var(--ui-safe-top);z-index:var(--ui-z-hud);}
+.ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"]{grid-area:commands;min-height:calc(var(--ui-command-height) + var(--ui-safe-bottom));padding-bottom:var(--ui-safe-bottom);z-index:var(--ui-z-hud);}
+.ui-renovation-slot[data-ui-region="MAP_VIEWPORT"]{grid-area:map;z-index:var(--ui-z-map);}
+.ui-renovation-slot[data-ui-region="CONTEXT_INSPECTOR"]{grid-area:inspector;z-index:var(--ui-z-inspector);}
+.ui-renovation-slot[data-ui-region="MAP_ACTION"]{position:absolute;bottom:calc(var(--ui-command-height) + var(--ui-safe-bottom) + 6px);left:var(--ui-shell-gutter);right:var(--ui-shell-gutter);z-index:15;}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"],
+.ui-renovation-slot[data-ui-region="MODAL"],
+.ui-renovation-slot[data-ui-region="TOAST"],
+.ui-renovation-slot[data-ui-region="DEV_ONLY"]{position:absolute;inset:0;pointer-events:none;}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"]{z-index:var(--ui-z-sheet);}
+.ui-renovation-slot[data-ui-region="MODAL"]{z-index:var(--ui-z-modal);}
+.ui-renovation-slot[data-ui-region="TOAST"]{z-index:var(--ui-z-toast);}
+.ui-renovation-slot[data-ui-region="DEV_ONLY"]{z-index:70;}
+.ui-renovation-slot > .ui-feature-panel,
+.ui-renovation-slot > .ui-feature-action{pointer-events:auto;min-width:0;min-height:0;}
+/* Native dialog in top layer still inherits pointer-events:none from inactive shell hosts. */
+.ui-renovation-shell dialog[open]{pointer-events:auto!important;touch-action:auto;}
+
+/* All six sheets share ONE physical viewport. A hidden full-height feature
+   host must not push its later siblings below the clipped shell viewport. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui-feature-panel{
+ position:absolute;inset:0;z-index:1;
+ box-sizing:border-box;width:100%;height:100%;max-height:100%;
+ overflow:visible;pointer-events:none;
+}
+/* The Settings header, including Close, must remain tappable while the
+   sheet scrolls on short landscape screens. Feature CSS still owns typography. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .ui-settings-header{
+ position:sticky;top:0;z-index:2;background:#192e24;
+}
+/* Only real visible sheet content receives the pointer. The overlapping
+   full-screen hosts stay transparent to map taps and to the backdrop. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .uiv1-a:not([hidden]),
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] .uiv1-b:not([hidden]){
+ pointer-events:auto;
+}
+/* One shell-owned touch-blocking and visually-dimming outside-dismiss target. */
+.ui-renovation-backdrop{
+ position:absolute;inset:0;z-index:0;width:100%;height:100%;
+ border:0;margin:0;padding:0;border-radius:0;
+ background:#020a07a6;pointer-events:auto;touch-action:manipulation;cursor:default;
+}
+.ui-renovation-backdrop[hidden]{display:none!important;}
+.ui-feature-action{min-width:44px;min-height:44px;touch-action:manipulation;}
+.ui-feature-panel{max-height:100%;overscroll-behavior:contain;overflow:auto;-webkit-overflow-scrolling:touch;}
+.ui-feature-panel:focus-visible,.ui-feature-action:focus-visible{outline:3px solid #f0cf90;outline-offset:2px;}
+/* Reserve a compact 5-control row; never add a two-button layer footer. */
+.ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"] > .ui-command-grid{
+ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;
+ gap:clamp(2px,1vw,8px);padding:4px var(--ui-shell-gutter);
+ pointer-events:auto;
+}
+/* Landscape must respond to HEIGHT, not simply to width. */
+@media(max-height:500px) and (orientation:landscape){
+ .ui-renovation-shell{
+   --ui-hud-height:36px;--ui-command-height:44px;
+   grid-template-areas:"hud hud hud" "commands map inspector";
+   grid-template-columns:52px minmax(0,1fr) minmax(0,0);
+   grid-template-rows:auto minmax(0,1fr);
+ }
+ .ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"]{padding-bottom:var(--ui-safe-bottom);}
+ .ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"] > .ui-command-grid{
+   grid-template-columns:1fr;grid-auto-rows:minmax(44px,auto);
+   padding:3px;gap:2px;
+ }
+ .ui-renovation-slot[data-ui-region="MAP_ACTION"]{
+   bottom:calc(6px + var(--ui-safe-bottom));left:60px;right:var(--ui-shell-gutter);
+ }
+}
+@media(min-width:681px) and (min-height:501px){
+ .ui-renovation-shell{
+  --ui-command-height:52px;
+  grid-template-areas:"hud hud hud" "commands map inspector";
+  grid-template-columns:64px minmax(0,1fr) minmax(200px,24vw);
+  grid-template-rows:auto minmax(0,1fr);
+ }
+ .ui-renovation-slot[data-ui-region="PRIMARY_COMMAND"]>.ui-command-grid{
+  grid-template-columns:1fr;grid-auto-rows:minmax(44px,auto);padding:8px;gap:7px;
+ }
+ .ui-renovation-slot[data-ui-region="MAP_ACTION"]{bottom:12px;left:76px;right:calc(24vw + 12px);}
+}
+@media(min-width:1200px) and (min-height:501px){
+ .ui-renovation-shell{grid-template-columns:72px minmax(0,1fr) minmax(250px,21vw);}
+ .ui-renovation-slot[data-ui-region="MAP_ACTION"]{left:84px;right:calc(21vw + 12px);}
+}
+@media(prefers-reduced-motion:reduce){
+ .ui-renovation-shell,.ui-renovation-shell *{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}
+}
+
+/* G3 QA opt-in only. Production defaults to the original interface.
+   Never remove legacy DOM: it still owns map input and must retain its
+   authoritative hidden room picker/selection control until final migration. */
+#app[data-ui-renovation-qa="true"] > .topbar,
+#app[data-ui-renovation-qa="true"] > .left-overlay,
+#app[data-ui-renovation-qa="true"] > .dig-tools,
+#app[data-ui-renovation-qa="true"] > .right-controls,
+#app[data-ui-renovation-qa="true"] > .bottom-bar,
+#app[data-ui-renovation-qa="true"] > .colony-panel,
+#app[data-ui-renovation-qa="true"] > .selection-card,
+#app[data-ui-renovation-qa="true"] > .nursery-panel,
+#app[data-ui-renovation-qa="true"] > .milestones-toggle,
+#app[data-ui-renovation-qa="true"] > .milestones-panel,
+#app[data-ui-renovation-qa="true"] > .debug-panel { display:none!important; }
+/* Map command wrapper must never intercept taps outside its real controls. */
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] {pointer-events:none;}
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]) {pointer-events:auto;}
+
+/* G4 P0: CombatControls appends its dock directly under BODY. The #app
+   selector could never hide it; block duplicate commands in QA preview ONLY. */
+body[data-ui-renovation-qa="true"] > #u6-dock{display:none!important;pointer-events:none!important;}
+/* Keep the authoritative cancel-target handler reachable after its original
+   tip is moved from the hidden dock to BODY. Never clone the action listener. */
+body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
+  /* U6 tactical CSS normally positions the tip *absolutely relative to the
+     old dock*. Once lifted out of the hidden dock, restore a true on-screen
+     fixed placement so its authoritative Cancel action remains reachable. */
+  position:fixed;inset:auto;top:calc(86px + env(safe-area-inset-top,0px));
+  left:50%;right:auto;bottom:auto;transform:translateX(-50%);
+  width:max-content;max-width:min(460px,calc(100vw - 20px));
+  z-index:120;pointer-events:none;
+}
+@media(max-height:500px) and (orientation:landscape){
+  body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]){
+    top:calc(52px + env(safe-area-inset-top,0px));
+  }
+}
+body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-target{
+  pointer-events:auto;min-width:64px;min-height:44px;
+}
+
+/* G4 genuine gameplay blocker: the Nursery "reopen" button was physically
+   painted over the main five-control toolbar after the sheet was closed
+   (320x568: reopen x117..203,y514..558; Room action x130..190,y516..560).
+   Move this MAP_ACTION-only affordance up by a full control row, never make
+   the obscured toolbar button receive a synthetic/forced click. */
+@media(max-width:680px) and (min-height:501px){
+  #app[data-ui-renovation-qa="true"] .ui04-reopen:not([hidden]){
+    transform:translateY(-64px);
+  }
+}
+/* The Nursery shortcut must also not compete with the room/dig command
+   panel while either world-editing tool is active. Chromium & WebKit support
+   :has(); game semantics remain owned by the feature and G1 adapter. */
+#app[data-ui-renovation-qa="true"]:has(.ui05-root:not([hidden])) .ui04-reopen{
+  display:none!important;
+}
+
+/* G4 direct map-pointer P0 (Chromium 320x568): after choosing a room type,
+   the room planner occupied x8..312,y189..506; the real valid worksite
+   map tile x216,y284 landed on its CSS type button. Keep a usable map band
+   even with the planner open; panel contents remain vertically scrollable. */
+#app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-header{
+  position:sticky;top:0;z-index:3;background:var(--ui-panel-bg,#13251c);
+}
+@media(max-width:680px) and (min-height:501px){
+  #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]){
+    max-height:min(36dvh,210px);
+  }
+}
+/* Short landscape: keep the canvas midline free by docking the compact
+   planner at the right edge rather than across the center of the map. */
+@media(max-height:500px) and (orientation:landscape){
+  #app[data-ui-renovation-qa="true"] [data-ui-feature="rooms"] .ui05-root:not([hidden]){
+    max-width:min(210px,38vw);margin-left:auto;
+    max-height:calc(100dvh - 75px);
+  }
+}

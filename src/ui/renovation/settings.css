@@ -1,0 +1,75 @@
+/* UI-06 / G2 — private sheet/dialog internals; geometry is owned by G1 shell. */
+.ui-settings{font-family:inherit;color:var(--ui-panel-text,#f5e9cf)}
+.ui-settings button,.ui-settings input{font:inherit}
+.ui-settings button{cursor:pointer;touch-action:manipulation;min-height:44px}
+.ui-settings button:focus-visible,.ui-settings input:focus-visible{outline:3px solid #f6d393;outline-offset:2px}
+.ui-settings--host{
+ display:flex;align-items:flex-end;justify-content:center;
+ width:100%;height:100%;overflow:visible!important;
+ pointer-events:none!important
+}
+.ui-settings-sheet{
+ box-sizing:border-box;width:min(520px,calc(100% - 16px));
+ max-height:min(78dvh,700px);
+ overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+ margin:8px 8px calc(64px + env(safe-area-inset-bottom,0px));
+ padding:16px;background:#192e24;border:1px solid #be9b65;
+ border-radius:14px;box-shadow:0 14px 42px #000b;
+ pointer-events:auto;color:#f4e9d4
+}
+.ui-settings-sheet[hidden],.ui-settings-confirm[hidden]{display:none!important}
+.ui-settings-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ui-settings-header h2{font-size:19px;margin:0}
+.ui-settings h3{font-size:14px;margin:18px 0 7px}
+.ui-settings-current{
+ display:block;overflow-wrap:anywhere;font-size:13px;color:#f2cf98;
+ padding:11px;border:1px solid #8d795c;background:#243c30;border-radius:8px
+}
+.ui-settings-note,.ui-settings-hint,.ui-settings-developer{
+ color:#decbb4;font-size:12px;line-height:1.55;margin:9px 0
+}
+.ui-settings-form{display:grid;gap:8px}
+.ui-settings-form label{font-weight:700;font-size:13px}
+.ui-settings-input{
+ min-width:0;width:100%;box-sizing:border-box;min-height:44px;
+ padding:10px 12px;color:#fff0d5;background:#0b1b16;
+ border:1px solid #b99c6d;border-radius:8px;
+ user-select:text!important;-webkit-user-select:text!important;
+ -webkit-touch-callout:default;touch-action:auto
+}
+.ui-settings-input[aria-invalid="true"]{border-color:#ffa999;box-shadow:0 0 0 1px #ffa999}
+.ui-settings-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:10px}
+.ui-settings-actions button{padding:8px 12px;border:1px solid #c6ac82;border-radius:9px;font-weight:700}
+.ui-settings-close,.ui-settings-secondary{background:#354a3b;color:#f8ead1;border:1px solid #9a8060;border-radius:9px;padding:8px 12px}
+.ui-settings-primary{background:#e6c287;color:#241c12}
+.ui-settings-danger-button{background:#a33d36;color:#fff3e8;border-color:#f8b39a!important}
+.ui-settings button:disabled{opacity:.5;cursor:not-allowed}
+.ui-settings-error{display:block;min-height:1.1em;font-size:12px;color:#ffb59d}
+.ui-settings-developer{border-top:1px solid #675940;padding-top:10px}
+.ui-settings-confirm{
+ box-sizing:border-box;width:min(430px,calc(100vw - 24px));max-width:calc(100vw - 24px);
+ max-height:calc(100dvh - 24px);overflow:auto;
+ margin:auto;padding:18px;color:#f7ead4;background:#172b23;
+ border:2px solid #e1b878;border-radius:12px;box-shadow:0 20px 65px #000d
+}
+.ui-settings-confirm::backdrop{background:#030d0acf;backdrop-filter:blur(3px)}
+.ui-settings-confirm h2{margin:0 0 9px;font-size:20px}
+.ui-settings-confirm p{font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+.ui-settings-danger{color:#ffd3bb}
+@media(max-width:680px){
+ .ui-settings-sheet{width:calc(100% - 12px);margin:6px 6px calc(62px + env(safe-area-inset-bottom,0px));padding:13px}
+ .ui-settings-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ui-settings-actions button{min-width:0;line-height:1.35}
+}
+@media(max-height:500px) and (orientation:landscape){
+ .ui-settings--host{align-items:center;justify-content:flex-end}
+ .ui-settings-sheet{margin:5px 5px 5px 60px;width:min(480px,calc(100% - 68px));max-height:calc(100dvh - 52px);padding:10px}
+ .ui-settings-confirm{max-height:calc(100dvh - 14px);padding:10px}
+ .ui-settings-confirm h2{font-size:17px}
+ .ui-settings-confirm p{margin:5px 0}
+}
+@media(min-width:681px) and (min-height:501px){
+ .ui-settings--host{align-items:center;justify-content:flex-end}
+ .ui-settings-sheet{margin:8px 12px;max-height:calc(100dvh - 80px)}
+}
+@media(prefers-reduced-motion:reduce){.ui-settings *{animation:none!important;transition:none!important}}
