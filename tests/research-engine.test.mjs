@@ -289,7 +289,7 @@ test('CP-A11 read-only warehouse upgrade cap and competing unfinished constructi
   const original = { ...queen.stock };
   f.rooms.rooms.push({ id: 'room-build', type: 'nursery', status: 'planned',
     stock: amounts(), pickups: [
-      { sourceRoomId: queen.id, type: 'carbs', amount: 10 }
+      { sourceRoomId: queen.id, type: 'carbs', amount: 11 }
     ] });
   assert.equal(f.research.cancel(project.runId).error.code, 'REFUND_SOURCE_UNAVAILABLE');
   assert.deepEqual(queen.stock, original);
