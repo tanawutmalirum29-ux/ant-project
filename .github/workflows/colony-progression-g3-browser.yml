@@ -1,0 +1,54 @@
+name: Colony Progression G3 — Chromium WebKit Candidate Evidence
+on:
+  push:
+    branches:
+      - feat/colony-progression-v1-integration
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'tools/browser-colony-progression-g3.py'
+      - '.github/workflows/colony-progression-g3-browser.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'tools/browser-colony-progression-g3.py'
+      - '.github/workflows/colony-progression-g3-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-browser-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Print exact revision and versions
+        run: |
+          git rev-parse HEAD
+          node --version
+          python --version
+      - name: Native regression
+        run: npm test
+      - name: Build shipped static site
+        run: npm run build
+      - name: Install real Chromium and WebKit
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium webkit
+      - name: Real served game and Research E2E (6 viewports x 2 browsers)
+        run: python tools/browser-colony-progression-g3.py
+      - name: Preserve screenshots and geometry JSON even if failed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cp-g3-real-browser-evidence
+          path: artifacts/colony-progression-g3/*
+          if-no-files-found: warn
