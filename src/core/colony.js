@@ -290,7 +290,17 @@ export class Colony {
       if(distance!==1 || !isWalkable(layer,ant.x,ant.y)) {
         this.abandonOrder(ant,job);continue;
       }
-      ant.state='digging';job.status='digging';job.progress+=this.workRate(ant,'miner');
+      ant.state='digging';job.status='digging';
+      const baseRate=this.workRate(ant,'miner');
+      if(this.research?.hasCompleted('excavation_tools')===true) {
+        // Convert earned legacy work once, without replaying it. All later
+        // additions are integer hundredths of 1/10000-tick work units.
+        job.progressUnits??=Math.round(job.progress*10000);
+        job.progressUnits+=Math.round(baseRate*100)*115;
+        job.progress=job.progressUnits/10000;
+      } else {
+        job.progress+=baseRate; // identical pre-research simulation
+      }
       if(job.progress>=digTicks(job.terrain)) {
         writeCell(layer,job.x,job.y,TERRAINS.TUNNEL);
         this.orders.delete(key(job.x,job.y));this.ordersById.delete(job.id);

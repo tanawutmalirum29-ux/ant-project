@@ -40,7 +40,13 @@ export class Combat {
   }
   get soldiers(){return this.colony.workers.filter(a=>a.combatRole==='soldier'&&a.profession==='soldier');}
   soldierLevel(ant){return Number.isInteger(ant?.level)?Math.max(1,Math.min(5,ant.level)):1;}
-  maxHP(ant){return COMBAT.soldierHP+3*(this.soldierLevel(ant)-1);}
+  maxHP(ant){
+    const base=COMBAT.soldierHP+3*(this.soldierLevel(ant)-1);
+    // Derived limit, not a mutation of combatHP: unlock never heals/revives.
+    return this.research?.hasCompleted('soldier_armor')===true &&
+      (ant?.profession==='soldier'||ant?.combatRole==='soldier')
+      ? Math.floor(base*115/100):base;
+  }
   damage(ant){return COMBAT.soldierDamage+Math.floor((this.soldierLevel(ant)-1)/2);}
 
   /** Unspecified IDs on legacy soldier fixtures belong to the default A squad. */
