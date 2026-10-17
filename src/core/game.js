@@ -5,6 +5,7 @@ import { Foraging } from './foraging.js';
 import { Lifecycle, LIFE } from './lifecycle.js';
 import { Rooms } from './rooms.js';
 import { Combat } from './combat.js';
+import { Research } from './research.js';
 import { createResourceNodes } from '../world/resources.js';
 import { ResourceEcology } from './resource-ecology.js';
 import { Weather } from './weather.js';
@@ -84,6 +85,15 @@ export class Game {
     this.lifecycle.rooms = this.rooms;
     this.rooms.lifecycle = this.lifecycle;
     this.combat = new Combat(this.world,this.colony,this.foraging,this.lifecycle,this.rooms);
+    // Physical, fixed-tick Research is owned by the Game and never a UI timer.
+    // All buff consumers query derived completed IDs, never mutate inventory.
+    this.research = new Research({
+      rooms:this.rooms,foraging:this.foraging,colony:this.colony,
+      isDefeated:()=>!!this.defeat || this.colony.queen?.alive===false
+    });
+    for (const system of [this.colony,this.foraging,this.rooms,this.lifecycle,this.combat])
+      system.research=this.research;
+    this.lifecycle.combat=this.combat;
     this.workforce = new WorkforcePolicy(this);
     this.colony.workforce=this.workforce;
     this.lifecycle.workforce=this.workforce;
@@ -95,7 +105,7 @@ export class Game {
     // retain the pre-existing post-queen-death simulation semantics.
     this.pauseOnDefeat = false;
     this.milestones = new MilestoneTracker(this);
-    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat), (game) => game.milestones.observe()];
+    this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat), (game) => game.research.tick(game.clock.ticks + 1), (game) => game.milestones.observe()];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
       for (const system of this.systems) {
