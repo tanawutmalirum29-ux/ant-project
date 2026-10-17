@@ -335,3 +335,43 @@ test('CP-A-G3 immutable invalid/locked/insufficient status produces zero economy
   assert.deepEqual(restarted.research.held, ZERO);
   assert.notEqual(restarted.research, g.research);
 });
+
+
+test('CP-A-G3 cancel at exactly N-1 refunds all held, restarts at zero with fresh runId', () => {
+  const g = game('CP-A-G3-CANCEL-N-1');
+  const room = g.rooms.rooms[0];
+  fund(g, room, { carbs: 24, protein: 24, water: 24 });
+  const before = mass(g);
+  const project = g.research.start('foraging_routes');
+  assert.equal(project.ok, true);
+  STEP(g, 599);
+  assert.equal(g.research.snapshot().active.progressTicks, 599);
+  assert.equal(g.research.hasCompleted('foraging_routes'), false);
+  const sink = { ...g.lifecycle.consumed };
+  const nextStored = { ...room.stock };
+  const finishMass = mass(g);
+  assert.deepEqual(finishMass, before, 'metabolic consumption is counted');
+  assert.deepEqual(g.research.snapshot().refundPreview, { carbs: 6, protein: 4, water: 3 });
+  assert.equal(g.research.cancel(project.runId).ok, true);
+  assert.equal(g.research.snapshot().active, null);
+  for (const type of TYPES) {
+    assert.equal(room.stock[type], nextStored[type] +
+      RESEARCH_CATALOG[0].cost[type], 'source-room refund: ' + type);
+    assert.equal(g.lifecycle.consumed[type], sink[type], 'refund does not feed/consume');
+  }
+  assert.deepEqual(g.research.held, ZERO);
+  assert.deepEqual(g.research.spent, ZERO);
+  assert.deepEqual(mass(g), before);
+  invariant(g);
+  const retried = g.research.start('foraging_routes');
+  assert.equal(retried.ok, true);
+  assert.ok(retried.runId > project.runId);
+  assert.equal(g.research.snapshot().active.progressTicks, 0);
+  STEP(g, 599);
+  assert.equal(g.research.hasCompleted('foraging_routes'), false);
+  STEP(g);
+  assert.equal(g.research.hasCompleted('foraging_routes'), true);
+  assert.deepEqual(g.research.spent, { carbs: 6, protein: 4, water: 3 });
+  assert.equal(g.research.cancel(retried.runId).error.code, 'NO_ACTIVE_RESEARCH');
+  assert.deepEqual(mass(g), before);
+});
