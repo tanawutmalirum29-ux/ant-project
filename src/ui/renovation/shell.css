@@ -265,3 +265,37 @@ body[data-ui-renovation-qa="true"] > #u6-target-tip:not([hidden]) #u6-cancel-tar
    grid-template-columns:minmax(0,1fr);
  }
 }
+
+/* Exactly five current room choices: show every type, never a scroll area.
+   Small screens use three equal columns × two rows with shorter text and
+   a safe 44px target. Long catalogs alone may scroll as a fallback. */
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list[data-layout="all"]{
+ grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ grid-auto-rows:minmax(44px,auto);
+ gap:3px;
+ padding:4px;
+ overflow:visible!important;
+ max-height:none!important;
+ align-content:start;
+ border-radius:9px;
+ box-shadow:0 5px 20px #0009;
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list[data-layout="overflow"]{
+ overflow-y:auto;max-height:min(34dvh,230px);
+}
+.ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list .ui05-type-option{
+ font-size:clamp(10px,2.5vw,12px);
+ line-height:1.2;
+ min-width:0;min-height:44px;
+ padding:3px 3px;
+ overflow-wrap:anywhere;
+ text-align:center;
+}
+@media(max-height:500px) and (orientation:landscape){
+ .ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list[data-layout="all"]{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ }
+ .ui-renovation-slot[data-ui-region="PRIMARY_SHEET"] > .ui05-type-list .ui05-type-option{
+   font-size:10px;
+ }
+}
