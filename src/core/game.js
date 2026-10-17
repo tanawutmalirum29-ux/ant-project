@@ -1,8 +1,8 @@
-import { createClock, FixedStepper, TICK_MS } from './time.js';
+import { createClock, FixedStepper, TICK_MS, formatGameTime } from './time.js';
 import { createWorld, SURFACE, UNDERGROUND } from '../world/generate.js';
 import { Colony } from './colony.js';
 import { Foraging } from './foraging.js';
-import { Lifecycle } from './lifecycle.js';
+import { Lifecycle, LIFE } from './lifecycle.js';
 import { Rooms } from './rooms.js';
 import { Combat } from './combat.js';
 import { createResourceNodes } from '../world/resources.js';
@@ -89,11 +89,29 @@ export class Game {
     this.lifecycle.workforce=this.workforce;
     this.combat.workforce=this.workforce;
     this.renderMotion = null;
+    // Immutable terminal outcome: never inferred independently by a UI skin.
+    this.defeat = null;
+    // Interactive clients opt in; offline deterministic long-run economy tests
+    // retain the pre-existing post-queen-death simulation semantics.
+    this.pauseOnDefeat = false;
     this.milestones = new MilestoneTracker(this);
     this.systems = [(game) => game.workforce.reconcile(), (game) => game.colony.tick(), (game) => game.foraging.tick(), (game) => game.weather.tick(), (game) => game.ecology.tick(), (game) => game.rooms.tick(), (game) => game.lifecycle.tick(), (game) => game.workforce.reconcile(), (game) => game.combat.tick(), (game) => game.colony.tickAmbient(game.combat), (game) => game.milestones.observe()];
     this.stepper = new FixedStepper(() => {
       const before = snapshotPositions(this);
-      for (const system of this.systems) system(this);
+      for (const system of this.systems) {
+        system(this);
+        if (this.colony.queen?.alive === false) {
+          this.recordDefeat(this.clock.ticks + 1);
+          if (this.pauseOnDefeat) {
+            // A combat death happens *after* Lifecycle.tick. Refund QUEUED
+            // eggs now, preserving its original next-tick refund semantics.
+            for (const order of [...this.lifecycle.eggOrders])
+              if (order.status === 'QUEUED') this.lifecycle.cancelEgg(order.id);
+            this.stepper.changeSpeed(0);
+            break;
+          }
+        }
+      }
       this.renderMotion = { from: before, to: snapshotPositions(this) };
       this.metrics.pendingTasks = this.colony.pendingCount;
     }, this.clock);
@@ -109,8 +127,43 @@ export class Game {
   }
   // Subscriber callbacks precede the milestone observer, which must remain last.
   onTick(system) { this.systems.splice(this.systems.length - 1, 0, system); }
-  update(ms) { return this.stepper.update(ms); }
-  setSpeed(value) { this.stepper.changeSpeed(value); }
+  /** The only authoritative terminal transition, shared by both UI skins. */
+  recordDefeat(tick=this.clock.ticks) {
+    if (this.defeat || this.colony.queen?.alive !== false) return this.defeat;
+    const health=this.lifecycle.queenHealth;
+    const cause=this.combat.queenHP<=0?'combat':
+      health?.age>=LIFE.queenMaxAge?'age':
+      health?.hunger>LIFE.queenStarve?'starvation':
+      health?.thirst>LIFE.queenStarve+600?'dehydration':'unknown';
+    const causes={
+      combat:'นางพญาถูกศัตรูโจมตีจนสิ้นชีวิต',
+      age:'นางพญาสิ้นอายุขัย',
+      starvation:'นางพญาขาดอาหาร',
+      dehydration:'นางพญาขาดน้ำ',
+      unknown:'นางพญาสิ้นชีวิต'
+    };
+    this.defeat=Object.freeze({
+      cause,reason:causes[cause],tick,seed:this.world.seedLabel,
+      population:this.population,workers:this.colony.workers.length,
+      births:this.lifecycle.births,
+      casualties:this.combat.casualties,
+      defeatedEnemies:this.combat.defeated
+    });
+    return this.defeat;
+  }
+  update(ms) {
+    if (this.colony.queen?.alive === false) {
+      this.recordDefeat();
+      if (this.pauseOnDefeat) {
+        this.stepper.changeSpeed(0);
+        return 0;
+      }
+    }
+    return this.stepper.update(ms);
+  }
+  setSpeed(value) {
+    this.stepper.changeSpeed(this.pauseOnDefeat && this.defeat ? 0 : value);
+  }
 }
 
 /**

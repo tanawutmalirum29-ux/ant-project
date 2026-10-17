@@ -41,6 +41,13 @@ export class FixedStepper {
     while (this.accumulator >= TICK_MS && count < 32) {
       this.step();
       advanceClock(this.clock);
+      // A game-over transition can pause the clock from INSIDE a tick. Never
+      // execute remaining accumulated ticks after that terminal transition.
+      if (this.clock.speed === 0) {
+        this.accumulator = 0;
+        count++;
+        break;
+      }
       this.accumulator -= TICK_MS;
       count++;
     }

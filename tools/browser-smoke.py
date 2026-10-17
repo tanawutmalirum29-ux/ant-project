@@ -24,7 +24,10 @@ def bundle_html():
     g1='<link rel="stylesheet" href="./src/ui/renovation/shell.css" />'
     if g1 in html:
         html=html.replace(g1,'<style>'+(root/'src/ui/renovation/shell.css').read_text()+'</style>')
-    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/combat-controls.js','ui/milestones-panel.js','ui/renovation/shell.js','ui/renovation/ui-adapter.js','ui/renovation/home.js','ui/renovation/settings.js','ui/renovation/integrate-a.js','ui/renovation/military.js','ui/renovation/ants.js','ui/renovation/integrate-b.js','ui/renovation/nursery.js','ui/renovation/rooms.js','ui/renovation/integrate-c.js','main.js']
+    defeat_css='<link rel="stylesheet" href="./src/ui/game-over.css" />'
+    if defeat_css in html:
+        html=html.replace(defeat_css,'<style>'+(root/'src/ui/game-over.css').read_text()+'</style>')
+    mods=['core/random.js','core/time.js','world/generate.js','world/navigation.js','world/resources.js','core/resource-ecology.js','core/weather.js','core/colony.js','core/foraging.js','core/lifecycle.js','core/rooms.js','core/combat.js','core/milestones.js','core/game.js','render/camera.js','render/renderer.js','ui/ant-inspector.js','ui/app.js','ui/game-over.js','ui/combat-controls.js','ui/milestones-panel.js','ui/renovation/shell.js','ui/renovation/ui-adapter.js','ui/renovation/home.js','ui/renovation/settings.js','ui/renovation/integrate-a.js','ui/renovation/military.js','ui/renovation/ants.js','ui/renovation/integrate-b.js','ui/renovation/nursery.js','ui/renovation/rooms.js','ui/renovation/integrate-c.js','main.js']
     out=['const __mods = {};']
     for m in mods:
         source=(root/'src'/m).read_text()
