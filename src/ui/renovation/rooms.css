@@ -94,14 +94,14 @@
    width:min(300px,calc(100vw - 12px))!important;
    max-height:none!important;
    overflow:visible!important;
-   font-size:11px;
+   font-size:clamp(10px,2.7vw,12px);
  }
  .ui05-header{padding:2px 5px;}
- .ui05-title{font-size:11px;}
+ .ui05-title{font-size:clamp(10px,3vw,12px);}
  .ui05-root .ui05-collapse{min-height:34px;min-width:40px;padding:2px 6px;}
  .ui05-body{max-height:none!important;overflow:visible!important;gap:3px;padding:4px;}
  .ui05-build,.ui05-dig{gap:3px;}
- .ui05-root .ui05-type-trigger{min-height:35px;padding:4px 7px;font-size:11px;}
+ .ui05-root .ui05-type-trigger{min-height:35px;padding:4px 7px;font-size:inherit;}
  .ui05-shape{grid-template-columns:1fr 1fr!important;gap:4px;}
  .ui05-dimension{gap:2px;}
  .ui05-dimension-label{flex:none;min-width:0!important;font-size:10px;}
