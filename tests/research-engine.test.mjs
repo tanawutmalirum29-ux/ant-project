@@ -233,6 +233,7 @@ test('CP-A08 terminal queen defeat freezes held research even in continued offli
     assert.equal(f.research.hasCompleted('first'), false);
     assert.equal(f.research.snapshot().active.progressTicks, 1);
     assert.deepEqual(f.research.held, amounts(2, 2, 1));
+    assert.equal(f.research.snapshot().refundPreview, null);
     assert.deepEqual(f.research.spent, amounts());
     assert.equal(f.research.start('second').error.code, 'GAME_OVER');
     assert.equal(f.research.cancel(1).error.code, 'GAME_OVER');
