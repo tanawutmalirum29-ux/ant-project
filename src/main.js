@@ -27,12 +27,14 @@ gameRoot.addEventListener('selectstart', gameLongPressGuard);
 const query = new URLSearchParams(location.search);
 const initialSeed = (query.get('seed') || 'ANT-001').slice(0, 40);
 let game = new Game(initialSeed);
+game.pauseOnDefeat = true;
 let cameras = createCameras(game);
 const renderer = new Renderer(document.getElementById('game-canvas'));
 let milestonesPanel = null;
 renderer.resize();
 const ui = new UI(game, cameras, renderer, (seed) => {
   game = new Game(seed);
+  game.pauseOnDefeat = true;
   cameras = createCameras(game);
   ui.game = game;
   ui.cameras = cameras;
