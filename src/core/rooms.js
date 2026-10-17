@@ -62,17 +62,33 @@ export class Rooms {
       }
     }
   }
+  /** Effective *physical* cap; nominal capacityFor still includes disconnected
+   * ready rooms for backwards compatibility. Do not mutate room.capacity. */
+  effectiveRoomCap(room,type) {
+    const base=room.type==='queen'?BASE_CAPACITY[type]
+      :(room.capacity?.[type]??ROOM_CATALOG[room.type]?.capacity[type]??0);
+    return this.research?.hasCompleted('warehouse_extension')===true
+      ? Math.floor(base*120/100):base;
+  }
+  /** Original-depot refund claims are reserved against incoming deliveries,
+   * NOT against the current spendable stock (which was debited at reservation).
+   * Include collected construction pickups: cancellation still owes their units. */
+  refundableForSource(roomId,type) {
+    let owed=this.lifecycle?.eggOrders.reduce((n,o)=>
+      n+(o.status==='QUEUED'?(o.pickups||[]).reduce((sum,p)=>
+        sum+(p.sourceRoomId===roomId&&p.type===type?p.amount:0),0):0),0)??0;
+    for(const r of this.rooms)if(r.status==='planned'||r.status==='building')
+      for(const p of r.pickups||[])if(p.sourceRoomId===roomId&&p.type===type)owed+=p.amount;
+    return owed+(this.research?.refundableFor(roomId,type)??0);
+  }
   storageSlots(type) {
     return this.rooms.filter(r=>r.status==='ready' && r.connected &&
       (r.type==='queen'||(type==='water'?r.type==='water_store':r.type==='food_store')))
-      .map(r=>{
-        // Queued eggs retain space at their original depot for exact refunds.
-        const refundable=this.lifecycle?.eggOrders.reduce((n,o)=>
-          n+(o.status==='QUEUED'?o.pickups.reduce((v,p)=>
-            v+(p.sourceRoomId===r.id&&p.type===type?p.amount:0),0):0),0)??0;
-        const cap=r.type==='queen'?BASE_CAPACITY[type]:(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0);
-        return {room:r,space:Math.max(0,cap-(r.stock?.[type]||0)-refundable)};
-      });
+      .map(r=>({
+        room:r,
+        space:Math.max(0,this.effectiveRoomCap(r,type)
+          -(r.stock?.[type]||0)-this.refundableForSource(r.id,type))
+      }));
   }
   // Storage requires a physical visit; source distance, destination space and
   // accessibility are computed from the worker's ACTUAL underground tile.
@@ -149,7 +165,9 @@ export class Rooms {
   get busyCount() {return this.colony.workers.filter(w=>w.state==='room-walk'||w.state==='room-build').length;}
   capacityFor(type) {
     if(!RESOURCE_TYPES.includes(type))throw new RangeError('Unknown resource type');
-    return BASE_CAPACITY[type]+this.rooms.reduce((sum,r)=>r.status==='ready'?sum+(r.capacity?.[type]??ROOM_CATALOG[r.type].capacity[type]??0):sum,0);
+    // Preserve the historical nominal (not connected-only) capacity contract.
+    return this.rooms.reduce((sum,r)=>r.status==='ready'
+      ? sum+this.effectiveRoomCap(r,type):sum,0);
   }
   capacities() {return Object.fromEntries(RESOURCE_TYPES.map(type=>[type,this.capacityFor(type)]));}
   get broodCapacity() {return this.rooms.filter(r=>r.type==='nursery'&&r.status==='ready'&&r.connected).reduce((total,r)=>total+Math.min(r.width*r.height,16),0);}
@@ -202,13 +220,27 @@ export class Rooms {
   cancel(id) {
     const room=this.rooms.find(r=>r.id===id);
     if(!room||!['planned','building'].includes(room.status))return false;
+    // All-or-nothing original-source refund. The physical source must still
+    // exist and hold enough cap for every claim; never mint at the queen.
+    // A disconnected source may be refunded but cannot accept deliveries.
+    for(const p of room.pickups||[]) {
+      const source=this.rooms.find(r=>r.id===p.sourceRoomId);
+      if(!source||!RESOURCE_TYPES.includes(p.type)||
+         !Number.isSafeInteger(p.amount)||p.amount<0)return false;
+    }
+    const inspected=new Set();
+    for(const p of room.pickups||[]) {
+      const k=p.sourceRoomId+':'+p.type;
+      if(inspected.has(k))continue;
+      inspected.add(k);
+      const source=this.rooms.find(r=>r.id===p.sourceRoomId);
+      if((source.stock?.[p.type]||0)+this.refundableForSource(source.id,p.type)>
+         this.effectiveRoomCap(source,p.type))return false;
+    }
     for(const [kind,amount] of Object.entries(room.cost))this.held[kind]-=amount;
-    // Undo an unfinished reservation, including any material already carried.
-    // Restore to accessible storage; if it became disconnected the queen's
-    // reserved-stock ledger retains it until the player reconnects the room.
     for(const pickup of room.pickups||[]) {
-      const target=this.rooms.find(r=>r.id===pickup.sourceRoomId)||this.rooms[0];
-      target.stock[pickup.type]+=pickup.amount;
+      const source=this.rooms.find(r=>r.id===pickup.sourceRoomId);
+      source.stock[pickup.type]+=pickup.amount;
       this.foraging.inventory[pickup.type]+=pickup.amount;
     }
     const ant=this.colony.workers.find(w=>w.id===room.workerId);
@@ -301,7 +333,15 @@ export class Rooms {
       return true;
     }
     ant.state='room-build';ant.path=[];ant.next=null;ant.motion=0;
-    room.progress+=this.colony.workRate?.(ant,'builder')??1;
+    const baseRate=this.colony.workRate?.(ant,'builder')??1;
+    if(this.research?.hasCompleted('construction_techniques')===true) {
+      // Convert already-earned work once, then count integer fixed-point units.
+      room.progressUnits??=Math.round(room.progress*10000);
+      room.progressUnits+=Math.round(baseRate*100)*115;
+      room.progress=room.progressUnits/10000;
+    } else {
+      room.progress+=baseRate;
+    }
     if(room.progress>=(room.ticks??ROOM_CATALOG[room.type].ticks)) {
       for(const [kind,amount] of Object.entries(room.cost)){
         this.held[kind]-=amount;this.spent[kind]+=amount;
