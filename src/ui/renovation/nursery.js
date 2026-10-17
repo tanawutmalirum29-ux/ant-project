@@ -50,13 +50,13 @@ export function mount(container,{view,actions,overlay,subscribe}) {
   const roomPicker=make(doc,'div','ui04-room-picker');roomPicker.setAttribute('role','group');roomPicker.setAttribute('aria-label','เลือกห้องฟักไข่');
   const form=make(doc,'div','ui04-form');
   const professionLabel=make(doc,'span','ui04-field-label','อาชีพมด');
-  const professionPicker=make(doc,'div','ui04-picker');
+  const professionPicker=make(doc,'div','ui04-picker ui04-profession-picker');
   const professionTrigger=make(doc,'button','ui04-picker-trigger');professionTrigger.type='button';
   professionTrigger.setAttribute('aria-haspopup','listbox');professionTrigger.setAttribute('aria-expanded','false');
   const professionMenu=make(doc,'div','ui04-picker-menu');professionMenu.hidden=true;
   professionMenu.setAttribute('role','listbox');professionMenu.setAttribute('aria-label','เลือกอาชีพมด');
   const levelLabel=make(doc,'span','ui04-field-label','เลเวล');
-  const levelPicker=make(doc,'div','ui04-picker');
+  const levelPicker=make(doc,'div','ui04-picker ui04-level-picker');
   const levelTrigger=make(doc,'button','ui04-picker-trigger');levelTrigger.type='button';
   levelTrigger.setAttribute('aria-haspopup','listbox');levelTrigger.setAttribute('aria-expanded','false');
   const levelMenu=make(doc,'div','ui04-picker-menu');levelMenu.hidden=true;
