@@ -6,9 +6,12 @@ on:
   push:
     branches:
       - feat/survival-repeat-nursery-g2
+      - feat/colony-survival-v1-integration
+      - main
   pull_request:
     branches:
       - feat/colony-survival-v1-integration
+      - main
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
