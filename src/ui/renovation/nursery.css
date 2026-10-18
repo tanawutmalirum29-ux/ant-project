@@ -110,3 +110,10 @@
   .ui04-level-picker .ui04-picker-menu{gap:2px;padding:4px;}
   .ui04-level-picker .ui04-option{min-width:44px;padding:6px 0;font-size:11px;}
 }
+
+/* G2: compact, room-local repeat preset; no extra overlay or global dock. */
+.ui04-repeat{display:grid;gap:5px;min-width:0;padding:8px;border:1px solid #89a68b70;border-radius:9px;background:#182f23}
+.ui04-root .ui04-repeat-toggle{width:100%;background:#365f43;font-weight:700}
+.ui04-repeat[data-state="waiting"] .ui04-repeat-toggle{background:#68522e}
+.ui04-repeat[data-state="paused"]{border-color:#e5ad7b}
+.ui04-repeat-status{font-size:12px;line-height:1.45;margin:0;overflow-wrap:anywhere}

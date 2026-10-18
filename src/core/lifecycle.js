@@ -22,6 +22,8 @@ export class Lifecycle {
     this.rooms=null;
     this.brood=[];
     this.eggOrders=[];
+    // Opt-in presets are commands, never inventory; a fresh Game starts empty.
+    this.repeatPlans=new Map();
     this.nextEggId=1;
     this.heldEgg={carbs:0,protein:0,water:0};
     this.eggSpent={carbs:0,protein:0,water:0};
@@ -101,6 +103,76 @@ export class Lifecycle {
     this.lastEvent='จองไข่ '+profession+' Lv.'+level+' แล้ว';
     return {ok:true,reason:'ok',order};
   }
+  /** Serializable, immutable view: callers must not mutate the authoritative plan. */
+  getRepeatOrder(roomId) {
+    const room=this.rooms?.rooms.find(r=>r.id===roomId&&r.type==='nursery');
+    if(!room)return {ok:false,reason:'invalid-room',plan:null};
+    const plan=this.repeatPlans.get(roomId);
+    return {ok:true,reason:'ok',plan:Object.freeze(plan?{...plan}:{
+      roomId,enabled:false,profession:'miner',level:1,state:'disabled',
+      activeOrderId:null,stopReason:null
+    })};
+  }
+  /** Explicit user command. No stock is ever debited until an advancing tick. */
+  setRepeatOrder(roomId,profession,level,enabled) {
+    const room=this.rooms?.rooms.find(r=>r.id===roomId&&r.type==='nursery');
+    if(!room)return {ok:false,reason:'invalid-room',plan:null};
+    if(!this.eggCost(profession,level)||typeof enabled!=='boolean')
+      return {ok:false,reason:'invalid-choice',plan:this.getRepeatOrder(roomId).plan};
+    const previous=this.repeatPlans.get(roomId);
+    const plan=previous?{...previous}:{
+      roomId,enabled:false,profession,level,state:'disabled',
+      activeOrderId:null,stopReason:null
+    };
+    plan.profession=profession;plan.level=level;plan.enabled=enabled;
+    plan.state=enabled?(plan.activeOrderId?'waiting':'armed'):'disabled';
+    plan.stopReason=null;
+    this.repeatPlans.set(roomId,plan);
+    return this.getRepeatOrder(roomId);
+  }
+  /** Tracks outcome before the real brood/order is removed from the ledger. */
+  finishRepeatOrder(orderId,lost) {
+    for(const plan of this.repeatPlans.values()){
+      if(plan.activeOrderId!==orderId)continue;
+      plan.activeOrderId=null;
+      if(plan.enabled && plan.state!=='paused'){
+        plan.state=lost?'paused':'armed';
+        plan.stopReason=lost?'brood-lost':null;
+      }
+      return;
+    }
+  }
+  /** Runs once per advancing fixed tick, after manually requested actions + brood. */
+  tickRepeatOrders() {
+    for(const roomId of [...this.repeatPlans.keys()].sort()){
+      const plan=this.repeatPlans.get(roomId);
+      if(!plan.enabled||plan.state==='paused')continue;
+      if(!this.colony.queen.alive){
+        plan.state='paused';plan.stopReason='queen-dead';continue;
+      }
+      const room=this.rooms?.rooms.find(r=>r.id===roomId&&r.type==='nursery');
+      if(!room){plan.state='paused';plan.stopReason='invalid-room';continue;}
+      if(room.status!=='ready'||!room.connected||!this.rooms.reachable(room)){
+        plan.state='paused';plan.stopReason='nursery-unavailable';continue;
+      }
+      if(plan.activeOrderId){
+        if(this.eggOrders.some(order=>order.id===plan.activeOrderId)){
+          plan.state='waiting';continue;
+        }
+        // Never assume a vanished brood was successfully promoted.
+        plan.state='paused';plan.stopReason='brood-lost';
+        plan.activeOrderId=null;
+        continue;
+      }
+      const result=this.queueEgg(roomId,plan.profession,plan.level);
+      if(result.ok){
+        plan.activeOrderId=result.order.id;
+        plan.state='waiting';plan.stopReason=null;
+      } else {
+        plan.state='paused';plan.stopReason=result.reason;
+      }
+    }
+  }
   cancelEgg(orderId) {
     const order=this.eggOrders.find(o=>o.id===orderId&&o.status==='QUEUED');
     if(!order)return false;
@@ -113,6 +185,15 @@ export class Lifecycle {
       this.heldEgg[part.type]-=part.amount;
     }
     this.eggOrders.splice(this.eggOrders.indexOf(order),1);
+    for(const plan of this.repeatPlans.values()){
+      if(plan.activeOrderId!==orderId)continue;
+      plan.activeOrderId=null;
+      if(plan.enabled){
+        plan.state='paused';
+        plan.stopReason=this.colony.queen.alive?'manual-cancel':'queen-dead';
+      }
+      break;
+    }
     this.lastEvent='ยกเลิกคิวไข่และคืนทรัพยากรแล้ว';
     return true;
   }
@@ -436,14 +517,17 @@ export class Lifecycle {
         if(this.consume('protein')){baby.stage='pupa';baby.age=0;baby.waiting=0;}
         else baby.waiting++;
       }else if(baby.stage==='pupa'&&baby.age>=stages.pupa){
-        if(this.totalPopulation<=LIFE.maxPopulation)this.promote(baby);
+        const survived=this.totalPopulation<=LIFE.maxPopulation;
+        if(survived)this.promote(baby);
         else this.broodDeaths++;
         this.brood.splice(this.brood.indexOf(baby),1);
+        this.finishRepeatOrder(order.id,!survived);
         this.eggOrders.splice(this.eggOrders.indexOf(order),1);
         continue;
       }else if(baby.stage==='larva'&&baby.age>=stages.larva){baby.waiting++;}
       if(baby.waiting>LIFE.broodTimeout){
         this.brood.splice(this.brood.indexOf(baby),1);
+        this.finishRepeatOrder(order.id,true);
         this.eggOrders.splice(this.eggOrders.indexOf(order),1);
         this.broodDeaths++;this.lastEvent='ตัวอ่อนขาดการดูแลหรือโปรตีน';
         continue;
@@ -468,6 +552,7 @@ export class Lifecycle {
     this.assignNurses();
     this.stepNurses();
     this.tickBrood();
+    this.tickRepeatOrders();
     this.releaseExcessNurses();
   }
 }
