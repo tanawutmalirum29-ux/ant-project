@@ -137,6 +137,35 @@ def main():
                         page.locator('[data-home-action="room"]').click()
                         room_panel=page.locator('.ui05-root')
                         assert room_panel.is_visible()
+                        # G4 closeout: visual compactness MUST NOT shrink the
+                        # actual accessible click rectangle below 44px.
+                        if (w,h) in DETAIL_CASES or (w,h) in {(320,480),(768,650)}:
+                            touch_targets=page.evaluate("""() => {
+                              const ids=['.ui05-collapse','.ui05-type-trigger','.ui05-step'];
+                              return ids.flatMap(selector=>[...document.querySelectorAll(selector)]
+                                .filter(el=>el.getClientRects().length &&
+                                  getComputedStyle(el).visibility!=='hidden' &&
+                                  getComputedStyle(el).display!=='none')
+                                .map(el=>{
+                                  const b=el.getBoundingClientRect(),
+                                    x=b.left+b.width/2,y=b.top+b.height/2,
+                                    hit=document.elementFromPoint(x,y);
+                                  return {selector,label:el.getAttribute('aria-label')||el.textContent.trim(),
+                                    width:b.width,height:b.height,inViewport:b.left>=-1&&
+                                      b.top>=-1&&b.right<=innerWidth+1&&b.bottom<=innerHeight+1,
+                                    centerHit:hit===el||el.contains(hit)};
+                                }));
+                            }""")
+                            assert len(touch_targets)>=6,(engine.name,w,h,'room controls absent',touch_targets)
+                            assert all(x['width']>=43.5 and x['height']>=43.5 and
+                              x['inViewport'] and x['centerHit'] for x in touch_targets),(
+                                engine.name,w,h,'room editor touch target below 44px or blocked',touch_targets)
+                            data['roomEditorTouchTargets']=touch_targets
+                            # Observe HUD speed separately: home.css edit is
+                            # currently blocked; do not claim global G4 PASS.
+                            speed=page.locator('.ui-home-speed').bounding_box()
+                            data['speedTouchTarget']={
+                              'width':speed['width'],'height':speed['height']} if speed else None
                         editor=room_panel.bounding_box()
                         if w<=680 and w<h:
                             assert editor['width']<=min(300,w-16)+2
