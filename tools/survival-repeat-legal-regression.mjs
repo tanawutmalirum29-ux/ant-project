@@ -137,7 +137,7 @@ function route(seed, ticks, longRun = false) {
     assert.equal(starterRemainingAt18k, 0, 'Starter adults remain past ordinary lifetime');
     assert.ok(game.colony.workers.length >= 1, 'No living second generation at endpoint');
   }
-  assert.equal(ledger.count, ticks / 300 * TYPES.length, 'Not all mass checkpoints executed');
+  assert.equal(ledger.count, Math.floor(ticks / 300) * TYPES.length, 'Not all mass checkpoints executed');
   const result = {
     seed, ticks, queenAlive:queen.alive, queenHP:game.combat.queenHP,
     nurseryReadyAt:builtAt, manualPaidOrders:ordersAccepted,
