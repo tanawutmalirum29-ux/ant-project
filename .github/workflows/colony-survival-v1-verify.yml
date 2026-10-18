@@ -40,6 +40,24 @@ jobs:
           test -s dist/index.html
           test -s dist/src/main.js
 
+  legal-survival:
+    name: Physical 3-seed and 30k successor mass conservation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact revision and zero-fixture route
+        shell: bash
+        run: |
+          echo "EVENT=$GITHUB_EVENT_NAME SHA=$GITHUB_SHA"
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Real delivered resources and natural adult successor regressions
+        run: node tools/survival-repeat-legal-regression.mjs
+
   chromium-webkit:
     name: Chromium and WebKit UI regression
     runs-on: ubuntu-latest
