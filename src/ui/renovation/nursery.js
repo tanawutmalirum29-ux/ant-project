@@ -17,6 +17,8 @@ const ERRORS = Object.freeze({
   'queen-dead':'นางพญาไม่สามารถวางไข่', 'population-cap':'ประชากรเต็มแล้ว',
   'nursery-full':'ไม่มีช่องฟักว่าง','insufficient-resources':'ทรัพยากรในคลังไม่เพียงพอ',
   'EGG_NOT_CANCELLABLE':'รายการนี้ยกเลิกไม่ได้แล้ว',
+  'brood-lost':'ตัวอ่อนสูญเสีย ต้องเริ่มสั่งซ้ำใหม่',
+  'manual-cancel':'ผู้เล่นยกเลิกคิว ต้องกดเริ่มสั่งซ้ำอีกครั้ง',
   'api-unavailable':'ระบบฟักไข่ไม่พร้อม'
 });
 const displayError = result => ERRORS[result?.reason ?? result?.error?.code] || result?.error?.message || 'ไม่สามารถทำรายการได้';
@@ -65,13 +67,19 @@ export function mount(container,{view,actions,overlay,subscribe}) {
   const blocked=make(doc,'p','ui04-blocked');blocked.setAttribute('role','status');
   const queue=make(doc,'button','ui04-primary','สั่งฟักไข่');queue.type='button';
   const feedback=make(doc,'p','ui04-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+  const repeatArea=make(doc,'div','ui04-repeat');
+  const repeat=make(doc,'button','ui04-repeat-toggle','เปิดสั่งซ้ำ');repeat.type='button';
+  repeat.setAttribute('aria-pressed','false');repeat.setAttribute('aria-label','เปิดหรือหยุดการสั่งฟักไข่ซ้ำในห้องนี้');
+  const repeatStatus=make(doc,'p','ui04-repeat-status');
+  repeatStatus.setAttribute('role','status');repeatStatus.setAttribute('aria-live','polite');
+  repeatArea.append(repeat,repeatStatus);
   const orderHeader=make(doc,'h3','ui04-subheading','คิวฟักไข่');
   const orders=make(doc,'ol','ui04-orders');orders.setAttribute('aria-label','รายการไข่ในห้อง');
   const orderEntries=new Map();
   professionPicker.append(professionTrigger,professionMenu);
   levelPicker.append(levelTrigger,levelMenu);
   form.append(professionLabel,professionPicker,levelLabel,levelPicker,cost,blocked,queue,feedback);
-  scroll.append(capacity,roomPickerLabel,roomPicker,form,orderHeader,orders);
+  scroll.append(capacity,roomPickerLabel,roomPicker,form,repeatArea,orderHeader,orders);
   sheet.append(head,scroll);shell.append(reopen,sheet);container.append(shell);
   const unregisterSheet=overlay.registerPanel(instance,{element:sheet,kind:'sheet',
     show:()=>{sheet.hidden=false;reopen.hidden=true;},
@@ -151,6 +159,16 @@ export function mount(container,{view,actions,overlay,subscribe}) {
     const response=actions.queueEgg(id,selected.profession,selected.level);
     setText(feedback,response?.ok?'สั่งฟักไข่แล้ว':displayError(response));
     if(response?.ok)feedback.dataset.state='success'; else feedback.dataset.state='error';
+    render();
+  });
+  repeat.addEventListener('click',()=>{
+    const room=activeRoom();if(!room)return;
+    const enabled=room.repeat?.state==='paused'||!room.repeat?.enabled;
+    const response=actions.setRepeatOrder(room.id,selected.profession,selected.level,enabled);
+    setText(feedback,response?.ok
+      ?(enabled?'เปิดสั่งฟักซ้ำแล้ว (คิดต้นทุนจริงทุกคำสั่ง)':'หยุดสั่งซ้ำในรอบถัดไปแล้ว')
+      :displayError(response));
+    feedback.dataset.state=response?.ok?'success':'error';
     render();
   });
   orders.addEventListener('click',event=>{
@@ -244,6 +262,18 @@ export function mount(container,{view,actions,overlay,subscribe}) {
       btn.classList.toggle('is-selected',active);btn.setAttribute('aria-pressed',String(active));
     }
     renderPickers();
+    const plan=room?.repeat;
+    const paused=plan?.state==='paused';
+    repeat.disabled=!room||typeof actions.setRepeatOrder!=='function';
+    repeat.setAttribute('aria-pressed',String(!!plan?.enabled&&!paused));
+    setText(repeat,paused?'เริ่มสั่งซ้ำอีกครั้ง':plan?.enabled?'หยุดสั่งซ้ำ':'เปิดสั่งซ้ำ');
+    const choice=plan?`${labelFor(plan.profession)} Lv.${plan.level}`:'';
+    const status=paused?`พักคำสั่งซ้ำ ${choice}: ${ERRORS[plan.stopReason]||plan.stopReason||'ตรวจสอบห้อง'}`
+      :plan?.state==='waiting'?`กำลังรอไข่ ${choice} · คิว ${plan.activeOrderId}`
+      :plan?.state==='armed'?`พร้อมสั่งซ้ำ ${choice} เมื่อเกมเดินต่อ`
+      :'ปิดสั่งซ้ำ · เลือกอาชีพและเลเวลแล้วกดเปิด (เสียทรัพยากรทุกครั้ง)';
+    setText(repeatStatus,status);
+    repeatArea.dataset.state=plan?.state??'disabled';
     const price=actions.nurseryCost(selected.profession,selected.level);
     // G1 gives true cost, not an authoritative total hatch time per choice.
     // Show actual hatchTicks/remainingTicks from placed orders only.
