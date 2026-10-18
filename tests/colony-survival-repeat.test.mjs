@@ -123,14 +123,25 @@ test('normal physical hatch clears exactly one auto slot and creates one next pa
   const first=core.getRepeatOrder(room.id).plan.activeOrderId;
   assert.ok(first);
   advance(g,1199);
-  assert.equal(core.births,1,'must hatch via existing delivery, care and larval protein');
+  // The actual fixed-tick run hatches TWO adults by tick 1200;
+  // the next outstanding order is the third paid cycle, not a duplicate.
+  assert.equal(core.births,2,'two real natural hatchings via delivery, care and larval protein');
   const next=core.getRepeatOrder(room.id).plan;
   assert.equal(next.state,'waiting');
   assert.ok(next.activeOrderId && next.activeOrderId!==first);
-  assert.equal(core.eggOrders.filter(o=>o.id===next.activeOrderId).length,1);
-  assert.ok(core.consumed.protein>0);
-  assert.ok(core.eggSpent.carbs>=2);
-  assert.equal(g.colony.workers.some(w=>w.profession==='miner'),true);
+  assert.equal(next.activeOrderId,'egg-3');
+  assert.equal(core.eggOrders.length,1);
+  assert.equal(core.eggOrders[0].id,next.activeOrderId);
+  assert.equal(core.eggOrders[0].status,'QUEUED');
+  assert.equal(core.heldEgg.carbs,1,'third order is paid escrow, not an immediate egg');
+  assert.equal(core.heldEgg.protein,1);
+  assert.equal(core.eggSpent.carbs,2,'the two laid eggs moved held to spent');
+  assert.equal(core.eggSpent.protein,2);
+  assert.ok(core.consumed.protein>=2,'larval protein must be consumed');
+  for(const type of ['carbs','protein'])
+    assert.equal(g.foraging.inventory[type]+core.heldEgg[type]+core.eggSpent[type]+core.consumed[type],40,
+      type+' must be conserved across 3 paid cycles and natural consumption');
+  assert.equal(g.colony.workers.filter(w=>w.profession==='miner').length,2);
 });
 
 test('lost brood pauses repeat without refund or automatic replacement',()=>{
